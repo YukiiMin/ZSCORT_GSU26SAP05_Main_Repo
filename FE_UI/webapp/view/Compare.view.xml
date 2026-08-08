@@ -6,197 +6,60 @@
   xmlns:core="sap.ui.core"
   height="100%">
 
-  <Page id="comparePage" showHeader="false" backgroundDesign="Solid">
-
-    <!-- ── Shell Navigation Bar ── -->
-    <customHeader>
-      <Bar>
-        <contentLeft>
-          <Title text="SCORT — SAP Cross-system Object Replication Toolkit" />
-        </contentLeft>
-        <contentMiddle>
-          <SegmentedButton
-            selectedKey="{appView>/currentModule}"
-            selectionChange=".onModuleSwitch">
-            <items>
-              <SegmentedButtonItem key="objSearch" text="Object Search" icon="sap-icon://search" />
-              <SegmentedButtonItem key="trSearch"  text="TR Search"     icon="sap-icon://org-chart" />
-              <SegmentedButtonItem key="compare"   text="Code Compare"  icon="sap-icon://compare-2" />
-            </items>
-          </SegmentedButton>
-        </contentMiddle>
-        <contentRight>
-          <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home" />
-        </contentRight>
-      </Bar>
-    </customHeader>
-
+  <Page id="idMonacoPage" showHeader="false" class="sapUiNoContentPadding">
     <content>
-      <!-- FCL for the Code Compare: Master (object list) + Detail (Monaco diff) -->
-      <f:FlexibleColumnLayout
-        id="compareFcl"
-        layout="{appView>/layout}"
-        stateChange=".onStateChanged"
-        backgroundDesign="Solid">
-
-        <f:beginColumnPages>
-          <!-- Master: object list embedded inline -->
-          <f:DynamicPage id="masterPage" toggleHeaderOnTitleClick="false">
-            <f:title>
-              <f:DynamicPageTitle>
-                <f:heading>
-                  <Title text="{i18n>masterTitle}" />
-                </f:heading>
-                <f:snappedContent>
-                  <ObjectStatus text="{appView>/trkorr}" state="Information" />
-                </f:snappedContent>
-              </f:DynamicPageTitle>
-            </f:title>
-            <f:header>
-              <f:DynamicPageHeader pinnable="true">
-                <HBox alignItems="End" wrap="Wrap" renderType="Bare" class="sapUiTinyMarginBottom">
-                  <Label text="{i18n>trkorr}" class="sapUiTinyMarginEnd sapUiTinyMarginTop" />
-                  <Input
-                    id="trkorrInput"
-                    width="12rem"
-                    value="{appView>/trkorr}"
-                    placeholder="S40K....."
-                    showValueHelp="true"
-                    valueHelpRequest=".onVHTrkorr"
-                    submit=".onLoadTr"
-                    class="sapUiTinyMarginEnd" />
-                  <Label text="{i18n>serverId}" class="sapUiTinyMarginEnd sapUiTinyMarginTop" />
-                  <Input
-                    id="serverIdInput"
-                    width="7rem"
-                    value="{appView>/serverId}"
-                    showValueHelp="true"
-                    valueHelpRequest=".onVHServerId"
-                    class="sapUiTinyMarginEnd" />
-                  <Button text="{i18n>load}" type="Emphasized" press=".onLoadTr" class="sapUiTinyMarginEnd" />
-                </HBox>
-                <Label text="{i18n>compareMode}" class="sapUiTinyMarginTop" />
-                <HBox alignItems="Center" class="sapUiTinyMarginBottom" wrap="Wrap">
-                  <SegmentedButton
-                    selectedKey="{appView>/compareMode}"
-                    selectionChange=".onModeChange"
-                    class="sapUiTinyMarginEnd">
-                    <items>
-                      <SegmentedButtonItem key="L_VS_T"       text="{i18n>modeLvsT}" />
-                      <SegmentedButtonItem key="VER_VS_VER"   text="{i18n>modeVerVsVer}" />
-                    </items>
-                  </SegmentedButton>
-                </HBox>
-                <SearchField
-                  width="100%"
-                  placeholder="{i18n>searchPlaceholder}"
-                  liveChange=".onSearch" />
-                <HBox alignItems="Center" class="sapUiTinyMarginTop" wrap="Wrap">
-                  <SegmentedButton
-                    selectedKey="{appView>/filterStatus}"
-                    selectionChange=".onFilterStatus"
-                    class="sapUiTinyMarginEnd">
-                    <items>
-                      <SegmentedButtonItem key=""             text="{i18n>filterAll}" />
-                      <SegmentedButtonItem key="DIFFERENT"    text="DIFFERENT" />
-                      <SegmentedButtonItem key="NEW_AT_TARGET" text="NEW" />
-                      <SegmentedButtonItem key="IDENTICAL"    text="IDENTICAL" />
-                    </items>
-                  </SegmentedButton>
-                </HBox>
-              </f:DynamicPageHeader>
-            </f:header>
-            <f:content>
-              <List
-                id="objectList"
-                mode="SingleSelectMaster"
-                busy="{appView>/busy}"
-                items="{path: 'local>/objects'}"
-                selectionChange=".onSelect"
-                noDataText="{appView>/noDataText}">
-                <StandardListItem
-                  title="{local>ObjectName}"
-                  description="{local>ObjectType}"
-                  info="{local>CompareStatus}"
-                  infoState="{
-                    path: 'local>CompareStatus',
-                    formatter: '.formatInfoState'
-                  }"
-                  type="Active" />
-              </List>
-            </f:content>
-          </f:DynamicPage>
-        </f:beginColumnPages>
-
-        <f:midColumnPages>
-          <!-- Detail: Monaco diff viewer (same as Detail.view.xml content) -->
-          <f:DynamicPage id="detailPage" toggleHeaderOnTitleClick="false" class="sapUiNoContentPadding">
-            <f:title>
-              <f:DynamicPageTitle>
-                <f:heading>
-                  <Title text="{detail>/ObjectType} {detail>/ObjectName}" />
-                </f:heading>
-                <f:navigationActions>
-                  <Button icon="sap-icon://decline" type="Transparent" press=".onCloseDetail" />
-                </f:navigationActions>
-                <f:snappedContent>
-                  <ObjectStatus
-                    text="{detail>/StatusCode}"
-                    state="{
-                      path: 'detail>/StatusCode',
-                      formatter: '.formatStatusState'
-                    }" />
-                </f:snappedContent>
-              </f:DynamicPageTitle>
-            </f:title>
-            <f:header>
-              <f:DynamicPageHeader>
-                <FlexBox wrap="Wrap" alignItems="Center" class="sapUiTinyMarginBottom">
-                  <ObjectStatus
-                    class="sapUiSmallMarginEnd"
-                    title="{i18n>status}"
-                    text="{detail>/StatusCode}"
-                    state="{
-                      path: 'detail>/StatusCode',
-                      formatter: '.formatStatusState'
-                    }" />
-                  <ObjectAttribute title="{i18n>mode}"        text="{detail>/CompareMode}"  class="sapUiSmallMarginEnd" />
-                  <ObjectAttribute title="{i18n>versionNo}"   text="{detail>/VersionNo}"    class="sapUiSmallMarginEnd" />
-                  <ObjectAttribute title="{i18n>sourceLines}" text="{detail>/SourceLines}"  class="sapUiSmallMarginEnd" />
-                  <ObjectAttribute title="{i18n>targetLines}" text="{detail>/TargetLines}"  class="sapUiSmallMarginEnd" />
-                  <Text text="{detail>/Message}" />
-                </FlexBox>
-                <MessageStrip
-                  text="{i18n>newAtTargetHint}"
-                  type="Success"
-                  showIcon="true"
-                  visible="{= ${detail>/StatusCode} === 'NEW_AT_TARGET' }"
-                  class="sapUiTinyMarginTop" />
-                <MessageStrip
-                  text="{i18n>lVsTHint}"
-                  type="Information"
-                  showIcon="true"
-                  visible="{= ${detail>/CompareMode} === 'L_VS_T' }"
-                  class="sapUiTinyMarginTop" />
-              </f:DynamicPageHeader>
-            </f:header>
-            <f:content>
-              <VBox height="100%" class="monacoHostBox">
-                <IllustratedMessage
-                  id="emptyDetail"
-                  visible="{= !${detail>/ObjectName} }"
-                  title="{i18n>selectObject}"
-                  description="{i18n>selectObjectDesc}" />
-                <core:HTML
-                  id="monacoHost"
-                  content="&lt;div class='monacoHost' style='width:100%;height:100%;min-height:320px;'&gt;&lt;/div&gt;"
-                  preferDOM="true" />
-              </VBox>
-            </f:content>
-          </f:DynamicPage>
-        </f:midColumnPages>
-
-      </f:FlexibleColumnLayout>
+      <f:DynamicPage id="idDetailDynamicPage" toggleHeaderOnTitleClick="false" class="sapUiNoContentPadding">
+        <f:title>
+          <f:DynamicPageTitle>
+            <f:heading>
+              <Title text="{detail>/ObjectType} {detail>/ObjectName}" />
+            </f:heading>
+            <f:navigationActions>
+              <Button icon="sap-icon://full-screen" type="Transparent" press=".onButtonFullScreenPress" />
+              <Button icon="sap-icon://decline" type="Transparent" press=".onButtonCloseComparePress" />
+            </f:navigationActions>
+            <f:snappedContent>
+              <ObjectStatus
+                text="{detail>/StatusCode}"
+                state="{
+                  path: 'detail>/StatusCode',
+                  formatter: '.formatStatusState'
+                }" />
+            </f:snappedContent>
+          </f:DynamicPageTitle>
+        </f:title>
+        <f:header>
+          <f:DynamicPageHeader>
+            <FlexBox wrap="Wrap" alignItems="Center" class="sapUiTinyMarginBottom">
+              <ObjectStatus
+                class="sapUiSmallMarginEnd"
+                title="{i18n>status}"
+                text="{detail>/StatusCode}"
+                state="{
+                  path: 'detail>/StatusCode',
+                  formatter: '.formatStatusState'
+                }" />
+              <ObjectAttribute title="{i18n>mode}"        text="{detail>/CompareMode}"  class="sapUiSmallMarginEnd" />
+              <ObjectAttribute title="{i18n>versionNo}"   text="{detail>/VersionNo}"    class="sapUiSmallMarginEnd" />
+              <ObjectAttribute title="{i18n>sourceLines}" text="{detail>/SourceLines}"  class="sapUiSmallMarginEnd" />
+              <ObjectAttribute title="{i18n>targetLines}" text="{detail>/TargetLines}"  class="sapUiSmallMarginEnd" />
+              <Text text="{detail>/Message}" />
+            </FlexBox>
+          </f:DynamicPageHeader>
+        </f:header>
+        <f:content>
+          <VBox height="100%" class="monacoHostBox">
+            <IllustratedMessage
+              id="idEmptyDetailIllustratedMessage"
+              visible="{= !${detail>/ObjectName} }"
+              title="{i18n>selectObject}"
+              description="{i18n>selectObjectDesc}" />
+            <core:HTML
+              id="idLtdivClassmonacoHostStylewidthheightminheightpxgtltdivgtHTML"
+              content="&lt;div class='monacoHost' style='width:100%;height:100%;min-height:320px;'&gt;&lt;/div&gt;" />
+          </VBox>
+        </f:content>
+      </f:DynamicPage>
     </content>
   </Page>
 

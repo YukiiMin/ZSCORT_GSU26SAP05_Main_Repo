@@ -73,8 +73,7 @@ sap.ui.define([
       this.getView().setModel(new JSONModel({ objects: [] }), "local");
 
       this._oRouter = this.getOwnerComponent().getRouter();
-      this._oRouter.getRoute("compare").attachPatternMatched(this._onMasterMatched, this);
-      this._oRouter.getRoute("compareDetail").attachPatternMatched(this._onDetailMatched, this);
+      this._oRouter.getRoute("compare").attachPatternMatched(this._onDetailMatched, this);
 
       this._oDiffHost = null;
       this._sType     = "";
@@ -114,183 +113,7 @@ sap.ui.define([
     },
 
     // ─────────────────────────────────────────────────────────────────────
-    //  MASTER (Object List) — inherited from REQ3 Master.controller
-    // ─────────────────────────────────────────────────────────────────────
-
-    _onMasterMatched: function () {
-      this._app().setProperty("/currentModule", "compare");
-    },
-
-    _serviceUri: function () {
-      return this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri;
-    },
-
-    onVHTrkorr: function () {
-      var oApp = this._app();
-      ValueHelp.open({
-        oModel: this.getOwnerComponent().getModel(),
-        sEntitySet: "/VHTrkorr",
-        sKey: "Trkorr",
-        sDescriptionKey: "Description",
-        sTitle: this._i18n("vhTrkorrTitle"),
-        sInitialKey: oApp.getProperty("/trkorr") || "",
-        aColumns: [
-          { key: "Trkorr",      label: "Trkorr" },
-          { key: "TrStatus",    label: "Status" },
-          { key: "As4user",     label: "Owner" },
-          { key: "As4date",     label: "Date" },
-          { key: "Description", label: "Text" }
-        ],
-        fnConfirm: function (sKey) { oApp.setProperty("/trkorr", sKey); }
-      });
-    },
-
-    onVHServerId: function () {
-      var oApp = this._app();
-      ValueHelp.open({
-        oModel: this.getOwnerComponent().getModel(),
-        sEntitySet: "/VHServerId",
-        sKey: "ServerId",
-        sDescriptionKey: "Description",
-        sTitle: this._i18n("vhServerIdTitle"),
-        sInitialKey: oApp.getProperty("/serverId") || "TARGET",
-        aColumns: [
-          { key: "ServerId",    label: "Server Id" },
-          { key: "Description", label: "Description" }
-        ],
-        fnConfirm: function (sKey) { oApp.setProperty("/serverId", sKey); }
-      });
-    },
-
-    onLoadTr: function () {
-      var oApp    = this._app();
-      var sTrkorr = (oApp.getProperty("/trkorr") || "").trim().toUpperCase();
-      var sServer = (oApp.getProperty("/serverId") || "TARGET").trim().toUpperCase();
-      if (!sTrkorr) {
-        MessageBox.error(this._i18n("trkorrRequired"));
-        return;
-      }
-      oApp.setProperty("/busy", true);
-
-      var that = this;
-      var sUrl = this._serviceUri() + "TrCmp?$filter=" +
-        encodeURIComponent("Trkorr eq '" + sTrkorr.replace(/'/g, "''") + "'");
-
-      var oFetch = fetch(sUrl, {
-        method: "GET",
-        credentials: "same-origin",
-        headers: { Accept: "application/json", "Content-Type": "application/json" }
-      }).then(function (oRes) {
-        if (!oRes.ok) { throw new Error("HTTP " + oRes.status + " " + oRes.statusText); }
-        return oRes.json();
-      }).then(function (oJson) {
-        var aData = (oJson && (oJson.value || oJson.d && oJson.d.results)) || [];
-        aData = aData.map(function (o) {
-          if (!o.ServerId) { o.ServerId = sServer; }
-          return o;
-        });
-        that._setLoadedObjects(aData, sTrkorr);
-        oApp.setProperty("/busy", false);
-      });
-
-      ValueHelp.withTimeout(oFetch, 20000).catch(function (oErr) {
-        oApp.setProperty("/busy", false);
-        MessageBox.warning(that._i18n("odataFailMock") + "\n" + (oErr && oErr.message ? oErr.message : oErr), {
-          onClose: function () { that._loadMock(sTrkorr, sServer); }
-        });
-      });
-    },
-
-    _setLoadedObjects: function (aData, sTrkorr) {
-      var oApp = this._app();
-      this._aAllObjects = aData || [];
-      this._sSearch = "";
-      oApp.setProperty("/filterStatus", "");
-      oApp.setProperty("/hasLoaded", true);
-      this.getView().getModel("local").setProperty("/objects", this._aAllObjects);
-      this._applyClientFilters();
-
-      if (!this._aAllObjects.length) {
-        oApp.setProperty("/noDataText", "No objects for " + sTrkorr + " — check Released + R3TR in E071");
-        MessageBox.information("TR " + sTrkorr + " returned no objects.\n\nCheck:\n• TR Released (status R)?\n• R3TR objects in E071?");
-      } else {
-        oApp.setProperty("/noDataText", "No objects match current filters");
-      }
-    },
-
-    _loadMock: function (sTrkorr, sServer) {
-      var aMock = [
-        { Trkorr: sTrkorr, ObjectType: "PROG", ObjectName: "ZSCORT_SAMPLE_PROG", CompareStatus: "DIFFERENT",  OriginLines: 18, TargetVers: "00001", ServerId: sServer },
-        { Trkorr: sTrkorr, ObjectType: "CLAS", ObjectName: "ZCL_SCORT_HASH_UTL", CompareStatus: "IDENTICAL",  OriginLines: 120, TargetVers: "00001", ServerId: sServer },
-        { Trkorr: sTrkorr, ObjectType: "TABL", ObjectName: "ZA_SCORT_T",         CompareStatus: "NOT_SUPPORTED", OriginLines: 0, ServerId: sServer }
-      ];
-      this._aAllObjects = aMock;
-      this.getView().getModel("local").setProperty("/objects", aMock);
-      this._applyClientFilters();
-    },
-
-    onSearch: function (oEvent) {
-      this._sSearch = (oEvent.getParameter("newValue") || "").toUpperCase();
-      this._applyClientFilters();
-    },
-
-    onFilterStatus: function () { this._applyClientFilters(); },
-
-    onModeChange: function (oEvent) {
-      var oItem = oEvent && oEvent.getParameter("item");
-      var sMode = oItem ? oItem.getKey() : "";
-      if (sMode) { this._app().setProperty("/compareMode", sMode); }
-    },
-
-    _applyClientFilters: function () {
-      var aAll = this._aAllObjects || [];
-      var sStatus = this._app().getProperty("/filterStatus") || "";
-      var sSearch = this._sSearch || "";
-      var aFiltered = aAll.filter(function (o) {
-        if (sStatus && o.CompareStatus !== sStatus) { return false; }
-        if (sSearch && (o.ObjectName || "").toUpperCase().indexOf(sSearch) < 0) { return false; }
-        return true;
-      });
-      this.getView().getModel("local").setProperty("/objects", aFiltered);
-    },
-
-    onSelect: function (oEvent) {
-      var oItem = oEvent.getParameter("listItem");
-      if (!oItem) { return; }
-      var oCtx = oItem.getBindingContext("local");
-      var oObj = oCtx.getObject();
-      var sStatus = oObj.CompareStatus || "";
-
-      if (sStatus === "NOT_SUPPORTED" || sStatus === "ORIGIN_MISSING" || sStatus === "SOURCE_MISSING") {
-        MessageBox.information(this._i18n("cannotOpenDiff") + " (" + sStatus + ")");
-        return;
-      }
-      this._app().setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
-      this._oRouter.navTo("compareDetail", {
-        objectType: oObj.ObjectType,
-        objectName: encodeURIComponent(oObj.ObjectName),
-        query: {
-          serverId: oObj.ServerId || "TARGET",
-          status: sStatus,
-          mode: this._app().getProperty("/compareMode") || "L_VS_T"
-        }
-      });
-    },
-
-    formatInfoState: function (sStatus) {
-      switch ((sStatus || "").toUpperCase()) {
-        case "DIFFERENT":
-        case "BAD_HEX":       return ValueState.Error;
-        case "NEW_AT_TARGET": return ValueState.Success;
-        case "ORIGIN_MISSING":
-        case "SOURCE_MISSING": return ValueState.Warning;
-        case "NOT_SUPPORTED": return ValueState.Information;
-        default:              return ValueState.None;
-      }
-    },
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  DETAIL (Monaco Diff Viewer) — inherited from REQ3 Detail.controller
+    //  DETAIL (Monaco Diff Viewer)
     // ─────────────────────────────────────────────────────────────────────
 
     _ensureDiffHost: function () {
@@ -564,9 +387,21 @@ sap.ui.define([
       this._loadDetail();
     },
 
-    onCloseDetail: function () {
+    onButtonCloseComparePress: function () {
       this._iLoadToken++;
-      this._app().setProperty("/layout", LayoutType.OneColumn);
+      // Navigate back to detail (TR Objects list)
+      var sTrkorr = this.getOwnerComponent().getModel("detail").getProperty("/trkorr");
+      this._oRouter.navTo("detail", { trkorr: encodeURIComponent(sTrkorr) }, undefined, true);
+    },
+
+    onButtonFullScreenPress: function () {
+      var oApp = this._app();
+      var sLayout = oApp.getProperty("/layout");
+      if (sLayout === LayoutType.ThreeColumnsEndExpanded) {
+        oApp.setProperty("/layout", LayoutType.EndColumnFullScreen);
+      } else {
+        oApp.setProperty("/layout", LayoutType.ThreeColumnsEndExpanded);
+      }
     },
 
     onStateChanged: function () { /* FCL state change, no action needed */ },

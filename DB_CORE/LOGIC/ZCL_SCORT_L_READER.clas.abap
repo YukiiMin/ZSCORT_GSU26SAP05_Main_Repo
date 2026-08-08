@@ -1,223 +1,256 @@
+*"*---------------------------------------------------------------------*
+*"* Class: ZCL_SCORT_L_READER
+*"* Read Active Source on Origin (DEV) — PROG / CLAS / INTF / FUNC / FUGR
+*"*---------------------------------------------------------------------*
 CLASS zcl_scort_l_reader DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC.
 
   PUBLIC SECTION.
+    TYPES ty_string_tab TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+
     TYPES:
-      BEGIN OF ty_src_result,
-        source_code_text TYPE string,
-        metadata_text    TYPE string,
-        package_name     TYPE devclass,
-        author           TYPE as4user,
-        description      TYPE c LENGTH 80,
-      END OF ty_src_result.
+      BEGIN OF ty_source,
+        object_type TYPE trobjtype,
+        object_name TYPE sobj_name,
+        found       TYPE abap_bool,
+        supported   TYPE abap_bool,
+        lines       TYPE ty_string_tab,
+        text        TYPE string,
+        hash        TYPE c LENGTH 40,
+        line_count  TYPE i,
+        message     TYPE string,
+      END OF ty_source.
 
-    "! Read source code and metadata for a Local SAP object.
-    "! Routes reading by ObjectType:
-    "!   PROG / REPS: READ REPORT
-    "!   FUGR / FUNC: FUNCTION_INCLUDE_INFO + READ REPORT
-    "!   CLAS / INTF: CL_OO_FACTORY / CL_BLUE_SOURCE_UTILITIES
-    "!   BDEF / DDLS: CL_BLUE_SOURCE_UTILITIES (text-based new-gen objects)
-    "! @parameter iv_object_type | TADIR object type (PROG, CLAS, FUNC, ...)
-    "! @parameter iv_object_name | TADIR object name
-    "! @parameter rs_result      | Source code text + metadata JSON
-    CLASS-METHODS read_object
+    CLASS-METHODS is_supported
+      IMPORTING iv_object_type TYPE trobjtype
+      RETURNING VALUE(rv_ok) TYPE abap_bool.
+
+    CLASS-METHODS read_active
       IMPORTING
-        iv_object_type  TYPE tadir-object
-        iv_object_name  TYPE tadir-obj_name
+        iv_object_type   TYPE trobjtype
+        iv_object_name   TYPE sobj_name
       RETURNING
-        VALUE(rs_result) TYPE ty_src_result
-      RAISING
-        cx_parameter_invalid.
+        VALUE(rs_source) TYPE ty_source.
 
-  PROTECTED SECTION.
   PRIVATE SECTION.
-    CLASS-METHODS read_program_source
-      IMPORTING
-        iv_object_name   TYPE tadir-obj_name
-      RETURNING
-        VALUE(rt_lines)  TYPE string_table.
+    CLASS-METHODS read_prog
+      IMPORTING iv_name TYPE sobj_name
+      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
-    CLASS-METHODS read_fugr_source
+    CLASS-METHODS read_oo
       IMPORTING
-        iv_object_name   TYPE tadir-obj_name
-      RETURNING
-        VALUE(rt_lines)  TYPE string_table.
+        iv_name    TYPE sobj_name
+        iv_is_intf TYPE abap_bool
+      EXPORTING
+        et_lines TYPE ty_string_tab
+        ev_ok    TYPE abap_bool.
 
-    CLASS-METHODS read_class_source
-      IMPORTING
-        iv_object_name   TYPE tadir-obj_name
-      RETURNING
-        VALUE(rt_lines)  TYPE string_table.
+    CLASS-METHODS read_func
+      IMPORTING iv_name TYPE sobj_name
+      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
-    CLASS-METHODS read_textbased_source
-      IMPORTING
-        iv_object_type   TYPE tadir-object
-        iv_object_name   TYPE tadir-obj_name
-      RETURNING
-        VALUE(rt_lines)  TYPE string_table.
+    CLASS-METHODS read_fugr
+      IMPORTING iv_name TYPE sobj_name
+      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
-    CLASS-METHODS build_metadata_json
-      IMPORTING
-        iv_object_type   TYPE tadir-object
-        iv_object_name   TYPE tadir-obj_name
-      RETURNING
-        VALUE(rv_json)   TYPE string.
-
-    CLASS-METHODS lines_to_string
-      IMPORTING
-        it_lines         TYPE string_table
-      RETURNING
-        VALUE(rv_result) TYPE string.
 ENDCLASS.
+
 
 CLASS zcl_scort_l_reader IMPLEMENTATION.
 
-  METHOD read_object.
-    DATA lt_source_lines TYPE string_table.
-
-    "-- Route by object type
+  METHOD is_supported.
     CASE iv_object_type.
-      WHEN 'PROG' OR 'REPS'.
-        lt_source_lines = read_program_source( iv_object_name ).
-      WHEN 'FUGR' OR 'FUNC'.
-        lt_source_lines = read_fugr_source( iv_object_name ).
-      WHEN 'CLAS' OR 'INTF'.
-        lt_source_lines = read_class_source( iv_object_name ).
-      WHEN 'BDEF' OR 'DDLS' OR 'DDLX' OR 'SRVD' OR 'SRVB'.
-        lt_source_lines = read_textbased_source(
-          iv_object_type = iv_object_type
-          iv_object_name = iv_object_name
-        ).
+      WHEN 'PROG' OR 'CLAS' OR 'INTF' OR 'FUNC' OR 'FUGR'.
+        rv_ok = abap_true.
       WHEN OTHERS.
-        "-- Unknown type: return empty source, metadata only
+        rv_ok = abap_false.
     ENDCASE.
-
-    "-- Assemble result
-    rs_result-source_code_text = lines_to_string( lt_source_lines ).
-    rs_result-metadata_text    = build_metadata_json(
-      iv_object_type = iv_object_type
-      iv_object_name = iv_object_name
-    ).
-
-    "-- Fill basic metadata from TADIR
-    SELECT SINGLE devclass, author
-      FROM tadir
-      WHERE pgmid    = 'R3TR'
-        AND object   = @iv_object_type
-        AND obj_name = @iv_object_name
-      INTO ( @rs_result-package_name, @rs_result-author ).
   ENDMETHOD.
 
-  METHOD read_program_source.
-    DATA lt_table TYPE TABLE OF string.
-    READ REPORT iv_object_name INTO lt_table.
-    rt_lines = lt_table.
+  METHOD read_prog.
+    CLEAR: et_lines, ev_ok.
+    READ REPORT iv_name INTO et_lines.
+    IF sy-subrc = 0 AND et_lines IS NOT INITIAL.
+      ev_ok = abap_true.
+    ENDIF.
   ENDMETHOD.
 
-  METHOD read_fugr_source.
-    "-- Get list of includes for the Function Group
-    DATA: lt_includes TYPE TABLE OF trdir,
-          lv_include  TYPE program.
+  METHOD read_oo.
+    " CL_OO_SOURCE đã obsolete / method private trên nhiều hệ.
+    " Dùng CL_OO_FACTORY + IF_OO_CLIF_SOURCE (ADT/source-based).
+    DATA lo_source TYPE REF TO if_oo_clif_source.
+    DATA lt_src    TYPE rswsourcet.
+    DATA lv_pool   TYPE programm.
+    DATA lv_line   TYPE string.
 
+    CLEAR: et_lines, ev_ok.
+
+    TRY.
+        lo_source = cl_oo_factory=>create_instance( )->create_clif_source(
+                      clif_name = CONV seoclsname( iv_name )
+                      version   = if_oo_clif_source=>co_version_active ).
+        lo_source->get_source( IMPORTING source = lt_src ).
+        LOOP AT lt_src INTO lv_line.
+          APPEND lv_line TO et_lines.
+        ENDLOOP.
+        IF et_lines IS NOT INITIAL.
+          ev_ok = abap_true.
+          RETURN.
+        ENDIF.
+      CATCH cx_root.
+        CLEAR et_lines.
+    ENDTRY.
+
+    " Fallback: đọc class/interface pool include (=====CP / =====IP)
+    CLEAR et_lines.
+    TRY.
+        IF iv_is_intf = abap_true.
+          lv_pool = cl_oo_classname_service=>get_interfacepool_name(
+                      CONV seoclsname( iv_name ) ).
+        ELSE.
+          lv_pool = cl_oo_classname_service=>get_classpool_name(
+                      CONV seoclsname( iv_name ) ).
+        ENDIF.
+      CATCH cx_root.
+        IF iv_is_intf = abap_true.
+          lv_pool = |{ iv_name WIDTH = 30 PAD = '=' }IP|.
+        ELSE.
+          lv_pool = |{ iv_name WIDTH = 30 PAD = '=' }CP|.
+        ENDIF.
+    ENDTRY.
+
+    READ REPORT lv_pool INTO et_lines.
+    IF sy-subrc = 0 AND et_lines IS NOT INITIAL.
+      ev_ok = abap_true.
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD read_func.
+    DATA lv_fname   TYPE rs38l-name. " RS38L-NAME — không dùng rs38l_incl-name
+    DATA lv_include TYPE programm.
+    DATA lt_fm      TYPE STANDARD TABLE OF rssource WITH DEFAULT KEY.
+    DATA lv_line    TYPE rssource.
+
+    CLEAR: et_lines, ev_ok.
+    lv_fname = iv_name.
+
+    " Ưu tiên: tìm include vật lý rồi READ REPORT
     CALL FUNCTION 'FUNCTION_INCLUDE_INFO'
       EXPORTING
-        funcname        = iv_object_name
-      TABLES
-        incl_tab        = lt_includes
+        funcname               = lv_fname
+      IMPORTING
+        include                = lv_include
       EXCEPTIONS
-        OTHERS          = 1.
+        function_not_exists    = 1
+        input_incomplete       = 2
+        no_function_include    = 3
+        OTHERS                 = 4.
+    IF sy-subrc = 0 AND lv_include IS NOT INITIAL.
+      READ REPORT lv_include INTO et_lines.
+      IF sy-subrc = 0 AND et_lines IS NOT INITIAL.
+        ev_ok = abap_true.
+        RETURN.
+      ENDIF.
+    ENDIF.
 
-    IF lt_includes IS INITIAL.
-      "-- Fallback: try reading as program directly
-      READ REPORT iv_object_name INTO rt_lines.
+    " Fallback: RPY_FUNCTIONMODULE_READ
+    CLEAR et_lines.
+    CALL FUNCTION 'RPY_FUNCTIONMODULE_READ'
+      EXPORTING
+        functionname  = lv_fname
+      TABLES
+        source        = lt_fm
+      EXCEPTIONS
+        error_message = 1
+        OTHERS        = 2.
+    IF lt_fm IS INITIAL.
+      RETURN.
+    ENDIF.
+    LOOP AT lt_fm INTO lv_line.
+      APPEND CONV string( lv_line ) TO et_lines.
+    ENDLOOP.
+    ev_ok = abap_true.
+  ENDMETHOD.
+
+  METHOD read_fugr.
+    " Đọc include chính của Function Group: SAPL<name> hoặc L<name>TOP + UXX
+    DATA lv_main TYPE programm.
+    DATA lt_all  TYPE ty_string_tab.
+    DATA lt_one  TYPE ty_string_tab.
+    DATA lv_ok   TYPE abap_bool.
+
+    CLEAR: et_lines, ev_ok.
+    lv_main = |SAPL{ iv_name }|.
+    read_prog( EXPORTING iv_name = CONV sobj_name( lv_main )
+               IMPORTING et_lines = lt_one ev_ok = lv_ok ).
+    IF lv_ok = abap_true.
+      APPEND LINES OF lt_one TO lt_all.
+    ENDIF.
+
+    " TOP include
+    CLEAR lt_one.
+    lv_main = |L{ iv_name }TOP|.
+    read_prog( EXPORTING iv_name = CONV sobj_name( lv_main )
+               IMPORTING et_lines = lt_one ev_ok = lv_ok ).
+    IF lv_ok = abap_true.
+      APPEND LINES OF lt_one TO lt_all.
+    ENDIF.
+
+    IF lt_all IS INITIAL.
+      RETURN.
+    ENDIF.
+    et_lines = lt_all.
+    ev_ok = abap_true.
+  ENDMETHOD.
+
+  METHOD read_active.
+    DATA lt_lines TYPE ty_string_tab.
+    DATA lv_ok    TYPE abap_bool.
+
+    CLEAR rs_source.
+    rs_source-object_type = iv_object_type.
+    rs_source-object_name = iv_object_name.
+
+    IF is_supported( iv_object_type ) = abap_false.
+      rs_source-supported = abap_false.
+      rs_source-message   = 'NOT_SUPPORTED'.
+      RETURN.
+    ENDIF.
+    rs_source-supported = abap_true.
+
+    CASE iv_object_type.
+      WHEN 'PROG'.
+        read_prog( EXPORTING iv_name = iv_object_name
+                   IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
+      WHEN 'CLAS'.
+        read_oo( EXPORTING iv_name = iv_object_name iv_is_intf = abap_false
+                 IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
+      WHEN 'INTF'.
+        read_oo( EXPORTING iv_name = iv_object_name iv_is_intf = abap_true
+                 IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
+      WHEN 'FUNC'.
+        read_func( EXPORTING iv_name = iv_object_name
+                   IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
+      WHEN 'FUGR'.
+        read_fugr( EXPORTING iv_name = iv_object_name
+                   IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
+    ENDCASE.
+
+    IF lv_ok = abap_false OR lt_lines IS INITIAL.
+      rs_source-found   = abap_false.
+      rs_source-message = 'ORIGIN_MISSING'.
       RETURN.
     ENDIF.
 
-    LOOP AT lt_includes ASSIGNING FIELD-SYMBOL(<inc>).
-      lv_include = <inc>-name.
-      DATA lt_include_lines TYPE TABLE OF string.
-      READ REPORT lv_include INTO lt_include_lines.
-      APPEND LINES OF lt_include_lines TO rt_lines.
-      APPEND |"---- Include: { lv_include } ----|  TO rt_lines.
-    ENDLOOP.
-  ENDMETHOD.
-
-  METHOD read_class_source.
-    "-- Use CL_OO_FACTORY to get class descriptor, then read via CL_BLUE_SOURCE_UTILITIES
-    DATA lo_factory   TYPE REF TO cl_oo_factory.
-    DATA lo_class_des TYPE REF TO cl_oo_class_incl_src.
-
-    TRY.
-        cl_blue_source_utilities=>get_source(
-          EXPORTING
-            p_object_type = 'CLAS'
-            p_object_name = iv_object_name
-          IMPORTING
-            p_source      = rt_lines
-        ).
-      CATCH cx_root.
-        "-- Fallback: read main include
-        DATA lv_main_incl TYPE progname.
-        CONCATENATE iv_object_name '====CP' INTO lv_main_incl.
-        READ REPORT lv_main_incl INTO rt_lines.
-    ENDTRY.
-  ENDMETHOD.
-
-  METHOD read_textbased_source.
-    "-- Text-based new-generation objects (CDS, BDEF, etc.)
-    TRY.
-        cl_blue_source_utilities=>get_source(
-          EXPORTING
-            p_object_type = iv_object_type
-            p_object_name = iv_object_name
-          IMPORTING
-            p_source      = rt_lines
-        ).
-      CATCH cx_root.
-        "-- Cannot read: return empty
-    ENDTRY.
-  ENDMETHOD.
-
-  METHOD build_metadata_json.
-    "-- Collect metadata from TADIR + TRDIR/SEOCLASS and serialize to JSON
-    DATA ls_tadir TYPE tadir.
-    SELECT SINGLE *
-      FROM tadir
-      WHERE pgmid    = 'R3TR'
-        AND object   = @iv_object_type
-        AND obj_name = @iv_object_name
-      INTO @ls_tadir.
-
-    DATA ls_meta TYPE REF TO data.
-    DATA(lo_json) = NEW /ui2/cl_json( ).
-
-    "-- Simple JSON structure
-    rv_json = /ui2/cl_json=>serialize(
-      data         = VALUE t_metadata(
-        object_type = ls_tadir-object
-        object_name = ls_tadir-obj_name
-        devclass    = ls_tadir-devclass
-        author      = ls_tadir-author
-        as4date     = ls_tadir-as4date
-        as4time     = ls_tadir-as4time
-        genflag     = ls_tadir-genflag
-      )
-    ).
-  ENDMETHOD.
-
-  METHOD lines_to_string.
-    DATA(lv_newline) = cl_abap_char_utilities=>newline.
-    rv_result = REDUCE string(
-      INIT acc  = ``
-      FOR  line IN it_lines
-      NEXT acc  = COND #(
-        WHEN acc IS INITIAL
-          THEN line
-          ELSE |{ acc }{ lv_newline }{ line }|
-      )
-    ).
+    rs_source-found      = abap_true.
+    rs_source-lines      = lt_lines.
+    rs_source-line_count = lines( lt_lines ).
+    " Cùng blob + SHA1 với ZCL026_SCORT_TARGET_APPLY (concat newline + calculate_checksum)
+    rs_source-text       = zcl_scort_hash_utl=>lines_to_text( lt_lines ).
+    rs_source-hash       = zcl_scort_hash_utl=>calculate_checksum( rs_source-text ).
+    rs_source-message    = |OK { rs_source-line_count } lines|.
   ENDMETHOD.
 
 ENDCLASS.

@@ -1,112 +1,156 @@
+*"*---------------------------------------------------------------------*
+*"* Class: ZCL_SCORT_R_SRC
+*"* Query Provider — ZCR_SCORT_OBJ_SRC (preview 1 phía).
+*"*   'L' → Active Origin (L_READER)
+*"*   'T' → ZA026_SCORT_REPO (T_READER; VersionNo optional)
+*"*---------------------------------------------------------------------*
 CLASS zcl_scort_r_src DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC.
 
-  "! Query Provider for Custom Entity ZCR_SCORT_OBJ_SRC.
-  "! Gateway class: reads ServerType from filter, routes to
-  "! ZCL_SCORT_L_READER (ServerType='L') or ZCL_SCORT_T_READER (ServerType='T').
   PUBLIC SECTION.
     INTERFACES if_rap_query_provider.
 
-  PROTECTED SECTION.
+    CONSTANTS:
+      c_server_local  TYPE c LENGTH 1  VALUE 'L',
+      c_server_target TYPE c LENGTH 1  VALUE 'T',
+      c_server_tgt_id TYPE c LENGTH 10 VALUE 'TGT'.
+
   PRIVATE SECTION.
+    TYPES:
+      tt_entity TYPE STANDARD TABLE OF zcr_scort_obj_src WITH DEFAULT KEY,
+      BEGIN OF ty_filters,
+        server_type TYPE c LENGTH 1,
+        server_id   TYPE c LENGTH 10,
+        object_type TYPE trobjtype,
+        object_name TYPE sobj_name,
+        version_no  TYPE versno,
+      END OF ty_filters.
+
+    METHODS select_source
+      IMPORTING
+        io_request  TYPE REF TO if_rap_query_request
+        io_response TYPE REF TO if_rap_query_response.
+
+    METHODS parse_filters
+      IMPORTING
+        io_request       TYPE REF TO if_rap_query_request
+      RETURNING
+        VALUE(rs_filter) TYPE ty_filters.
+
 ENDCLASS.
+
 
 CLASS zcl_scort_r_src IMPLEMENTATION.
 
   METHOD if_rap_query_provider~select.
-    DATA lt_result      TYPE STANDARD TABLE OF zcr_scort_obj_src.
-    DATA ls_result      LIKE LINE OF lt_result.
-    DATA lt_filter_cond TYPE if_rap_query_provider=>tt_name_value_pair.
+    DATA lt_empty TYPE tt_entity.
+    TRY.
+        select_source( io_request = io_request io_response = io_response ).
+      CATCH cx_root.
+        zcl_scort_query_utl=>respond(
+          EXPORTING io_request = io_request io_response = io_response
+          CHANGING  ct_data = lt_empty ).
+    ENDTRY.
+  ENDMETHOD.
 
-    "-- Step 1: Extract filter conditions from the request
-    DATA(lo_filter) = io_request->get_filter( ).
-    DATA(lt_ranges) = lo_filter->get_as_ranges( ).
+  METHOD select_source.
+    DATA ls_filter TYPE ty_filters.
+    DATA lt_entity TYPE tt_entity.
+    DATA ls_entity TYPE zcr_scort_obj_src.
 
-    DATA lv_server_type TYPE c LENGTH 1.
-    DATA lv_object_type TYPE tadir-object.
-    DATA lv_object_name TYPE tadir-obj_name.
+    ls_filter = parse_filters( io_request ).
 
-    "-- Parse filter values for key fields
-    LOOP AT lt_ranges ASSIGNING FIELD-SYMBOL(<range>).
-      CASE <range>-name.
-        WHEN 'SERVERTYPE'.
-          IF <range>-t_range IS NOT INITIAL.
-            READ TABLE <range>-t_range INDEX 1 ASSIGNING FIELD-SYMBOL(<r>).
-            IF sy-subrc = 0.
-              lv_server_type = <r>-low.
-            ENDIF.
-          ENDIF.
-        WHEN 'OBJECTTYPE'.
-          IF <range>-t_range IS NOT INITIAL.
-            READ TABLE <range>-t_range INDEX 1 ASSIGNING FIELD-SYMBOL(<rt>).
-            IF sy-subrc = 0.
-              lv_object_type = <rt>-low.
-            ENDIF.
-          ENDIF.
-        WHEN 'OBJECTNAME'.
-          IF <range>-t_range IS NOT INITIAL.
-            READ TABLE <range>-t_range INDEX 1 ASSIGNING FIELD-SYMBOL(<rn>).
-            IF sy-subrc = 0.
-              lv_object_name = <rn>-low.
-            ENDIF.
-          ENDIF.
-      ENDCASE.
-    ENDLOOP.
-
-    "-- Guard: key fields required
-    IF lv_object_type IS INITIAL OR lv_object_name IS INITIAL.
-      io_response->set_total_number_of_records( 0 ).
+    IF ls_filter-object_type IS INITIAL OR ls_filter-object_name IS INITIAL.
+      zcl_scort_query_utl=>respond(
+        EXPORTING io_request = io_request io_response = io_response
+        CHANGING  ct_data = lt_entity ).
       RETURN.
     ENDIF.
 
-    "-- Step 2: Branch by ServerType
-    ls_result-server_type   = lv_server_type.
-    ls_result-object_type   = lv_object_type.
-    ls_result-object_name   = lv_object_name.
+    CLEAR ls_entity.
+    ls_entity-ServerType = ls_filter-server_type.
+    ls_entity-ServerId   = ls_filter-server_id.
+    ls_entity-ObjectType = ls_filter-object_type.
+    ls_entity-ObjectName = ls_filter-object_name.
 
-    CASE lv_server_type.
-      WHEN 'L'.
-        "-- Delegate to Local reader
-        TRY.
-            DATA(ls_l) = zcl_scort_l_reader=>read_object(
-              iv_object_type = lv_object_type
-              iv_object_name = lv_object_name
-            ).
-            ls_result-source_code_text = ls_l-source_code_text.
-            ls_result-metadata_text    = ls_l-metadata_text.
-            ls_result-package_name     = ls_l-package_name.
-            ls_result-author           = ls_l-author.
-            ls_result-description      = ls_l-description.
-          CATCH cx_parameter_invalid.
-            ls_result-source_code_text = `[Error reading Local source]`.
-        ENDTRY.
+    TRY.
+        IF ls_filter-server_type = c_server_target.
+          DATA ls_tgt TYPE zcl_scort_t_reader=>ty_source.
+          IF ls_filter-version_no IS NOT INITIAL.
+            ls_tgt = zcl_scort_t_reader=>read_version(
+                       iv_object_type = ls_filter-object_type
+                       iv_object_name = ls_filter-object_name
+                       iv_server_id   = ls_filter-server_id
+                       iv_version_no  = ls_filter-version_no ).
+          ELSE.
+            ls_tgt = zcl_scort_t_reader=>read_current(
+                       iv_object_type = ls_filter-object_type
+                       iv_object_name = ls_filter-object_name
+                       iv_server_id   = ls_filter-server_id ).
+          ENDIF.
+          ls_entity-VersionNo      = ls_tgt-version_no.
+          ls_entity-SourceCodeText = ls_tgt-text.
+          ls_entity-LineCount      = ls_tgt-line_count.
+          ls_entity-SrcHash        = CONV #( ls_tgt-hash_stored ).
+          IF ls_entity-SrcHash IS INITIAL.
+            ls_entity-SrcHash = CONV #( ls_tgt-hash_calc ).
+          ENDIF.
+          ls_entity-Message = ls_tgt-message.
+        ELSE.
+          IF ls_filter-version_no IS NOT INITIAL
+              AND ls_filter-version_no <> zcl_scort_v_reader=>c_vers_active.
+            DATA(ls_ver) = zcl_scort_v_reader=>read_version(
+                             iv_object_type = ls_filter-object_type
+                             iv_object_name = ls_filter-object_name
+                             iv_version_no  = ls_filter-version_no ).
+            ls_entity-VersionNo      = ls_ver-version_no.
+            ls_entity-SourceCodeText = ls_ver-text.
+            ls_entity-LineCount      = ls_ver-line_count.
+            ls_entity-SrcHash        = CONV #( ls_ver-hash ).
+            ls_entity-Message        = ls_ver-message.
+          ELSE.
+            DATA(ls_ori) = zcl_scort_l_reader=>read_active(
+                             iv_object_type = ls_filter-object_type
+                             iv_object_name = ls_filter-object_name ).
+            ls_entity-VersionNo      = zcl_scort_v_reader=>c_vers_active.
+            ls_entity-SourceCodeText = ls_ori-text.
+            ls_entity-LineCount      = ls_ori-line_count.
+            ls_entity-SrcHash        = CONV #( ls_ori-hash ).
+            ls_entity-Message        = ls_ori-message.
+          ENDIF.
+        ENDIF.
+      CATCH cx_root INTO DATA(lx).
+        ls_entity-Message = lx->get_text( ).
+    ENDTRY.
 
-      WHEN 'T'.
-        "-- Delegate to Target reader
-        TRY.
-            DATA(ls_t) = zcl_scort_t_reader=>read_object(
-              iv_object_type = lv_object_type
-              iv_object_name = lv_object_name
-            ).
-            ls_result-source_code_text = ls_t-source_code_text.
-            ls_result-metadata_text    = ls_t-metadata_text.
-            ls_result-package_name     = ls_t-package_name.
-            ls_result-author           = ls_t-author.
-            ls_result-description      = ls_t-description.
-          CATCH cx_parameter_invalid.
-            ls_result-source_code_text = `[Error reading Target source]`.
-        ENDTRY.
+    APPEND ls_entity TO lt_entity.
 
-      WHEN OTHERS.
-        ls_result-source_code_text = `[Invalid ServerType. Use L or T]`.
-    ENDCASE.
+    zcl_scort_query_utl=>respond(
+      EXPORTING io_request = io_request io_response = io_response
+      CHANGING  ct_data = lt_entity ).
+  ENDMETHOD.
 
-    "-- Step 3: Return result set
-    APPEND ls_result TO lt_result.
-    io_response->set_total_number_of_records( 1 ).
-    io_response->set_data( lt_result ).
+  METHOD parse_filters.
+    CLEAR rs_filter.
+    rs_filter-server_type = CONV char1(
+      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'SERVERTYPE' ) ).
+    rs_filter-server_id = CONV char10(
+      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'SERVERID' ) ).
+    rs_filter-object_type = CONV trobjtype(
+      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'OBJECTTYPE' ) ).
+    rs_filter-object_name = CONV sobj_name(
+      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'OBJECTNAME' ) ).
+    rs_filter-version_no = CONV versno(
+      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'VERSIONNO' ) ).
+
+    IF rs_filter-server_type IS INITIAL.
+      rs_filter-server_type = c_server_local.
+    ENDIF.
+    IF rs_filter-server_id IS INITIAL.
+      rs_filter-server_id = c_server_tgt_id.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

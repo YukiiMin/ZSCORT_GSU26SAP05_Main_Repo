@@ -11,7 +11,7 @@
     },
     "dataSources": {
       "mainService": {
-        "uri": "/sap/opu/odata4/sap/zui_scort_compare_o4/srvd/sap/zsd_scort_compare/0001/",
+        "uri": "/sap/opu/odata4/sap/ui_scort_compare_o4/srvd/sap/sd_scort_compare/0001/",
         "type": "OData",
         "settings": {
           "odataVersion": "4.0"
@@ -123,8 +123,7 @@
         "routerClass": "sap.f.routing.Router",
         "viewType": "XML",
         "viewPath": "zscort.app.view",
-        "controlId": "navContainer",
-        "controlAggregation": "pages",
+        "controlId": "fcl",
         "transition": "slide",
         "async": true
       },
@@ -132,7 +131,22 @@
         {
           "pattern": "",
           "name": "home",
-          "target": ["objSearch"]
+          "target": ["master"]
+        },
+        {
+          "pattern": "master",
+          "name": "master",
+          "target": ["master"]
+        },
+        {
+          "pattern": "detail/{trkorr}",
+          "name": "detail",
+          "target": ["master", "detail"]
+        },
+        {
+          "pattern": "compare/{objectType}/{objectName}",
+          "name": "compare",
+          "target": ["master", "detail", "compare"]
         },
         {
           "pattern": "objSearch/:?query:",
@@ -143,33 +157,38 @@
           "pattern": "trSearch/:?query:",
           "name": "trSearch",
           "target": ["trSearch"]
-        },
-        {
-          "pattern": "compare/:?query:",
-          "name": "compare",
-          "target": ["compare"]
-        },
-        {
-          "pattern": "compare/detail/{objectType}/{objectName}/:?query:",
-          "name": "compareDetail",
-          "target": ["compare"]
         }
       ],
       "targets": {
-        "objSearch": {
-          "viewName": "ObjSearch",
+        "master": {
+          "viewName": "Master",
           "type": "View",
-          "id": "objSearchView"
+          "id": "masterView",
+          "controlAggregation": "beginColumnPages"
         },
-        "trSearch": {
-          "viewName": "TrSearch",
+        "detail": {
+          "viewName": "Detail",
           "type": "View",
-          "id": "trSearchView"
+          "id": "detailView",
+          "controlAggregation": "midColumnPages"
         },
         "compare": {
           "viewName": "Compare",
           "type": "View",
-          "id": "compareView"
+          "id": "compareView",
+          "controlAggregation": "endColumnPages"
+        },
+        "objSearch": {
+          "viewName": "ObjSearch",
+          "type": "View",
+          "id": "objSearchView",
+          "controlAggregation": "beginColumnPages"
+        },
+        "trSearch": {
+          "viewName": "TrSearch",
+          "type": "View",
+          "id": "trSearchView",
+          "controlAggregation": "beginColumnPages"
         }
       }
     },

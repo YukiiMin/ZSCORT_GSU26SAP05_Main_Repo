@@ -3,4 +3,7 @@ dist/
 .env
 *.log
 .agent_scratchpad.md
-.zip
+*.zip
+*.rar
+req3_prod/
+

@@ -1,7 +1,62 @@
-<!-- DEPRECATED: Replaced by Compare.view.xml (consolidated Code Compare module with ShellBar navigation) -->
 <mvc:View
-  controllerName="zscort.app.controller.Compare"
+  controllerName="zscort.app.controller.Master"
   xmlns="sap.m"
   xmlns:mvc="sap.ui.core.mvc">
-  <Text text="Deprecated view. Please use Compare.view.xml" />
+
+  <Page id="idMasterPage" title="Transport Requests" showHeader="false">
+    
+    <customHeader>
+      <Bar>
+        <contentLeft>
+          <Title text="SCORT TR List" />
+        </contentLeft>
+      </Bar>
+    </customHeader>
+
+    <content>
+      <VBox height="100%">
+        <!-- Search Field -->
+        <SearchField 
+          id="idSearchField" 
+          placeholder="Search TR (e.g. S40K*)..." 
+          search=".onSearchFieldSearch" 
+          width="100%" 
+          class="sapUiSmallMargin" />
+
+        <!-- TR List -->
+        <List
+          id="idVHTrkorrList"
+          mode="SingleSelectMaster"
+          selectionChange=".onVHTrkorrListSelectionChange"
+          items="{
+            path: '/VHTrkorr',
+            parameters: {
+              $select: 'Trkorr,Description,TrStatus,As4user,As4date'
+            }
+          }"
+          growing="true"
+          growingScrollToLoad="true">
+          
+          <items>
+            <ObjectListItem
+              title="{Trkorr}"
+              type="Navigation"
+              press=".onObjectListItemPress"
+              intro="{Description}">
+              <firstStatus>
+                <ObjectStatus 
+                  text="{TrStatus}" 
+                  state="{= ${TrStatus} === 'D' ? 'Warning' : 'Success' }" />
+              </firstStatus>
+              <attributes>
+                <ObjectAttribute text="Owner: {As4user}" />
+                <ObjectAttribute text="Date: {path: 'As4date', formatter: '.formatDate'}" />
+              </attributes>
+            </ObjectListItem>
+          </items>
+        </List>
+      </VBox>
+    </content>
+  </Page>
+
 </mvc:View>

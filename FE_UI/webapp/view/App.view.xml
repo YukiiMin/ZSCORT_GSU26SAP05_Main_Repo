@@ -3,12 +3,12 @@
   xmlns="sap.m"
   xmlns:mvc="sap.ui.core.mvc"
   xmlns:f="sap.f"
-  xmlns:core="sap.ui.core"
   displayBlock="true"
   height="100%">
 
-  <App id="navContainer" autoFocus="false">
-    <!-- Pages injected by router targets -->
-  </App>
+  <f:FlexibleColumnLayout id="idAppFlexibleColumnLayout"
+    layout="{appView>/layout}"
+    backgroundDesign="Solid"
+    stateChange=".onFlexibleColumnLayoutStateChange" />
 
 </mvc:View>

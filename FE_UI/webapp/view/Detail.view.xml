@@ -1,7 +1,83 @@
-<!-- DEPRECATED: Replaced by Compare.view.xml (consolidated Code Compare module with ShellBar navigation) -->
 <mvc:View
-  controllerName="zscort.app.controller.Compare"
+  controllerName="zscort.app.controller.Detail"
   xmlns="sap.m"
-  xmlns:mvc="sap.ui.core.mvc">
-  <Text text="Deprecated view. Please use Compare.view.xml" />
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:table="sap.ui.table">
+
+  <Page id="idDetailPage" showHeader="false">
+    <customHeader>
+      <Bar>
+        <contentLeft>
+          <Button icon="sap-icon://nav-back" press=".onButtonNavBackPress" type="Transparent" />
+          <Title text="TR Objects: {detail>/trkorr}" />
+        </contentLeft>
+        <contentRight>
+          <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
+          <Button icon="sap-icon://decline" press=".onButtonCloseDetailPress" type="Transparent" />
+        </contentRight>
+      </Bar>
+    </customHeader>
+
+    <content>
+      <VBox height="100%">
+        <!-- TR Details Summary -->
+        <ObjectHeader
+          title="{detail>/trkorr}"
+          intro="Selected Transport Request">
+          <attributes>
+            <ObjectAttribute title="Target Server" text="{appView>/serverId}" />
+          </attributes>
+        </ObjectHeader>
+
+        <!-- Objects List with Compare Status -->
+        <table:Table
+          id="idObjectsTable"
+          selectionMode="Single"
+          rowSelectionChange=".onTableObjectRowSelectionChange"
+          rows="{
+            path: 'detail>/objects'
+          }"
+          busy="{detail>/busy}">
+          
+          <table:columns>
+            <table:Column width="5rem">
+              <Label text="Type" />
+              <table:template>
+                <Text text="{detail>ObjectType}" />
+              </table:template>
+            </table:Column>
+            
+            <table:Column>
+              <Label text="Object Name" />
+              <table:template>
+                <ObjectIdentifier title="{detail>ObjectName}" />
+              </table:template>
+            </table:Column>
+
+            <table:Column width="10rem">
+              <Label text="Compare Status" />
+              <table:template>
+                <ObjectStatus 
+                  text="{detail>CompareStatus}" 
+                  state="{path: 'detail>CompareStatus', formatter: '.formatCompareStatus'}" 
+                  icon="{path: 'detail>CompareStatus', formatter: '.formatCompareIcon'}" />
+              </table:template>
+            </table:Column>
+
+            <table:Column width="7rem">
+              <Label text="Action" />
+              <table:template>
+                <Button 
+                  text="Compare" 
+                  icon="sap-icon://compare-2" 
+                  type="Transparent" 
+                  press=".onCompareButtonPress" />
+              </table:template>
+            </table:Column>
+          </table:columns>
+        </table:Table>
+      </VBox>
+    </content>
+  </Page>
+
 </mvc:View>
