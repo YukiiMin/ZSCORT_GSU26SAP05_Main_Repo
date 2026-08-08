@@ -1,7 +1,7 @@
 {
-  "name": "zscort-compare",
+  "name": "zscort-app",
   "version": "1.0.0",
-  "description": "SCORT REQ3 — Fiori FCL + Monaco Diff (TargetCode vs SourceCode)",
+  "description": "SCORT Fiori app - Object Search, TR Search, Code Compare",
   "private": true,
   "scripts": {
     "start": "ui5 serve --port 8080 --open index.html",

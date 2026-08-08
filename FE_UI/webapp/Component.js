@@ -16,15 +16,11 @@ sap.ui.define([
     init: function () {
       UIComponent.prototype.init.apply(this, arguments);
 
-      // Shared appView model — used by all screens via appView> binding
       var oAppModel = new JSONModel({
-        // Navigation
         currentModule:  "objSearch",
-        // FCL layout (used by Compare screen)
         layout: LayoutType.OneColumn,
-        // Compare screen state
         trkorr:         "",
-        serverId:       "TARGET",
+        serverId:       "TGT",
         busy:           false,
         filterStatus:   "",
         compareMode:    "L_VS_T",
@@ -33,20 +29,42 @@ sap.ui.define([
         versions:       [],
         targetVersions: [],
         noDataText:     "Enter TR and press Load",
-        hasLoaded:      false
+        hasLoaded:      false,
+        actionButtonsInfo: {
+          midColumn: { fullScreen: false },
+          endColumn: { fullScreen: false }
+        }
       });
       this.setModel(oAppModel, "appView");
       this.setModel(new JSONModel({}), "detail");
 
-      try {
-        this.getRouter().initialize();
-      } catch (oErr) {
-        Log.error("Router init failed", oErr, "zscort.app.Component");
-        throw oErr;
+      this._initRouterWhenReady();
+    },
+
+    _initRouterWhenReady: function () {
+      var oRouter = this.getRouter();
+      if (!oRouter) {
+        Log.error("No router", null, "zscort.app.Component");
+        return;
       }
 
-      // Default route: always start at Object Search screen
-      this.getRouter().navTo("objSearch", {}, true);
+      function startRouter() {
+        try {
+          oRouter.initialize();
+          oRouter.navTo("objSearch", {}, true);
+        } catch (oErr) {
+          Log.error("Router initialize failed", oErr, "zscort.app.Component");
+        }
+      }
+
+      var oRoot = this.getRootControl && this.getRootControl();
+      if (oRoot && typeof oRoot.loaded === "function") {
+        oRoot.loaded().then(startRouter).catch(function () {
+          startRouter();
+        });
+      } else {
+        startRouter();
+      }
     }
   });
 });

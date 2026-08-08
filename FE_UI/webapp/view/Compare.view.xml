@@ -45,6 +45,104 @@
               <ObjectAttribute title="{i18n>targetLines}" text="{detail>/TargetLines}"  class="sapUiSmallMarginEnd" />
               <Text text="{detail>/Message}" />
             </FlexBox>
+
+            <!-- Compare mode (same UX as zscort_compare Master) -->
+            <HBox alignItems="Center" class="sapUiTinyMarginBottom" wrap="Wrap">
+              <Label text="{i18n>compareMode}" class="sapUiTinyMarginEnd" />
+              <SegmentedButton
+                selectedKey="{appView>/compareMode}"
+                selectionChange=".onModeChange"
+                class="sapUiTinyMarginEnd">
+                <items>
+                  <SegmentedButtonItem key="L_VS_T" text="{i18n>modeLvsT}" />
+                  <SegmentedButtonItem key="VER_VS_VER" text="{i18n>modeVerVsVer}" />
+                </items>
+              </SegmentedButton>
+              <Input
+                width="12rem"
+                value="{appView>/compareMode}"
+                showValueHelp="true"
+                valueHelpOnly="true"
+                valueHelpRequest=".onVHCompareMode"
+                placeholder="{i18n>vhCompareMode}" />
+            </HBox>
+
+            <!-- L_VS_T: pick Target REPO version -->
+            <HBox alignItems="Center" visible="{= ${appView>/compareMode} === 'L_VS_T' }" class="sapUiTinyMarginBottom" wrap="Wrap">
+              <Label text="{i18n>pickTargetRepoVersion}" class="sapUiTinyMarginEnd" />
+              <Select
+                width="16rem"
+                items="{path: 'appView>/targetVersions', templateShareable: false}"
+                selectedKey="{appView>/versionNo}"
+                change=".onVersionChange"
+                forceSelection="false"
+                class="sapUiTinyMarginEnd">
+                <core:Item key="{appView>VersionNo}" text="{appView>VersionLabel}" />
+              </Select>
+              <Button
+                icon="sap-icon://value-help"
+                type="Transparent"
+                tooltip="{i18n>vhTargetVersionTitle}"
+                press=".onVHTargetVersion"
+                class="sapUiTinyMarginEnd" />
+              <Button text="{i18n>reloadDiff}" press=".onReloadDiff" />
+            </HBox>
+
+            <!-- VER_VS_VER: Local VRSD vs Local VRSD -->
+            <HBox alignItems="Center" visible="{= ${appView>/compareMode} === 'VER_VS_VER' || ${appView>/compareMode} === 'ACTIVE_VS_VER' }" class="sapUiTinyMarginBottom" wrap="Wrap">
+              <Label text="{i18n>pickVersionLeft}" class="sapUiTinyMarginEnd" />
+              <Select
+                width="14rem"
+                items="{path: 'appView>/versions', templateShareable: false}"
+                selectedKey="{appView>/versionNo}"
+                change=".onVersionChange"
+                forceSelection="false"
+                class="sapUiTinyMarginEnd">
+                <core:Item key="{appView>VersionNo}" text="{appView>VersionLabel}" />
+              </Select>
+              <Button
+                icon="sap-icon://value-help"
+                type="Transparent"
+                tooltip="{i18n>vhVersionTitle}"
+                press=".onVHVersionLeft"
+                class="sapUiTinyMarginEnd" />
+              <Label text="{i18n>pickVersionRight}" class="sapUiTinyMarginEnd" />
+              <Select
+                width="14rem"
+                items="{path: 'appView>/versions', templateShareable: false}"
+                selectedKey="{appView>/versionNoRight}"
+                change=".onVersionRightChange"
+                forceSelection="false"
+                class="sapUiTinyMarginEnd">
+                <core:Item key="{appView>VersionNo}" text="{appView>VersionLabel}" />
+              </Select>
+              <Button
+                icon="sap-icon://value-help"
+                type="Transparent"
+                tooltip="{i18n>vhVersionTitle}"
+                press=".onVHVersionRight"
+                class="sapUiTinyMarginEnd" />
+              <Button text="{i18n>reloadDiff}" press=".onReloadDiff" />
+            </HBox>
+
+            <MessageStrip
+              text="{i18n>newAtTargetHint}"
+              type="Success"
+              showIcon="true"
+              visible="{= ${detail>/StatusCode} === 'NEW_AT_TARGET' }"
+              class="sapUiTinyMarginTop" />
+            <MessageStrip
+              text="{i18n>lVsTHint}"
+              type="Information"
+              showIcon="true"
+              visible="{= ${detail>/CompareMode} === 'L_VS_T' }"
+              class="sapUiTinyMarginTop" />
+            <MessageStrip
+              text="{i18n>th2Hint}"
+              type="Information"
+              showIcon="true"
+              visible="{= ${detail>/CompareMode} === 'VER_VS_VER' }"
+              class="sapUiTinyMarginTop" />
           </f:DynamicPageHeader>
         </f:header>
         <f:content>
@@ -55,7 +153,8 @@
               title="{i18n>selectObject}"
               description="{i18n>selectObjectDesc}" />
             <core:HTML
-              id="idLtdivClassmonacoHostStylewidthheightminheightpxgtltdivgtHTML"
+              id="monacoHost"
+              preferDOM="true"
               content="&lt;div class='monacoHost' style='width:100%;height:100%;min-height:320px;'&gt;&lt;/div&gt;" />
           </VBox>
         </f:content>

@@ -55,83 +55,137 @@ ENDCLASS.
 CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
   METHOD if_rap_query_provider~select.
-    "-- Step 1: Extract filter parameters from request
-    DATA(lo_filter) = io_request->get_filter( ).
-    DATA(lt_ranges) = lo_filter->get_as_ranges( ).
-
+    "-- Custom entity: MUST respect $top/$skip or SADL raises
+    "-- CX_RAP_QUERY_PAGE_SIZE_OVERRUN → CX_SADL_DUMP_APPL_MODEL_ERROR (ST22).
     DATA lv_trkorr    TYPE e070-trkorr.
     DATA lv_owner     TYPE e070-as4user.
     DATA lv_date_from TYPE d.
     DATA lv_date_to   TYPE d.
     DATA lv_trstatus  TYPE e070-trstatus.
-
-    LOOP AT lt_ranges ASSIGNING FIELD-SYMBOL(<range>).
-      CASE <range>-name.
-        WHEN 'NODEID'.
-          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r0>).
-          IF sy-subrc = 0 AND <r0>-low IS NOT INITIAL.
-            lv_trkorr = <r0>-low(20).
-          ENDIF.
-        WHEN 'TRKORR'.
-          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r1>).
-          IF sy-subrc = 0 AND lv_trkorr IS INITIAL. lv_trkorr = <r1>-low. ENDIF.
-        WHEN 'OWNER'.
-          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r2>).
-          IF sy-subrc = 0. lv_owner = <r2>-low. ENDIF.
-        WHEN 'AS4DATE'.
-          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r3>).
-          IF sy-subrc = 0. lv_date_from = <r3>-low. lv_date_to = <r3>-high. ENDIF.
-        WHEN 'TRSTATUS'.
-          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r4>).
-          IF sy-subrc = 0. lv_trstatus = <r4>-low. ENDIF.
-      ENDCASE.
-    ENDLOOP.
-
-    "-- Step 2: Build tree
-    DATA(lt_nodes) = build_tree(
-      iv_trkorr    = lv_trkorr
-      iv_owner     = lv_owner
-      iv_date_from = lv_date_from
-      iv_date_to   = lv_date_to
-      iv_trstatus  = lv_trstatus
-    ).
-
-    "-- Step 3: Convert to Custom Entity result structure (matching CDS CamelCase)
+    DATA lv_raw       TYPE string.
     DATA lt_result TYPE STANDARD TABLE OF zce_scort_tr_tree WITH DEFAULT KEY.
+    DATA lt_page   TYPE STANDARD TABLE OF zce_scort_tr_tree WITH DEFAULT KEY.
     DATA ls_result LIKE LINE OF lt_result.
+    DATA lv_offset TYPE i.
+    DATA lv_page   TYPE i.
+    DATA lv_total  TYPE i.
+    DATA lv_from   TYPE i.
+    DATA lv_to     TYPE i.
+    DATA lv_data   TYPE abap_bool.
+    DATA lv_count  TYPE abap_bool.
 
-    LOOP AT lt_nodes ASSIGNING FIELD-SYMBOL(<node>).
-      ls_result-NodeId        = <node>-node_id.
-      ls_result-ParentNodeId  = <node>-parent_node_id.
-      ls_result-TreeLevel     = <node>-tree_level.
-      ls_result-NodeType      = <node>-node_type.
-      ls_result-Trkorr        = <node>-trkorr.
-      ls_result-ParentTrkorr  = <node>-parent_trkorr.
-      ls_result-Description   = <node>-description.
-      ls_result-Owner         = <node>-owner.
-      ls_result-As4date       = <node>-as4date.
-      ls_result-TrStatus      = <node>-tr_status.
-      ls_result-ObjName       = <node>-obj_name.
-      ls_result-ObjType       = <node>-obj_type.
-      ls_result-Pgmid         = <node>-pgmid.
-      APPEND ls_result TO lt_result.
-      CLEAR ls_result.
-    ENDLOOP.
+    TRY.
+        TRY.
+            lv_data  = io_request->is_data_requested( ).
+          CATCH cx_root.
+            lv_data = abap_true.
+        ENDTRY.
+        TRY.
+            lv_count = io_request->is_total_numb_of_rec_requested( ).
+          CATCH cx_root.
+            lv_count = abap_true.
+        ENDTRY.
 
-    "-- Step 4: Apply paging from request
-    DATA(lv_offset) = io_request->get_paging( )->get_offset( ).
-    DATA(lv_rows)   = io_request->get_paging( )->get_page_size( ).
-    DATA(lv_total)  = lines( lt_result ).
+        lv_raw = zcl_scort_query_utl=>filter_low(
+                   io_request = io_request iv_field = 'TRKORR' ).
+        IF lv_raw IS INITIAL.
+          lv_raw = zcl_scort_query_utl=>filter_low(
+                     io_request = io_request iv_field = 'NODEID' ).
+        ENDIF.
+        IF lv_raw IS NOT INITIAL.
+          lv_trkorr = CONV #( lv_raw ).
+        ENDIF.
 
-    IF lv_offset > 0.
-      DELETE lt_result FROM 1 TO lv_offset.
-    ENDIF.
-    IF lv_rows > 0 AND lines( lt_result ) > lv_rows.
-      DELETE lt_result FROM lv_rows + 1.
-    ENDIF.
+        lv_raw = zcl_scort_query_utl=>filter_low(
+                   io_request = io_request iv_field = 'OWNER' ).
+        IF lv_raw IS NOT INITIAL.
+          lv_owner = CONV #( lv_raw ).
+        ENDIF.
 
-    io_response->set_total_number_of_records( CONV int8( lv_total ) ).
-    io_response->set_data( lt_result ).
+        lv_raw = zcl_scort_query_utl=>filter_low(
+                   io_request = io_request iv_field = 'TRSTATUS' ).
+        IF lv_raw IS NOT INITIAL.
+          lv_trstatus = CONV #( lv_raw ).
+        ENDIF.
+
+        lv_raw = zcl_scort_query_utl=>filter_low(
+                   io_request = io_request iv_field = 'AS4DATE' ).
+        IF lv_raw IS NOT INITIAL AND strlen( lv_raw ) >= 8.
+          lv_date_from = lv_raw(8).
+        ENDIF.
+
+        DATA(lt_nodes) = build_tree(
+          iv_trkorr    = lv_trkorr
+          iv_owner     = lv_owner
+          iv_date_from = lv_date_from
+          iv_date_to   = lv_date_to
+          iv_trstatus  = lv_trstatus ).
+
+        LOOP AT lt_nodes ASSIGNING FIELD-SYMBOL(<node>).
+          CLEAR ls_result.
+          ls_result-NodeId        = <node>-node_id.
+          ls_result-ParentNodeId  = <node>-parent_node_id.
+          ls_result-TreeLevel     = <node>-tree_level.
+          ls_result-NodeType      = <node>-node_type.
+          ls_result-Trkorr        = <node>-trkorr.
+          ls_result-ParentTrkorr  = <node>-parent_trkorr.
+          ls_result-Description   = <node>-description.
+          ls_result-Owner         = <node>-owner.
+          ls_result-As4date       = <node>-as4date.
+          ls_result-TrStatus      = <node>-tr_status.
+          ls_result-ObjName       = <node>-obj_name.
+          ls_result-ObjType       = <node>-obj_type.
+          ls_result-Pgmid         = <node>-pgmid.
+          APPEND ls_result TO lt_result.
+        ENDLOOP.
+
+        lv_total = lines( lt_result ).
+
+        " Paging — default cap 100 khi unlimited (tránh PAGE_SIZE_OVERRUN)
+        TRY.
+            lv_offset = CONV i( io_request->get_paging( )->get_offset( ) ).
+            DATA(lv_ps) = io_request->get_paging( )->get_page_size( ).
+            IF lv_ps = if_rap_query_paging=>page_size_unlimited OR lv_ps <= 0.
+              lv_page = 100.
+            ELSEIF lv_ps > 500.
+              lv_page = 500.
+            ELSE.
+              lv_page = CONV i( lv_ps ).
+            ENDIF.
+          CATCH cx_root.
+            lv_offset = 0.
+            lv_page   = 100.
+        ENDTRY.
+
+        IF lv_count = abap_true.
+          io_response->set_total_number_of_records( CONV int8( lv_total ) ).
+        ENDIF.
+
+        IF lv_data = abap_true.
+          lv_from = lv_offset + 1.
+          lv_to   = lv_offset + lv_page.
+          IF lv_from <= lv_total.
+            IF lv_to > lv_total.
+              lv_to = lv_total.
+            ENDIF.
+            LOOP AT lt_result INTO ls_result FROM lv_from TO lv_to.
+              APPEND ls_result TO lt_page.
+            ENDLOOP.
+          ENDIF.
+          io_response->set_data( lt_page ).
+        ENDIF.
+      CATCH cx_root.
+        CLEAR lt_page.
+        TRY.
+            IF lv_count = abap_true OR lv_count IS INITIAL.
+              io_response->set_total_number_of_records( 0 ).
+            ENDIF.
+            IF lv_data = abap_true OR lv_data IS INITIAL.
+              io_response->set_data( lt_page ).
+            ENDIF.
+          CATCH cx_root.
+        ENDTRY.
+    ENDTRY.
   ENDMETHOD.
 
   METHOD build_tree.
@@ -140,21 +194,33 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     DATA lv_tr_pattern TYPE string.
     DATA lv_owner_pattern TYPE string.
 
+    " OData Contains gửi *…* — ABAP LIKE cần %…%. filter_low đã strip */% → bọc lại.
     IF iv_trkorr IS NOT INITIAL.
       lv_tr_pattern = iv_trkorr.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_tr_pattern WITH '%'.
+      REPLACE ALL OCCURRENCES OF '+' IN lv_tr_pattern WITH '_'.
+      IF lv_tr_pattern NA '%'.
+        lv_tr_pattern = |%{ lv_tr_pattern }%|.
+      ENDIF.
     ELSE.
       lv_tr_pattern = '%'.
     ENDIF.
 
     IF iv_owner IS NOT INITIAL.
       lv_owner_pattern = iv_owner.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_owner_pattern WITH '%'.
+      REPLACE ALL OCCURRENCES OF '+' IN lv_owner_pattern WITH '_'.
+      IF lv_owner_pattern NA '%'.
+        lv_owner_pattern = |%{ lv_owner_pattern }%|.
+      ENDIF.
     ELSE.
       lv_owner_pattern = '%'.
     ENDIF.
 
-    SELECT trkorr, strkorr, as4user, as4date, trstatus
+    " Chỉ SELECT field dùng — ORDER BY as4time mà không select → dump trên nhiều hệ.
+    SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
       FROM e070
-      WHERE strkorr = ''
+      WHERE strkorr = @space
         AND trkorr  LIKE @lv_tr_pattern
         AND as4user LIKE @lv_owner_pattern
       ORDER BY as4date DESCENDING, as4time DESCENDING
@@ -200,20 +266,49 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     SORT lt_tr_keys BY trkorr.
     DELETE ADJACENT DUPLICATES FROM lt_tr_keys COMPARING trkorr.
 
+    " R3TR + LIMU — TR Modifiable (D) thường chỉ có LIMU trên E071 (SE09 vẫn hiện object).
     DATA lt_objects TYPE TABLE OF e071.
+    DATA lt_e071_raw TYPE TABLE OF e071.
+    DATA ls_e071_out TYPE e071.
+    DATA lv_pg TYPE e071-pgmid.
+    DATA lv_ob TYPE e071-object.
     IF lt_tr_keys IS NOT INITIAL.
-      SELECT trkorr, pgmid, object, obj_name, activity
+      SELECT trkorr, pgmid, object, obj_name
         FROM e071
         FOR ALL ENTRIES IN @lt_tr_keys
         WHERE trkorr = @lt_tr_keys-trkorr
-          AND pgmid  = 'R3TR'
-        INTO CORRESPONDING FIELDS OF TABLE @lt_objects.
+          AND ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
+        INTO CORRESPONDING FIELDS OF TABLE @lt_e071_raw.
+
+      LOOP AT lt_e071_raw INTO DATA(ls_e071_raw).
+        CLEAR ls_e071_out.
+        ls_e071_out = ls_e071_raw.
+        IF ls_e071_raw-pgmid = 'LIMU'.
+          lv_pg = 'R3TR'.
+          CASE ls_e071_raw-object.
+            WHEN 'REPS' OR 'REPT'.
+              lv_ob = 'PROG'.
+            WHEN 'FUNC'.
+              lv_ob = 'FUGR'.
+            WHEN 'CPUB' OR 'CPRI' OR 'CPRO' OR 'CLSD' OR 'METH' OR 'CINC'.
+              lv_ob = 'CLAS'.
+            WHEN OTHERS.
+              CONTINUE.
+          ENDCASE.
+          ls_e071_out-pgmid  = lv_pg.
+          ls_e071_out-object = lv_ob.
+        ENDIF.
+        APPEND ls_e071_out TO lt_objects.
+      ENDLOOP.
+
+      SORT lt_objects BY trkorr object obj_name.
+      DELETE ADJACENT DUPLICATES FROM lt_objects COMPARING trkorr object obj_name.
     ENDIF.
 
     "-- B4: Build hierarchy
-    "-- Level 0: TR Parents
+    DATA ls_node TYPE ty_node.
     LOOP AT lt_tr_parents ASSIGNING FIELD-SYMBOL(<tr>).
-      DATA ls_node LIKE LINE OF rt_nodes.
+      CLEAR ls_node.
       ls_node-node_id        = make_node_id( <tr>-trkorr ).
       ls_node-parent_node_id = ''.
       ls_node-tree_level     = 0.
@@ -227,7 +322,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         WITH KEY trkorr = <tr>-trkorr.
       IF sy-subrc = 0. ls_node-description = <txt>-as4text. ENDIF.
       APPEND ls_node TO rt_nodes.
-      CLEAR ls_node.
 
       "-- Level 1: Tasks under this TR
       LOOP AT lt_tasks ASSIGNING FIELD-SYMBOL(<task>)
@@ -286,9 +380,19 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD make_node_id.
-    "-- Build unique CHAR40 NodeID: Trkorr(20) + ObjName(20)
-    rv_id = |{ iv_trkorr WIDTH = 20 }{ iv_obj_name }|.
-    rv_id = rv_id(40).
+    "-- TR/TASK: NodeId = Trkorr (khớp FE ApplyToTarget key TrTree('S40K…')).
+    "-- OBJ: Trkorr + '_' + ObjName (cắt 40).
+    DATA lv TYPE string.
+    IF iv_obj_name IS INITIAL.
+      lv = CONV string( iv_trkorr ).
+    ELSE.
+      lv = |{ CONV string( iv_trkorr ) }_{ CONV string( iv_obj_name ) }|.
+    ENDIF.
+    CONDENSE lv.
+    IF strlen( lv ) > 40.
+      lv = lv(40).
+    ENDIF.
+    rv_id = lv.
   ENDMETHOD.
 
 ENDCLASS.

@@ -3,54 +3,62 @@
   xmlns="sap.m"
   xmlns:mvc="sap.ui.core.mvc">
 
-  <Page id="idMasterPage" title="Transport Requests" showHeader="false">
-    
+  <Page id="idMasterPage" title="Transport Requests" showHeader="true" backgroundDesign="List">
+
     <customHeader>
       <Bar>
         <contentLeft>
-          <Title text="SCORT TR List" />
+          <Button
+            icon="sap-icon://nav-back"
+            text="Object Search"
+            type="Transparent"
+            press=".onNavObjSearch"
+            tooltip="Back to Object Search" />
+          <Title text="Code Compare — TR List" class="sapUiTinyMarginBegin" />
         </contentLeft>
+        <contentRight>
+          <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home — Object Search" />
+        </contentRight>
       </Bar>
     </customHeader>
 
     <content>
       <VBox height="100%">
-        <!-- Search Field -->
-        <SearchField 
-          id="idSearchField" 
-          placeholder="Search TR (e.g. S40K*)..." 
-          search=".onSearchFieldSearch" 
-          width="100%" 
+        <MessageStrip
+          text="Released TRs only."
+          type="Information"
+          showIcon="true"
           class="sapUiSmallMargin" />
 
-        <!-- TR List -->
+        <SearchField
+          id="idSearchField"
+          placeholder="Search released TR (e.g. S40K*)..."
+          search=".onSearchFieldSearch"
+          width="100%"
+          class="sapUiSmallMargin" />
+
         <List
           id="idVHTrkorrList"
           mode="SingleSelectMaster"
+          busy="{master>/busy}"
+          noDataText="{= ${master>/message} || 'No released TR' }"
           selectionChange=".onVHTrkorrListSelectionChange"
-          items="{
-            path: '/VHTrkorr',
-            parameters: {
-              $select: 'Trkorr,Description,TrStatus,As4user,As4date'
-            }
-          }"
+          items="{path: 'master>/rows'}"
           growing="true"
           growingScrollToLoad="true">
-          
+
           <items>
             <ObjectListItem
-              title="{Trkorr}"
+              title="{master>Trkorr}"
               type="Navigation"
               press=".onObjectListItemPress"
-              intro="{Description}">
+              intro="{master>Description}">
               <firstStatus>
-                <ObjectStatus 
-                  text="{TrStatus}" 
-                  state="{= ${TrStatus} === 'D' ? 'Warning' : 'Success' }" />
+                <ObjectStatus text="Released" state="Success" />
               </firstStatus>
               <attributes>
-                <ObjectAttribute text="Owner: {As4user}" />
-                <ObjectAttribute text="Date: {path: 'As4date', formatter: '.formatDate'}" />
+                <ObjectAttribute text="Owner: {master>As4user}" />
+                <ObjectAttribute text="Date: {path: 'master>As4date', formatter: '.formatDate'}" />
               </attributes>
             </ObjectListItem>
           </items>

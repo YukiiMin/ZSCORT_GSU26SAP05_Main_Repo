@@ -130,9 +130,7 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
     IF rs_filter-server_type IS INITIAL.
       rs_filter-server_type = c_server_local.
     ENDIF.
-    IF rs_filter-server_id IS INITIAL.
-      rs_filter-server_id = c_server_tgt_id.
-    ENDIF.
+    " Không dùng server_id — ZA05_SCORT_T single-tenant (field không có trong ty_filters).
   ENDMETHOD.
 
   METHOD read_local.

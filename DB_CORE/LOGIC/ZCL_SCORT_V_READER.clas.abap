@@ -764,47 +764,56 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     CLEAR: et_lines, ev_ok.
     lv_name = CONV vrsd-objname( iv_object_name ).
 
-    CALL FUNCTION 'SVRS_GET_REPS_FROM_OBJECT'
-      EXPORTING
-        object_name = lv_name
-        object_type = iv_vrs_type
-        versno      = iv_version_no
-      TABLES
-        repos_tab   = lt_repos
-        trdir_tab   = lt_trdir
-        vsmodisrc   = lt_modi
-        vsmodilog   = lt_log
-      EXCEPTIONS
-        no_version  = 1
-        OTHERS      = 2.
+    " Bọc TRY — trên S40 TABLES type lệch → CX_SY_DYN_CALL_ILLEGAL_TYPE (VER_VS_VER).
+    TRY.
+        CALL FUNCTION 'SVRS_GET_REPS_FROM_OBJECT'
+          EXPORTING
+            object_name = lv_name
+            object_type = iv_vrs_type
+            versno      = iv_version_no
+          TABLES
+            repos_tab   = lt_repos
+            trdir_tab   = lt_trdir
+            vsmodisrc   = lt_modi
+            vsmodilog   = lt_log
+          EXCEPTIONS
+            no_version  = 1
+            OTHERS      = 2.
 
-    IF sy-subrc = 0 AND lt_repos IS NOT INITIAL.
-      append_text_table( EXPORTING it_any = lt_repos CHANGING ct_lines = et_lines ).
-      IF et_lines IS NOT INITIAL.
-        ev_ok = abap_true.
-        RETURN.
-      ENDIF.
-    ENDIF.
+        IF sy-subrc = 0 AND lt_repos IS NOT INITIAL.
+          append_text_table( EXPORTING it_any = lt_repos CHANGING ct_lines = et_lines ).
+          IF et_lines IS NOT INITIAL.
+            ev_ok = abap_true.
+            RETURN.
+          ENDIF.
+        ENDIF.
+      CATCH cx_sy_dyn_call_illegal_type cx_sy_dyn_call_param_not_found cx_root.
+        CLEAR et_lines.
+    ENDTRY.
 
     IF iv_vrs_type = 'REPS'.
       DATA lt_abap TYPE STANDARD TABLE OF abaptext WITH DEFAULT KEY.
       DATA lt_tdir TYPE STANDARD TABLE OF trdir WITH DEFAULT KEY.
-      CALL FUNCTION 'SVRS_GET_VERSION_REPS'
-        EXPORTING
-          object_name = lv_name
-          versno      = iv_version_no
-        TABLES
-          repos_tab   = lt_abap
-          trdir_tab   = lt_tdir
-        EXCEPTIONS
-          no_version  = 1
-          OTHERS      = 2.
-      IF sy-subrc = 0 AND lt_abap IS NOT INITIAL.
-        append_text_table( EXPORTING it_any = lt_abap CHANGING ct_lines = et_lines ).
-        IF et_lines IS NOT INITIAL.
-          ev_ok = abap_true.
-        ENDIF.
-      ENDIF.
+      TRY.
+          CALL FUNCTION 'SVRS_GET_VERSION_REPS'
+            EXPORTING
+              object_name = lv_name
+              versno      = iv_version_no
+            TABLES
+              repos_tab   = lt_abap
+              trdir_tab   = lt_tdir
+            EXCEPTIONS
+              no_version  = 1
+              OTHERS      = 2.
+          IF sy-subrc = 0 AND lt_abap IS NOT INITIAL.
+            append_text_table( EXPORTING it_any = lt_abap CHANGING ct_lines = et_lines ).
+            IF et_lines IS NOT INITIAL.
+              ev_ok = abap_true.
+            ENDIF.
+          ENDIF.
+        CATCH cx_sy_dyn_call_illegal_type cx_sy_dyn_call_param_not_found cx_root.
+          CLEAR et_lines.
+      ENDTRY.
     ENDIF.
   ENDMETHOD.
 

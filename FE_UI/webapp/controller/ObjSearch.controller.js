@@ -1,62 +1,55 @@
 sap.ui.define([
   "zscort/app/controller/BaseController",
   "sap/ui/model/json/JSONModel",
-  "sap/ui/model/Filter",
-  "sap/ui/model/FilterOperator",
   "sap/m/MessageBox",
   "sap/m/MessageToast",
-  "sap/ui/core/ValueState"
-], function (BaseController, JSONModel, Filter, FilterOperator, MessageBox, MessageToast, ValueState) {
+  "sap/ui/core/ValueState",
+  "zscort/app/util/ValueHelp"
+], function (BaseController, JSONModel, MessageBox, MessageToast, ValueState, ValueHelp) {
   "use strict";
+
+  var OBJ_SERVICE_URI = "/sap/opu/odata4/sap/zui_scort_obj_search_o4/srvd/sap/zsd_scort_obj_search/0001/";
 
   return BaseController.extend("zscort.app.controller.ObjSearch", {
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  LIFECYCLE
-    // ─────────────────────────────────────────────────────────────────────
-
     onInit: function () {
-      // Page-local model
       var oModel = new JSONModel({
-        // Filter fields
         filterObjName:   "",
         filterObjTypes:  [],
         filterPackage:   "",
         filterAuthor:    "",
-        // Active tab
         activeTab:       "local",
-        // Result counts
         countLocal:  0,
         countTarget: 0,
         countMatrix: 0,
-        // Busy states
         busyLocal:  false,
         busyTarget: false,
         busyMatrix: false,
-        // Matrix options
         matrixServerType: "L",
         matrixFilter:     "",
-        // Misc
+        localRows:  [],
+        targetRows: [],
+        matrixRows: [],
         noDataText: "Enter search criteria and press Search"
       });
       this.getView().setModel(oModel, "objSearch");
 
-      // Route handler
       this.getOwnerComponent().getRouter()
         .getRoute("objSearch")
         .attachPatternMatched(this._onRouteMatched, this);
 
-      // Mark current module
       this._app().setProperty("/currentModule", "objSearch");
     },
 
     _onRouteMatched: function () {
       this._app().setProperty("/currentModule", "objSearch");
+      try {
+        var oFcl = this.getOwnerComponent().getRootControl().byId("fcl");
+        if (oFcl && typeof oFcl.to === "function") {
+          oFcl.to(this.getView().getId());
+        }
+      } catch (e) { /* ignore */ }
     },
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  MODULE SWITCH (SegmentedButton in ShellBar area)
-    // ─────────────────────────────────────────────────────────────────────
 
     onSegmentedButtonModuleSwitchSelectionChange: function (oEvent) {
       var sKey = oEvent.getParameter("item").getKey();
@@ -66,24 +59,49 @@ sap.ui.define([
         default: break;
       }
     },
-    
-    // ─── BaseController Wrappers (for UI5 Linter) ─────────────────────────
-    onButtonNavObjSearchPress: function(oEvent) { return BaseController.prototype.onButtonNavObjSearchPress.apply(this, arguments); },
-    onDialogViewSourceAfterClose: function(oEvent) { return BaseController.prototype.onDialogViewSourceAfterClose.apply(this, arguments); },
-    onButtonCloseDialogPress: function(oEvent) { return BaseController.prototype.onButtonCloseDialogPress.apply(this, arguments); },
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  SEARCH
-    // ─────────────────────────────────────────────────────────────────────
+    onButtonNavObjSearchPress: function () {
+      return BaseController.prototype.onButtonNavObjSearchPress.apply(this, arguments);
+    },
+    onButtonNavTrReleasePress: function () {
+      try {
+        this.onNavTrSearch();
+      } catch (oErr) {
+        // eslint-disable-next-line no-console
+        console.error("onButtonNavTrReleasePress failed:", oErr);
+        MessageToast.show("Could not open TR Search: " + (oErr && oErr.message || oErr));
+      }
+    },
+    onDialogViewSourceAfterClose: function () {
+      return BaseController.prototype.onDialogViewSourceAfterClose.apply(this, arguments);
+    },
+    onButtonCloseDialogPress: function () {
+      return BaseController.prototype.onButtonCloseDialogPress.apply(this, arguments);
+    },
+    onDialogViewSourceAfterOpen: function () {
+      return BaseController.prototype.onDialogViewSourceAfterOpen.apply(this, arguments);
+    },
 
     onSearchButtonPress: function () {
-      var sActiveTab = this.getView().getModel("objSearch").getProperty("/activeTab");
-      switch (sActiveTab) {
-        case "local":  this._searchLocal();  break;
-        case "target": this._searchTarget(); break;
-        case "matrix": this.onSearchMatrix(); break;
-        default:       this._searchLocal();
-      }
+      // New criteria apply to all tabs — drop stale caches and refresh Local + Target + Matrix
+      // so badge counts stay in sync (previously only the active tab was searched).
+      this._invalidateAllTabs();
+      this._searchLocal();
+      this._searchTarget();
+      this.onButtonSearchMatrixPress();
+    },
+
+    _invalidateAllTabs: function () {
+      var oM = this.getView().getModel("objSearch");
+      this._bLocalLoaded  = false;
+      this._bTargetLoaded = false;
+      this._bMatrixLoaded = false;
+      oM.setProperty("/localRows", []);
+      oM.setProperty("/targetRows", []);
+      oM.setProperty("/matrixRows", []);
+      oM.setProperty("/countLocal", 0);
+      oM.setProperty("/countTarget", 0);
+      oM.setProperty("/countMatrix", 0);
     },
 
     onFilterObjNameInputSubmit: function () { this.onSearchButtonPress(); },
@@ -93,7 +111,7 @@ sap.ui.define([
     onIconTabBarModeSelect: function (oEvent) {
       var sKey = oEvent.getParameter("key");
       this.getView().getModel("objSearch").setProperty("/activeTab", sKey);
-      // Auto-search on first switch if no data loaded yet
+      // Lazy load only if this tab was never loaded for the current filter set
       switch (sKey) {
         case "local":
           if (!this._bLocalLoaded) { this._searchLocal(); }
@@ -113,15 +131,179 @@ sap.ui.define([
       oM.setProperty("/filterObjTypes", []);
       oM.setProperty("/filterPackage", "");
       oM.setProperty("/filterAuthor", "");
-      this._bLocalLoaded  = false;
-      this._bTargetLoaded = false;
-      this._bMatrixLoaded = false;
+      this._invalidateAllTabs();
     },
 
-    // ─── Search Local (TADIR via ZCR_SCORT_OBJ_L) ─────────────────────
+    _escapeOData: function (s) {
+      return String(s || "").replace(/'/g, "''");
+    },
+
+    /**
+     * ZSCORT* → startswith; *FOO* → contains; *FOO → endswith; FOO → contains
+     */
+    _wildcardToClause: function (sField, sPattern) {
+      var sRaw = (sPattern || "").trim();
+      if (!sRaw) { return ""; }
+      var sVal = sRaw.toUpperCase();
+      var bLeadStar = sVal.charAt(0) === "*";
+      var bTrailStar = sVal.charAt(sVal.length - 1) === "*";
+      var sCore = sVal.replace(/\*/g, "");
+      if (!sCore) { return ""; }
+      var sEsc = this._escapeOData(sCore);
+      // mid-wildcard e.g. FOO*BAR → contains
+      if (sVal.indexOf("*") > 0 && sVal.indexOf("*") < sVal.length - 1) {
+        return "contains(" + sField + ",'" + sEsc + "')";
+      }
+      if (!bLeadStar && bTrailStar) {
+        return "startswith(" + sField + ",'" + sEsc + "')";
+      }
+      if (bLeadStar && !bTrailStar) {
+        return "endswith(" + sField + ",'" + sEsc + "')";
+      }
+      return "contains(" + sField + ",'" + sEsc + "')";
+    },
+
+    _clientMatchWildcard: function (sValue, sPattern) {
+      var sRaw = (sPattern || "").trim();
+      if (!sRaw) { return true; }
+      var sVal = String(sValue || "").toUpperCase();
+      var sPat = sRaw.toUpperCase();
+      var bLeadStar = sPat.charAt(0) === "*";
+      var bTrailStar = sPat.charAt(sPat.length - 1) === "*";
+      var sCore = sPat.replace(/\*/g, "");
+      if (!sCore) { return true; }
+      if (sPat.indexOf("*") > 0 && sPat.indexOf("*") < sPat.length - 1) {
+        return sVal.indexOf(sCore) >= 0;
+      }
+      if (!bLeadStar && bTrailStar) {
+        return sVal.indexOf(sCore) === 0;
+      }
+      if (bLeadStar && !bTrailStar) {
+        return sVal.length >= sCore.length &&
+          sVal.lastIndexOf(sCore) === sVal.length - sCore.length;
+      }
+      return sVal.indexOf(sCore) >= 0;
+    },
+
+    _buildODataFilter: function (sKind) {
+      var oM = this.getView().getModel("objSearch");
+      var aParts = [];
+      var bMatrix = sKind === "matrix";
+      var sPkgField = bMatrix ? "LocalPackage" : "PackageName";
+      var sAuthorField = bMatrix ? "LocalAuthor" : "PersonResponsible";
+
+      var sObjName = (oM.getProperty("/filterObjName") || "").trim();
+      var sPackage = (oM.getProperty("/filterPackage") || "").trim();
+      var aTypes = oM.getProperty("/filterObjTypes") || [];
+
+      // Matrix = UNION ALL (ZIR_SCORT_OBJ_M). SADL dumps (HTTP 500 / RAISE_SHORTDUMP) on
+      // startswith/contains/$filter of non-key columns and often even ExistenceStatus.
+      // Server-side: only ObjectType eq / ObjectName eq (exact, no wildcards). Everything
+      // else is applied client-side in _applyClientFilters.
+      if (bMatrix) {
+        if (aTypes.length === 1) {
+          aParts.push("ObjectType eq '" + this._escapeOData(aTypes[0]) + "'");
+        } else if (aTypes.length > 1) {
+          aParts.push("(" + aTypes.map(function (t) {
+            return "ObjectType eq '" + String(t).replace(/'/g, "''") + "'";
+          }).join(" or ") + ")");
+        }
+        if (sObjName && sObjName.indexOf("*") < 0) {
+          aParts.push("ObjectName eq '" + this._escapeOData(sObjName.toUpperCase()) + "'");
+        } else if (!sObjName && !sPackage && aTypes.length === 0) {
+          // Still need a bound — prefer ObjectType PROG as safest narrow key for demo,
+          // but leave empty and let client synthesize from Local+Target on failure.
+        }
+        return aParts.filter(Boolean).join(" and ");
+      }
+
+      // Avoid dumping full TADIR: default ObjectName starts with Z when both name/package empty
+      if (!sObjName && !sPackage) {
+        aParts.push("startswith(ObjectName,'Z')");
+      } else if (sObjName) {
+        aParts.push(this._wildcardToClause("ObjectName", sObjName));
+      }
+
+      if (aTypes.length === 1) {
+        aParts.push("ObjectType eq '" + this._escapeOData(aTypes[0]) + "'");
+      } else if (aTypes.length > 1) {
+        aParts.push("(" + aTypes.map(function (t) {
+          return "ObjectType eq '" + String(t).replace(/'/g, "''") + "'";
+        }).join(" or ") + ")");
+      }
+
+      if (sPackage) {
+        aParts.push(this._wildcardToClause(sPkgField, sPackage));
+      }
+
+      var sAuthor = (oM.getProperty("/filterAuthor") || "").trim();
+      if (sAuthor) {
+        aParts.push(this._wildcardToClause(sAuthorField, sAuthor));
+      }
+
+      if (sKind === "target") {
+        aParts.push("ServerId eq 'TARGET'");
+      }
+
+      return aParts.filter(Boolean).join(" and ");
+    },
+
+    _applyClientFilters: function (aData, sKind) {
+      var oM = this.getView().getModel("objSearch");
+      var that = this;
+      var sObjName = (oM.getProperty("/filterObjName") || "").trim();
+      var sPackage = (oM.getProperty("/filterPackage") || "").trim();
+      var sAuthor = (oM.getProperty("/filterAuthor") || "").trim();
+      var aTypes = oM.getProperty("/filterObjTypes") || [];
+      var sPkgField = sKind === "matrix" ? "LocalPackage" : "PackageName";
+      var sAuthorField = sKind === "matrix" ? "LocalAuthor" : "PersonResponsible";
+      var bDefaultZ = !sObjName && !sPackage;
+
+      return (aData || []).filter(function (o) {
+        if (bDefaultZ) {
+          if (String(o.ObjectName || "").toUpperCase().charAt(0) !== "Z") { return false; }
+        } else if (sObjName && !that._clientMatchWildcard(o.ObjectName, sObjName)) {
+          return false;
+        }
+        if (aTypes.length && aTypes.indexOf(o.ObjectType) < 0) { return false; }
+        if (sPackage && !that._clientMatchWildcard(o[sPkgField], sPackage)) { return false; }
+        if (sAuthor && !that._clientMatchWildcard(o[sAuthorField], sAuthor)) { return false; }
+        return true;
+      });
+    },
+
+    _serviceUri: function () {
+      var oOdm = this.getOwnerComponent().getModel("objModel");
+      var sUri = oOdm && oOdm.getServiceUrl && oOdm.getServiceUrl();
+      return sUri || OBJ_SERVICE_URI;
+    },
+
+    _fetchEntitySet: function (sEntity, sFilter, iTop) {
+      var sUrl = this._serviceUri().replace(/\/?$/, "/") + sEntity.replace(/^\//, "");
+      var aQ = [];
+      if (sFilter) {
+        aQ.push("$filter=" + encodeURIComponent(sFilter));
+      }
+      if (iTop) {
+        aQ.push("$top=" + iTop);
+      }
+      if (aQ.length) {
+        sUrl += "?" + aQ.join("&");
+      }
+      return ValueHelp.fetchJson(sUrl, 20000);
+    },
+
+    _setRows: function (sProp, aData, sCountProp) {
+      var oM = this.getView().getModel("objSearch");
+      var a = aData || [];
+      oM.setProperty("/" + sProp, a);
+      if (sCountProp) {
+        oM.setProperty("/" + sCountProp, a.length);
+      }
+    },
 
     _searchLocal: function () {
-      var oM   = this.getView().getModel("objSearch");
+      var oM = this.getView().getModel("objSearch");
       var oOdm = this.getOwnerComponent().getModel("objModel");
       if (!oOdm) {
         this._loadLocalMock();
@@ -129,19 +311,17 @@ sap.ui.define([
       }
 
       oM.setProperty("/busyLocal", true);
-
-      var aFilters = this._buildObjectFilters();
-      var oBinding = oOdm.bindList("/LocalObjects", null, null, aFilters, {
-        $select: "ObjectType,ObjectName,PackageName,PersonResponsible,CreatedOn"
-      });
-
+      var sFilter = this._buildODataFilter("local");
       var that = this;
-      oBinding.requestContexts(0, 500).then(function (aCtx) {
-        var aData = aCtx.map(function (c) { return c.getObject(); });
-        oM.setProperty("/countLocal", aData.length);
-        that.byId("tblLocal").setModel(new JSONModel(aData), "objSearch");
+
+      this._fetchEntitySet("LocalObjects", sFilter, 500).then(function (aData) {
+        var aFiltered = that._applyClientFilters(aData, "local");
+        that._setRows("localRows", aFiltered, "countLocal");
         oM.setProperty("/busyLocal", false);
         that._bLocalLoaded = true;
+        if (!aFiltered.length) {
+          MessageToast.show("No local objects matched the filter");
+        }
       }).catch(function (oErr) {
         oM.setProperty("/busyLocal", false);
         MessageBox.warning("OData error: " + (oErr.message || oErr) + "\n\nFalling back to mock data.", {
@@ -160,21 +340,14 @@ sap.ui.define([
         { ObjectType: "BDEF", ObjectName: "ZIR_SCORT_OBJ_L",            PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" },
         { ObjectType: "TABL", ObjectName: "ZA_SCORT_T",                 PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" }
       ];
-      var sFilter = oM.getProperty("/filterObjName").trim().toUpperCase().replace("*", "");
-      var aFiltered = sFilter ? aMock.filter(function(o) {
-        return o.ObjectName.indexOf(sFilter) >= 0 ||
-               o.ObjectType.indexOf(sFilter) >= 0;
-      }) : aMock;
-      oM.setProperty("/countLocal", aFiltered.length);
-      this.byId("tblLocal").setModel(new JSONModel(aFiltered), "objSearch");
+      var aFiltered = this._applyClientFilters(aMock, "local");
+      this._setRows("localRows", aFiltered, "countLocal");
       this._bLocalLoaded = true;
-      MessageToast.show("Mock data loaded — connect OData for live results");
+      MessageToast.show("Mock data loaded - connect OData for live results");
     },
 
-    // ─── Search Target (ZA_SCORT_T via ZCR_SCORT_OBJ_T) ─────────────────
-
     _searchTarget: function () {
-      var oM   = this.getView().getModel("objSearch");
+      var oM = this.getView().getModel("objSearch");
       var oOdm = this.getOwnerComponent().getModel("objModel");
       if (!oOdm) {
         this._loadTargetMock();
@@ -182,74 +355,122 @@ sap.ui.define([
       }
 
       oM.setProperty("/busyTarget", true);
-      var aFilters = this._buildObjectFilters();
-      var oBinding = oOdm.bindList("/TargetObjects", null, null, aFilters, {
-        $select: "ObjectType,ObjectName,PackageName,PersonResponsible,ChangedOn"
-      });
-
+      var sFilter = this._buildODataFilter("target");
       var that = this;
-      oBinding.requestContexts(0, 500).then(function (aCtx) {
-        var aData = aCtx.map(function (c) { return c.getObject(); });
-        oM.setProperty("/countTarget", aData.length);
-        that.byId("tblTarget").setModel(new JSONModel(aData), "objSearch");
+
+      this._fetchEntitySet("TargetObjects", sFilter, 500).then(function (aData) {
+        var aFiltered = that._applyClientFilters(aData, "target");
+        that._setRows("targetRows", aFiltered, "countTarget");
         oM.setProperty("/busyTarget", false);
         that._bTargetLoaded = true;
+        if (!aFiltered.length) {
+          MessageToast.show("No target objects matched the filter");
+        }
       }).catch(function (oErr) {
         oM.setProperty("/busyTarget", false);
-        MessageBox.warning("OData error: " + (oErr.message || oErr), {
-          onClose: function () { that._loadTargetMock(); }
-        });
+        var sMsg = String(oErr && (oErr.message || oErr) || "");
+        if (/\$kind|kind/i.test(sMsg)) {
+          MessageToast.show("Target metadata/key error ($kind). Using mock data.");
+        } else {
+          MessageToast.show("Target OData error — using mock. " + sMsg);
+        }
+        that._loadTargetMock();
       });
     },
 
     _loadTargetMock: function () {
-      var oM = this.getView().getModel("objSearch");
       var aMock = [
-        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_R_SRC",   PackageName: "ZSCORT_TARGET", PersonResponsible: "DEVELOPER", ChangedOn: "20260201" },
-        { ObjectType: "DDLS", ObjectName: "ZIR_SCORT_OBJ_L",   PackageName: "ZSCORT_TARGET", PersonResponsible: "DEVELOPER", ChangedOn: "20260201" }
+        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_R_SRC",   PackageName: "ZSCORT_TARGET", PersonResponsible: "DEVELOPER", ChangedOn: "20260201", ServerId: "TARGET" },
+        { ObjectType: "DDLS", ObjectName: "ZIR_SCORT_OBJ_L",   PackageName: "ZSCORT_TARGET", PersonResponsible: "DEVELOPER", ChangedOn: "20260201", ServerId: "TARGET" }
       ];
-      oM.setProperty("/countTarget", aMock.length);
-      this.byId("tblTarget").setModel(new JSONModel(aMock), "objSearch");
+      var aFiltered = this._applyClientFilters(aMock, "target");
+      this._setRows("targetRows", aFiltered, "countTarget");
       this._bTargetLoaded = true;
       MessageToast.show("Mock Target data loaded");
     },
 
-    // ─── Search Matrix (ZCR_SCORT_OBJ_M — BOTH/LOCAL_ONLY/TARGET_ONLY) ──
-
-    onButtonSearchMatrixPress: function () {
-      var oM         = this.getView().getModel("objSearch");
-      var oOdm       = this.getOwnerComponent().getModel("objModel");
-      var sServerType = oM.getProperty("/matrixServerType") || "L";
+    /**
+     * Build Compare Matrix client-side from LocalObjects + TargetObjects.
+     * Used when /CompareMatrix dumps (UNION ALL + SADL $filter → HTTP 500).
+     */
+    _synthesizeMatrixFromSides: function () {
+      var that = this;
+      var oM = this.getView().getModel("objSearch");
+      var sLocalFilter = this._buildODataFilter("local");
+      var sTargetFilter = this._buildODataFilter("target");
       var sStatusFilter = oM.getProperty("/matrixFilter") || "";
 
-      if (!oOdm) {
-        this._loadMatrixMock();
-        return;
-      }
+      return Promise.all([
+        this._fetchEntitySet("LocalObjects", sLocalFilter, 500).catch(function () { return []; }),
+        this._fetchEntitySet("TargetObjects", sTargetFilter, 500).catch(function () { return []; })
+      ]).then(function (aSides) {
+        var aLocal = that._applyClientFilters(aSides[0] || [], "local");
+        var aTarget = that._applyClientFilters(aSides[1] || [], "target");
+        var mLocal = {};
+        var mTarget = {};
+        var aRows = [];
 
-      oM.setProperty("/busyMatrix", true);
-      var aFilters = this._buildObjectFilters();
-      if (sStatusFilter) {
-        aFilters.push(new Filter("ExistenceStatus", FilterOperator.EQ, sStatusFilter));
-      }
+        aLocal.forEach(function (o) {
+          mLocal[o.ObjectType + "|" + o.ObjectName] = o;
+        });
+        aTarget.forEach(function (o) {
+          mTarget[o.ObjectType + "|" + o.ObjectName] = o;
+        });
 
-      // Pass P_ServerType parameter via binding parameters
-      var oBinding = oOdm.bindList("/CompareMatrix(P_ServerType='" + sServerType + "')", null, null, aFilters, {
-        $select: "ObjectType,ObjectName,ExistenceStatus,LocalPackage,TargetPackage,LocalAuthor,TargetAuthor"
+        Object.keys(mLocal).forEach(function (k) {
+          var oL = mLocal[k];
+          var oT = mTarget[k];
+          aRows.push({
+            ObjectType: oL.ObjectType,
+            ObjectName: oL.ObjectName,
+            ExistenceStatus: oT ? "BOTH" : "LOCAL_ONLY",
+            LocalPackage: oL.PackageName || "",
+            TargetPackage: oT ? (oT.PackageName || "") : "",
+            LocalAuthor: oL.PersonResponsible || "",
+            TargetAuthor: oT ? (oT.PersonResponsible || "") : "",
+            ServerType: oM.getProperty("/matrixServerType") || "L"
+          });
+        });
+        Object.keys(mTarget).forEach(function (k) {
+          if (mLocal[k]) { return; }
+          var oT = mTarget[k];
+          aRows.push({
+            ObjectType: oT.ObjectType,
+            ObjectName: oT.ObjectName,
+            ExistenceStatus: "TARGET_ONLY",
+            LocalPackage: "",
+            TargetPackage: oT.PackageName || "",
+            LocalAuthor: "",
+            TargetAuthor: oT.PersonResponsible || "",
+            ServerType: oM.getProperty("/matrixServerType") || "L"
+          });
+        });
+
+        if (sStatusFilter) {
+          aRows = aRows.filter(function (o) { return o.ExistenceStatus === sStatusFilter; });
+        }
+        return aRows;
       });
+    },
 
+    onButtonSearchMatrixPress: function () {
+      var oM = this.getView().getModel("objSearch");
       var that = this;
-      oBinding.requestContexts(0, 1000).then(function (aCtx) {
-        var aData = aCtx.map(function (c) { return c.getObject(); });
-        oM.setProperty("/countMatrix", aData.length);
-        that.byId("tblMatrix").setModel(new JSONModel(aData), "objSearch");
+
+      // Do NOT call CompareMatrix OData — ZCR_SCORT_OBJ_M (UNION ALL) dumps on S40:
+      // ST22 CX_SADL_DUMP_APPL_MODEL_ERROR / STOB ZCR_SCORT_OBJ_M.
+      // Existence = synthesize from LocalObjects + TargetObjects only.
+      oM.setProperty("/busyMatrix", true);
+      this._synthesizeMatrixFromSides().then(function (aRows) {
+        that._setRows("matrixRows", aRows, "countMatrix");
         oM.setProperty("/busyMatrix", false);
         that._bMatrixLoaded = true;
-      }).catch(function (oErr) {
+        var nLocalOnly = aRows.filter(function (r) { return r.ExistenceStatus === "LOCAL_ONLY"; }).length;
+        var nBoth = aRows.filter(function (r) { return r.ExistenceStatus === "BOTH"; }).length;
+          MessageToast.show("Existence: " + nBoth + " BOTH, " + nLocalOnly + " LOCAL_ONLY");
+      }).catch(function () {
         oM.setProperty("/busyMatrix", false);
-        MessageBox.warning("Matrix OData error: " + (oErr.message || oErr), {
-          onClose: function () { that._loadMatrixMock(); }
-        });
+        that._loadMatrixMock();
       });
     },
 
@@ -265,57 +486,21 @@ sap.ui.define([
     _loadMatrixMock: function () {
       var oM = this.getView().getModel("objSearch");
       var aMock = [
-        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_R_SRC",           ExistenceStatus: "BOTH",        LocalPackage: "ZSCORT_SAP05", TargetPackage: "ZSCORT_TARGET" },
-        { ObjectType: "DDLS", ObjectName: "ZIR_SCORT_OBJ_L",           ExistenceStatus: "BOTH",        LocalPackage: "ZSCORT_SAP05", TargetPackage: "ZSCORT_TARGET" },
-        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_COMPRESSION_UTL", ExistenceStatus: "LOCAL_ONLY",  LocalPackage: "ZSCORT_SAP05", TargetPackage: "" },
-        { ObjectType: "TABL", ObjectName: "ZA_SCORT_T",                ExistenceStatus: "LOCAL_ONLY",  LocalPackage: "ZSCORT_SAP05", TargetPackage: "" },
-        { ObjectType: "PROG", ObjectName: "ZOLD_PROG_AT_TARGET",       ExistenceStatus: "TARGET_ONLY", LocalPackage: "",             TargetPackage: "ZSCORT_TARGET" }
+        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_R_SRC",           ExistenceStatus: "BOTH",        LocalPackage: "ZSCORT_SAP05", TargetPackage: "ZSCORT_TARGET", LocalAuthor: "DEVELOPER" },
+        { ObjectType: "DDLS", ObjectName: "ZIR_SCORT_OBJ_L",           ExistenceStatus: "BOTH",        LocalPackage: "ZSCORT_SAP05", TargetPackage: "ZSCORT_TARGET", LocalAuthor: "DEVELOPER" },
+        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_COMPRESSION_UTL", ExistenceStatus: "LOCAL_ONLY",  LocalPackage: "ZSCORT_SAP05", TargetPackage: "", LocalAuthor: "DEVELOPER" },
+        { ObjectType: "TABL", ObjectName: "ZA_SCORT_T",                ExistenceStatus: "LOCAL_ONLY",  LocalPackage: "ZSCORT_SAP05", TargetPackage: "", LocalAuthor: "DEVELOPER" },
+        { ObjectType: "PROG", ObjectName: "ZOLD_PROG_AT_TARGET",       ExistenceStatus: "TARGET_ONLY", LocalPackage: "",             TargetPackage: "ZSCORT_TARGET", LocalAuthor: "" }
       ];
       var sStatusFilter = oM.getProperty("/matrixFilter") || "";
-      var aFiltered = sStatusFilter ? aMock.filter(function(o) { return o.ExistenceStatus === sStatusFilter; }) : aMock;
-      oM.setProperty("/countMatrix", aFiltered.length);
-      this.byId("tblMatrix").setModel(new JSONModel(aFiltered), "objSearch");
+      var aFiltered = this._applyClientFilters(aMock, "matrix");
+      if (sStatusFilter) {
+        aFiltered = aFiltered.filter(function (o) { return o.ExistenceStatus === sStatusFilter; });
+      }
+      this._setRows("matrixRows", aFiltered, "countMatrix");
       this._bMatrixLoaded = true;
-      MessageToast.show("Mock Matrix data loaded");
+      MessageToast.show("Sample existence rows (offline)");
     },
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  FILTER BUILDER
-    // ─────────────────────────────────────────────────────────────────────
-
-    _buildObjectFilters: function () {
-      var oM = this.getView().getModel("objSearch");
-      var aFilters = [];
-
-      var sObjName = (oM.getProperty("/filterObjName") || "").trim();
-      if (sObjName) {
-        aFilters.push(new Filter("ObjectName", FilterOperator.Contains, sObjName.replace(/\*/g, "")));
-      }
-
-      var aTypes = oM.getProperty("/filterObjTypes") || [];
-      if (aTypes.length > 0) {
-        var aTypeFilters = aTypes.map(function (t) {
-          return new Filter("ObjectType", FilterOperator.EQ, t);
-        });
-        aFilters.push(new Filter({ filters: aTypeFilters, and: false }));
-      }
-
-      var sPackage = (oM.getProperty("/filterPackage") || "").trim();
-      if (sPackage) {
-        aFilters.push(new Filter("PackageName", FilterOperator.Contains, sPackage.replace(/\*/g, "")));
-      }
-
-      var sAuthor = (oM.getProperty("/filterAuthor") || "").trim();
-      if (sAuthor) {
-        aFilters.push(new Filter("PersonResponsible", FilterOperator.Contains, sAuthor.replace(/\*/g, "")));
-      }
-
-      return aFilters;
-    },
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  ROW ACTIONS
-    // ─────────────────────────────────────────────────────────────────────
 
     onTableLocalSelectionChange: function (oEvent) {
       var oCtx = oEvent.getParameter("listItem") && oEvent.getParameter("listItem").getBindingContext("objSearch");
@@ -347,17 +532,21 @@ sap.ui.define([
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, sServer, oObj.ExistenceStatus || "BOTH");
     },
 
-    onColumnListItemViewSourcePress: function(oEvent) { this.onButtonViewSourcePress(oEvent); },
+    onColumnListItemViewSourcePress: function (oEvent) { this.onButtonViewSourcePress(oEvent); },
 
     onButtonViewSourcePress: function (oEvent) {
       var oCtx = oEvent.getSource().getBindingContext("objSearch");
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
-      
+
       var sServerType = oObj.ServerType || "L";
-      // If from Target table, it's 'T'
-      if (oCtx.getPath().indexOf("TargetObjects") > -1) { sServerType = "T"; }
+      var sPath = oCtx.getPath() || "";
+      if (sPath.indexOf("targetRows") > -1 || sPath.indexOf("TargetObjects") > -1) { sServerType = "T"; }
       if (oObj.ExistenceStatus === "TARGET_ONLY") { sServerType = "T"; }
+      if (oObj.ExistenceStatus === "LOCAL_ONLY") { sServerType = "L"; }
+      if (oObj.ExistenceStatus === "BOTH") {
+        sServerType = this.getView().getModel("objSearch").getProperty("/matrixServerType") || "L";
+      }
 
       this._openSourceDialog(oObj.ObjectType, oObj.ObjectName, sServerType);
     },
@@ -369,10 +558,6 @@ sap.ui.define([
     onButtonExportTargetPress: function () {
       MessageToast.show("Export Target — TODO: use sap.ui.export.Spreadsheet");
     },
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  FORMATTERS
-    // ─────────────────────────────────────────────────────────────────────
 
     formatDate: function (sDate) {
       if (!sDate || sDate.length < 8) { return sDate || ""; }

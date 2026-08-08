@@ -50,11 +50,9 @@ define root view entity ZCR_SCORT_OBJ_M
       @UI.identification: [{ position: 70 }]
       TargetAuthor,
 
-      @UI.lineItem: [{
-          position: 80,
-          label: 'Existence Status',
-          criticality: 'ExistenceStatusCriticality'
-      }]
+      " Không dùng criticality: ExistenceStatusCriticality — field không tồn tại
+      " → CX_SADL_DUMP_APPL_MODEL_ERROR / STOB ZCR_SCORT_OBJ_M trên S40.
+      @UI.lineItem: [{ position: 80, label: 'Existence Status' }]
       @UI.identification: [{ position: 80 }]
       ExistenceStatus,
 

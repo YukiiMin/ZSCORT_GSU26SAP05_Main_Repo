@@ -6,7 +6,7 @@
   displayBlock="true"
   height="100%">
 
-  <f:FlexibleColumnLayout id="idAppFlexibleColumnLayout"
+  <f:FlexibleColumnLayout id="fcl"
     layout="{appView>/layout}"
     backgroundDesign="Solid"
     stateChange=".onFlexibleColumnLayoutStateChange" />

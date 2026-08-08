@@ -248,23 +248,25 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
     " 4. CẬP NHẬT DATABASE
     IF lt_catalog_modify IS NOT INITIAL OR lt_src_insert IS NOT INITIAL.
 
-      IF lt_catalog_modify IS NOT INITIAL.
-        MODIFY za05_scort_t FROM TABLE @lt_catalog_modify.
-      ENDIF.
-
-      IF lt_src_insert IS NOT INITIAL.
-        INSERT za05_scort_t_src FROM TABLE @lt_src_insert.
-      ENDIF.
-
-      IF sy-subrc = 0.
-        COMMIT WORK.
-        ev_success = abap_true.
-        ev_message = |Apply thành công TR { iv_parent_trkorr }. Đã cập nhật/thêm mới { lv_changed_count } object ({ lv_unchanged_count } object giữ nguyên).|.
-      ELSE.
-        ROLLBACK WORK.
-        ev_success = abap_false.
-        ev_message = |Lỗi Database khi cập nhật bảng Repository Header/Source.|.
-      ENDIF.
+      " INSERT array → DBSQL_DUPLICATE_KEY_ERROR khi Apply lại — dùng MODIFY (upsert).
+      TRY.
+          IF lt_catalog_modify IS NOT INITIAL.
+            MODIFY za05_scort_t FROM TABLE @lt_catalog_modify.
+          ENDIF.
+          IF lt_src_insert IS NOT INITIAL.
+            SORT lt_src_insert BY pgmid object obj_name version_no.
+            DELETE ADJACENT DUPLICATES FROM lt_src_insert
+              COMPARING pgmid object obj_name version_no.
+            MODIFY za05_scort_t_src FROM TABLE @lt_src_insert.
+          ENDIF.
+          COMMIT WORK.
+          ev_success = abap_true.
+          ev_message = |Apply thành công TR { iv_parent_trkorr }. Đã cập nhật/thêm mới { lv_changed_count } object ({ lv_unchanged_count } object giữ nguyên).|.
+        CATCH cx_root INTO DATA(lx_db).
+          ROLLBACK WORK.
+          ev_success = abap_false.
+          ev_message = |Lỗi Database Apply: { lx_db->get_text( ) }|.
+      ENDTRY.
 
     ELSE.
       ev_success = abap_true.

@@ -1,60 +1,60 @@
 sap.ui.define([
   "sap/ui/core/mvc/Controller",
-  "sap/ui/model/json/JSONModel",
   "sap/f/library"
-], function (Controller, JSONModel, fLibrary) {
+], function (Controller, fLibrary) {
   "use strict";
+
+  var LayoutType = fLibrary.LayoutType;
 
   return Controller.extend("zscort.app.controller.App", {
 
     onInit: function () {
-      // Shared appView model — layout, busy, compareMode, etc.
-      var oAppModel = new JSONModel({
-        layout: fLibrary.LayoutType.OneColumn,
-        busy: false,
-        compareMode: "L_VS_T",
-        filterStatus: "",
-        trkorr: "",
-        serverId: "TARGET",
-        hasLoaded: false,
-        noDataText: "Enter search criteria and press Load",
-        currentModule: "master",
-        actionButtonsInfo: {
-          midColumn: {
-            fullScreen: false
-          },
-          endColumn: {
-            fullScreen: false
-          }
-        }
-      });
-      this.getOwnerComponent().setModel(oAppModel, "appView");
-
       this._oRouter = this.getOwnerComponent().getRouter();
       this._oRouter.attachRouteMatched(this.onRouteMatched, this);
-      this._oRouter.initialize();
     },
 
     onRouteMatched: function (oEvent) {
       var sRouteName = oEvent.getParameter("name");
       var oAppModel = this.getOwnerComponent().getModel("appView");
 
-      if (sRouteName === "master" || sRouteName === "home") {
-        oAppModel.setProperty("/layout", fLibrary.LayoutType.OneColumn);
-        oAppModel.setProperty("/currentModule", "master");
-      } else if (sRouteName === "detail") {
-        oAppModel.setProperty("/layout", fLibrary.LayoutType.TwoColumnsMidExpanded);
-      } else if (sRouteName === "compare") {
-        // Expand the compare view fully for maximum coding space
-        oAppModel.setProperty("/layout", fLibrary.LayoutType.ThreeColumnsEndExpanded);
+      switch (sRouteName) {
+        case "master":
+        case "home":
+          oAppModel.setProperty("/layout", LayoutType.OneColumn);
+          oAppModel.setProperty("/currentModule", "master");
+          break;
+        case "detail":
+          oAppModel.setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
+          oAppModel.setProperty("/currentModule", "detail");
+          break;
+        case "compare":
+          // TR-flow: Master + Detail + Compare (end column)
+          oAppModel.setProperty("/layout", LayoutType.ThreeColumnsEndExpanded);
+          oAppModel.setProperty("/currentModule", "compare");
+          break;
+        case "objCompare":
+          // Direct compare from Object/TR Search: Begin + Mid only
+          oAppModel.setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
+          oAppModel.setProperty("/currentModule", "compare");
+          break;
+        case "objSearch":
+          // Full-width search — collapse any leftover Compare mid column
+          oAppModel.setProperty("/layout", LayoutType.OneColumn);
+          oAppModel.setProperty("/currentModule", "objSearch");
+          break;
+        case "trSearch":
+          // Same: must reset layout or TrSearch stays hidden behind Compare mid column
+          oAppModel.setProperty("/layout", LayoutType.OneColumn);
+          oAppModel.setProperty("/currentModule", "trSearch");
+          break;
+        default:
+          break;
       }
     },
 
     onFlexibleColumnLayoutStateChange: function (oEvent) {
-      var bIsNavigationArrow = oEvent.getParameter("isNavigationArrow"),
-        sLayout = oEvent.getParameter("layout");
-
-      // Replace URL with new layout string if navigated via FCL arrows
+      var bIsNavigationArrow = oEvent.getParameter("isNavigationArrow");
+      var sLayout = oEvent.getParameter("layout");
       if (bIsNavigationArrow) {
         this.getOwnerComponent().getModel("appView").setProperty("/layout", sLayout);
       }

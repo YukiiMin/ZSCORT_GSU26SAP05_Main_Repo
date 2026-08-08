@@ -1,20 +1,14 @@
 sap.ui.define([
   "zscort/app/controller/BaseController",
   "sap/ui/model/json/JSONModel",
-  "sap/ui/model/Filter",
-  "sap/ui/model/FilterOperator",
-  "sap/ui/table/TreeAutoScrollMode",
   "sap/m/MessageBox",
   "sap/m/MessageToast",
-  "sap/ui/core/ValueState"
-], function (BaseController, JSONModel, Filter, FilterOperator, TreeAutoScrollMode, MessageBox, MessageToast, ValueState) {
+  "sap/ui/core/ValueState",
+  "zscort/app/util/ValueHelp"
+], function (BaseController, JSONModel, MessageBox, MessageToast, ValueState, ValueHelp) {
   "use strict";
 
   return BaseController.extend("zscort.app.controller.TrSearch", {
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  LIFECYCLE
-    // ─────────────────────────────────────────────────────────────────────
 
     onInit: function () {
       var oModel = new JSONModel({
@@ -42,11 +36,22 @@ sap.ui.define([
 
     _onRouteMatched: function () {
       this._app().setProperty("/currentModule", "trSearch");
+      // Ensure this page is the visible begin-column page (FCL may keep ObjSearch on top)
+      this._ensureBeginVisible();
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  MODULE SWITCH
-    // ─────────────────────────────────────────────────────────────────────
+    _ensureBeginVisible: function () {
+      try {
+        var oFcl = this.getOwnerComponent().getRootControl().byId("fcl");
+        if (!oFcl) { return; }
+        var oView = this.getView();
+        var sId = oView.getId();
+        if (typeof oFcl.to === "function") {
+          oFcl.to(sId);
+        }
+      } catch (e) { /* ignore */ }
+    },
+
 
     onModuleSwitch: function (oEvent) {
       var sKey = oEvent.getParameter("item").getKey();
@@ -56,10 +61,6 @@ sap.ui.define([
         default: break;
       }
     },
-
-    // ─────────────────────────────────────────────────────────────────────
-    //  SEARCH
-    // ─────────────────────────────────────────────────────────────────────
 
     onSearch: function () {
       var sTab = this.getView().getModel("trSearch").getProperty("/activeTab");
@@ -90,52 +91,123 @@ sap.ui.define([
       this._bFlatLoaded = false;
     },
 
-    // ─── Tree Search (ZCE_SCORT_TR_TREE via ZC_SCORT_TR_TREE) ──────────
 
-    _searchTree: function () {
-      var oM   = this.getView().getModel("trSearch");
-      var oTrM = this.getOwnerComponent().getModel("trModel");
-      oM.setProperty("/busyTree", true);
+    _trServiceUri: function () {
+      var sUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.trService.uri;
+      return String(sUri || "").replace(/\/?$/, "/");
+    },
 
-      if (!oTrM) {
-        this._loadTreeMock();
+    _applyTreeRows: function (aFlat, bSilent) {
+      var oM = this.getView().getModel("trSearch");
+      var oTree = this.byId("trTreeTable");
+      if (!oTree) {
+        oM.setProperty("/busyTree", false);
         return;
       }
+      var oTreeData = this._buildTreeData(aFlat || []);
+      oTree.setModel(new JSONModel(oTreeData), "trTree");
+      oTree.bindRows({
+        path: "trTree>/",
+        parameters: { arrayNames: ["children"] }
+      });
+      setTimeout(function () {
+        try { oTree.expandToLevel(3); } catch (e) { /* ignore */ }
+      }, 0);
+      oM.setProperty("/busyTree", false);
+      if (bSilent) { return; }
+      var nObj = (aFlat || []).filter(function (n) { return n.NodeType === "OBJ"; }).length;
+      if (!(aFlat && aFlat.length)) {
+        MessageToast.show("No TR matched");
+      } else {
+        MessageToast.show(aFlat.length + " node(s), " + nObj + " object(s)");
+      }
+    },
 
-      var aFilters = this._buildTrFilters();
-      var oBinding = oTrM.bindList("/TrTree", null, null, aFilters, {
-        $select: "NodeId,ParentNodeId,TreeLevel,NodeType,Trkorr,ParentTrkorr,Description,Owner,As4date,TrStatus,ObjName,ObjType,Pgmid",
-        $$operationMode: "Server"
+    _clientFilterTree: function (aFlat) {
+      var oM = this.getView().getModel("trSearch");
+      var sTrkorr = (oM.getProperty("/filterTrkorr") || "").trim().toUpperCase().replace(/\*/g, "");
+      var sOwner = (oM.getProperty("/filterOwner") || "").trim().toUpperCase().replace(/\*/g, "");
+      var sStatus = (oM.getProperty("/filterStatus") || "").trim().toUpperCase();
+      if (sOwner === "USERNAME" || sOwner === "USER") { sOwner = ""; }
+
+      var a = aFlat || [];
+      if (!sTrkorr && !sOwner && !sStatus) { return a; }
+
+      var mKeep = {};
+      var i;
+      var bChanged;
+
+      a.forEach(function (n) {
+        var sT = String(n.Trkorr || "").toUpperCase();
+        var sP = String(n.ParentTrkorr || "").toUpperCase();
+        var sO = String(n.Owner || "").toUpperCase();
+        var sS = String(n.TrStatus || "").toUpperCase();
+        var bTrk = !sTrkorr || sT.indexOf(sTrkorr) >= 0 || sP.indexOf(sTrkorr) >= 0;
+        var bOwn = !sOwner || sO.indexOf(sOwner) >= 0;
+        var bSta = !sStatus || sS === sStatus || n.NodeType === "OBJ";
+        if (bTrk && bOwn && bSta) {
+          mKeep[n.NodeId] = true;
+        }
       });
 
-      var that = this;
-      oBinding.requestContexts(0, 2000).then(function (aCtx) {
-        var aFlat = aCtx.map(function (c) { return c.getObject(); });
-        var oTreeData = that._buildTreeData(aFlat);
-        var oTreeModel = new JSONModel(oTreeData);
-        that.byId("trTreeTable").setModel(oTreeModel, "trTree");
-
-        // Bind as tree using NodeId/ParentNodeId hierarchy
-        that.byId("trTreeTable").bindRows({
-          path:      "trTree>/",
-          parameters: {
-            arrayNames: ["children"]
+      for (i = 0; i < 5; i++) {
+        bChanged = false;
+        a.forEach(function (n) {
+          if (mKeep[n.NodeId] && n.ParentNodeId && !mKeep[n.ParentNodeId]) {
+            mKeep[n.ParentNodeId] = true;
+            bChanged = true;
           }
         });
+        if (!bChanged) { break; }
+      }
 
+      for (i = 0; i < 5; i++) {
+        bChanged = false;
+        a.forEach(function (n) {
+          if (!mKeep[n.NodeId] && n.ParentNodeId && mKeep[n.ParentNodeId]) {
+            mKeep[n.NodeId] = true;
+            bChanged = true;
+          }
+        });
+        if (!bChanged) { break; }
+      }
+
+      return a.filter(function (n) { return mKeep[n.NodeId]; });
+    },
+
+    _searchTree: function (bSilent) {
+      var oM = this.getView().getModel("trSearch");
+      var that = this;
+      var sUrlBare = this._trServiceUri() + "TrTree?$top=100";
+      var sFilter = this._buildTrODataFilter();
+      var sUrlFiltered = sFilter
+        ? (this._trServiceUri() + "TrTree?$filter=" + encodeURIComponent(sFilter) + "&$top=100")
+        : sUrlBare;
+
+      oM.setProperty("/busyTree", true);
+      if (!bSilent) {
+        MessageToast.show("Searching TR…");
+      }
+
+      function finish(aFlat) {
+        that._applyTreeRows(that._clientFilterTree(aFlat || []), bSilent);
+      }
+      function fail(oErr) {
         oM.setProperty("/busyTree", false);
-      }).catch(function (oErr) {
-        oM.setProperty("/busyTree", false);
-        MessageBox.warning("TR Tree OData error: " + (oErr.message || oErr), {
+        MessageBox.warning("TR Tree error: " + (oErr.message || oErr), {
           onClose: function () { that._loadTreeMock(); }
         });
+      }
+
+      ValueHelp.fetchJson(sUrlFiltered, 30000).then(finish).catch(function () {
+        if (!bSilent) {
+          MessageToast.show("Retry without filter…");
+        }
+        ValueHelp.fetchJson(sUrlBare, 30000).then(finish).catch(fail);
       });
     },
 
-    /**
-     * Convert flat NodeId/ParentNodeId list → nested children[] tree
-     * for JSONTreeBinding (sap.ui.table.TreeTable with arrayNames).
-     */
+    
     _buildTreeData: function (aFlat) {
       var mById  = {};
       var aRoots = [];
@@ -220,43 +292,125 @@ sap.ui.define([
       }
     },
 
-    // ─── Flat List Search (ZI_SCORT_TR_OBJ_SEARCH) ──────────────────────
+    onTreeOpenDetail: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("trTree");
+      if (!oCtx) { return; }
+      var oNode = oCtx.getObject();
+      var sTrkorr = oNode.Trkorr || oNode.ParentTrkorr;
+      if (!sTrkorr) { return; }
+      // Prefer parent request for tasks so Detail Release/Apply bind the request
+      if (oNode.NodeType === "TASK" && oNode.ParentTrkorr) {
+        sTrkorr = oNode.ParentTrkorr;
+      }
+      this._app().setProperty("/currentModule", "compare");
+      this.getOwnerComponent().getRouter().navTo("detail", {
+        trkorr: encodeURIComponent(sTrkorr)
+      });
+    },
+
+    _openTasksUnderTr: function (oTrNode) {
+      var aKids = (oTrNode && oTrNode.children) || [];
+      return aKids.filter(function (c) {
+        return c && c.NodeType === "TASK" && c.TrStatus !== "R";
+      });
+    },
+
+    _releaseErrorText: function (oErr) {
+      if (!oErr) { return "Release failed"; }
+      var s = oErr.message || String(oErr);
+      try {
+        var aErr = oErr.error && oErr.error.details;
+        if (aErr && aErr.length) {
+          s = aErr.map(function (d) { return d.message; }).filter(Boolean).join("\n") || s;
+        }
+      } catch (e) { /* ignore */ }
+      return s;
+    },
+
+    onTreeReleasePress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("trTree");
+      if (!oCtx) { return; }
+      var oNode = oCtx.getObject();
+      var sTrkorr = oNode.Trkorr;
+      if (!sTrkorr) { return; }
+      if (oNode.TrStatus === "R") {
+        MessageToast.show(sTrkorr + " already released");
+        return;
+      }
+
+      // SAP: phải Release Task trước, rồi mới Release TR cha
+      if (oNode.NodeType === "TR") {
+        var aOpen = this._openTasksUnderTr(oNode);
+        if (aOpen.length) {
+          MessageBox.error(
+            "Release task first:\n" +
+            aOpen.map(function (t) { return t.Trkorr + " (status " + (t.TrStatus || "?") + ")"; }).join("\n")
+          );
+          return;
+        }
+      }
+
+      var oOdm = this.getOwnerComponent().getModel("trModel");
+      if (!oOdm) {
+        MessageToast.show("TR service not available");
+        return;
+      }
+
+      var that = this;
+      var sKey = String(sTrkorr).replace(/'/g, "''");
+      var sPath = "/TrTree('" + sKey + "')/com.sap.gateway.srvd.zsd_scort_tr_search.v0001.ReleaseRequest(...)";
+      var sHint = oNode.NodeType === "TASK"
+        ? "Release task " + sTrkorr + "?"
+        : "Release TR " + sTrkorr + "?";
+
+      MessageBox.confirm(sHint, {
+        title: "Release Transport",
+        onClose: function (sAction) {
+          if (sAction !== MessageBox.Action.OK) { return; }
+          oOdm.bindContext(sPath).execute().then(function () {
+            MessageToast.show("Release OK: " + sTrkorr);
+            that._searchTree(true);
+          }).catch(function (oErr) {
+            MessageBox.error(that._releaseErrorText(oErr));
+          });
+        }
+      });
+    },
+
 
     onSearchFlat: function () {
       this._searchFlat();
     },
 
     _searchFlat: function () {
-      var oM   = this.getView().getModel("trSearch");
-      var oTrM = this.getOwnerComponent().getModel("trModel");
-      oM.setProperty("/busyFlat", true);
-
-      if (!oTrM) {
-        this._loadFlatMock();
-        return;
-      }
-
-      var aFilters = this._buildTrFilters();
-      var sFlatObjName = (oM.getProperty("/filterFlatObjName") || "").trim();
+      var oM = this.getView().getModel("trSearch");
+      var that = this;
+      var aParts = this._buildTrODataFilterParts();
+      var sFlatObjName = (oM.getProperty("/filterFlatObjName") || "").trim().replace(/\*/g, "");
       var sFlatObjType = (oM.getProperty("/filterFlatObjType") || "").trim();
       if (sFlatObjName) {
-        aFilters.push(new Filter("ObjectName", FilterOperator.Contains, sFlatObjName));
+        aParts.push("contains(ObjectName,'" + sFlatObjName.replace(/'/g, "''") + "')");
       }
       if (sFlatObjType) {
-        aFilters.push(new Filter("ObjectType", FilterOperator.EQ, sFlatObjType));
+        aParts.push("ObjectType eq '" + sFlatObjType.replace(/'/g, "''") + "'");
       }
+      var sFilter = aParts.join(" and ");
+      var sUrl = this._trServiceUri() + "TrObjectSearch" +
+        (sFilter ? ("?$filter=" + encodeURIComponent(sFilter) + "&$top=1000") : "?$top=1000");
 
-      var oBinding = oTrM.bindList("/TrObjectSearch", null, null, aFilters, {
-        $select: "Trkorr,ObjectType,ObjectName,Owner,TrStatus,CurrentManagingTr,ParentTrkorr"
-      });
-
-      var that = this;
-      oBinding.requestContexts(0, 1000).then(function (aCtx) {
-        var aData = aCtx.map(function (c) { return c.getObject(); });
+      oM.setProperty("/busyFlat", true);
+      ValueHelp.fetchJson(sUrl, 30000).then(function (aData) {
+        aData = aData || [];
         oM.setProperty("/countFlat", aData.length);
-        that.byId("tblFlat").setModel(new JSONModel(aData), "trSearch");
+        var oTbl = that.byId("tblFlat");
+        if (oTbl) {
+          oTbl.setModel(new JSONModel(aData), "trSearch");
+        }
         oM.setProperty("/busyFlat", false);
         that._bFlatLoaded = true;
+        if (!aData.length) {
+          MessageToast.show("No objects matched");
+        }
       }).catch(function (oErr) {
         oM.setProperty("/busyFlat", false);
         MessageBox.warning("Flat List OData error: " + (oErr.message || oErr), {
@@ -286,52 +440,80 @@ sap.ui.define([
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
     },
 
+    onFlatOpenDetail: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("trSearch");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      var sTrkorr = oObj.CurrentManagingTr || oObj.ParentTrkorr || oObj.Trkorr;
+      if (!sTrkorr) { return; }
+      this._app().setProperty("/currentModule", "compare");
+      this.getOwnerComponent().getRouter().navTo("detail", {
+        trkorr: encodeURIComponent(sTrkorr)
+      });
+    },
+
     onExportFlat: function () {
       MessageToast.show("Export — TODO: sap.ui.export.Spreadsheet");
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  FILTER BUILDER
-    // ─────────────────────────────────────────────────────────────────────
-
-    _buildTrFilters: function () {
+    /**
+     * Prefer eq / startswith — avoid OData contains() which RAP custom entity
+     * often cannot convert to ranges (empty result / HTTP 500).
+     */
+    _buildTrODataFilterParts: function () {
       var oM = this.getView().getModel("trSearch");
-      var aFilters = [];
+      var aParts = [];
 
-      var sTrkorr = (oM.getProperty("/filterTrkorr") || "").trim();
+      var sTrkorr = (oM.getProperty("/filterTrkorr") || "").trim().toUpperCase();
       if (sTrkorr) {
-        aFilters.push(new Filter("Trkorr", FilterOperator.Contains, sTrkorr.replace(/\*/g, "")));
+        var bWild = sTrkorr.indexOf("*") >= 0;
+        sTrkorr = sTrkorr.replace(/\*/g, "").replace(/'/g, "''");
+        if (sTrkorr) {
+          aParts.push(bWild
+            ? ("startswith(Trkorr,'" + sTrkorr + "')")
+            : ("Trkorr eq '" + sTrkorr + "'"));
+        }
       }
 
-      var sOwner = (oM.getProperty("/filterOwner") || "").trim();
-      if (sOwner) {
-        aFilters.push(new Filter("Owner", FilterOperator.Contains, sOwner));
+      var sOwner = (oM.getProperty("/filterOwner") || "").trim().toUpperCase();
+      // Ignore placeholder text accidentally typed into the field
+      if (sOwner && sOwner !== "USERNAME" && sOwner !== "USER") {
+        sOwner = sOwner.replace(/\*/g, "").replace(/'/g, "''");
+        if (sOwner) {
+          aParts.push("startswith(Owner,'" + sOwner + "')");
+        }
       }
 
       var sDateFrom = (oM.getProperty("/filterDateFrom") || "").trim();
-      var sDateTo   = (oM.getProperty("/filterDateTo")   || "").trim();
+      var sDateTo = (oM.getProperty("/filterDateTo") || "").trim();
       if (sDateFrom) {
-        aFilters.push(new Filter("As4date", FilterOperator.GE, sDateFrom));
+        aParts.push("As4date ge '" + sDateFrom.replace(/'/g, "''") + "'");
       }
       if (sDateTo) {
-        aFilters.push(new Filter("As4date", FilterOperator.LE, sDateTo));
+        aParts.push("As4date le '" + sDateTo.replace(/'/g, "''") + "'");
       }
 
       var sStatus = (oM.getProperty("/filterStatus") || "").trim();
       if (sStatus) {
-        aFilters.push(new Filter("TrStatus", FilterOperator.EQ, sStatus));
+        aParts.push("TrStatus eq '" + sStatus.replace(/'/g, "''") + "'");
       }
 
-      return aFilters;
+      return aParts;
     },
 
-    // ─────────────────────────────────────────────────────────────────────
-    //  FORMATTERS
-    // ─────────────────────────────────────────────────────────────────────
+    _buildTrODataFilter: function () {
+      return this._buildTrODataFilterParts().join(" and ");
+    },
 
-    formatDate: function (sDate) {
-      if (!sDate || sDate.length < 8) { return sDate || ""; }
-      return sDate.substring(0, 4) + "-" + sDate.substring(4, 6) + "-" + sDate.substring(6, 8);
+    formatDate: function (vDate) {
+      if (!vDate) { return ""; }
+      var s = String(vDate);
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) { return s.substring(0, 10); }
+      var sDigits = s.replace(/\D/g, "");
+      if (sDigits.length >= 8) {
+        return sDigits.substring(0, 4) + "-" + sDigits.substring(4, 6) + "-" + sDigits.substring(6, 8);
+      }
+      return s;
     },
 
     formatTrStatus: function (sStatus) {

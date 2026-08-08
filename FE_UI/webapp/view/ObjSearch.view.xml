@@ -5,13 +5,12 @@
   xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"
   xmlns:core="sap.ui.core">
 
-  <Page id="idObjSearchPage" showHeader="false" backgroundDesign="List">
+  <Page id="idObjSearchPage" showHeader="true" backgroundDesign="List">
 
-    <!-- ── Shell Navigation Bar ── -->
     <customHeader>
       <Bar>
         <contentLeft>
-          <Title text="SCORT — SAP Cross-system Object Replication Toolkit" />
+          <Title text="SCORT — Object Search" />
         </contentLeft>
         <contentMiddle>
           <SegmentedButton
@@ -33,7 +32,6 @@
     <content>
       <VBox height="100%">
 
-        <!-- ── Filter Header ── -->
         <Panel headerText="Search &amp; Filter" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
           <content>
             <HBox alignItems="End" wrap="Wrap" class="sapUiTinyMargin">
@@ -104,7 +102,14 @@
                   <Button id="idClearButton"
                     text="Clear"
                     type="Transparent"
-                    press=".onClearButtonPress" />
+                    press=".onClearButtonPress"
+                    class="sapUiTinyMarginEnd" />
+                  <Button id="idNavTrReleaseButton"
+                    text="TR Search / Release"
+                    icon="sap-icon://shipping-status"
+                    type="Emphasized"
+                    press=".onButtonNavTrReleasePress"
+                    tooltip="Open TR Search, then open a TR for Release / Apply" />
                 </HBox>
               </VBox>
 
@@ -112,7 +117,6 @@
           </content>
         </Panel>
 
-        <!-- ── Result Tabs: Local / Target / Compare Matrix ── -->
         <IconTabBar
           id="idModeIconTabBar"
           selectedKey="{objSearch>/activeTab}"
@@ -130,7 +134,7 @@
               <content>
                 <VBox height="100%">
                   <Toolbar>
-                    <Title text="Objects on Local Server (S40)" />
+                    <Title text="Objects on Local Server — S40" />
                     <ToolbarSpacer />
                     <Label text="{= ${objSearch>/countLocal} + ' object(s)'}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportLocalPress" />
@@ -141,7 +145,11 @@
                     mode="SingleSelectMaster"
                     selectionChange=".onTableLocalSelectionChange"
                     alternateRowColors="true"
-                    sticky="ColumnHeaders">
+                    sticky="ColumnHeaders"
+                    growing="true"
+                    growingThreshold="50"
+                    growingScrollToLoad="true"
+                    items="{path: 'objSearch>/localRows'}">
                     <columns>
                       <Column width="6rem"><Text text="Type" /></Column>
                       <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
@@ -200,7 +208,11 @@
                     mode="SingleSelectMaster"
                     selectionChange=".onTableTargetSelectionChange"
                     alternateRowColors="true"
-                    sticky="ColumnHeaders">
+                    sticky="ColumnHeaders"
+                    growing="true"
+                    growingThreshold="50"
+                    growingScrollToLoad="true"
+                    items="{path: 'objSearch>/targetRows'}">
                     <columns>
                       <Column width="6rem"><Text text="Type" /></Column>
                       <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
@@ -238,13 +250,13 @@
             <!-- TAB 3: Compare Matrix (BOTH / LOCAL_ONLY / TARGET_ONLY) -->
             <IconTabFilter
               key="matrix"
-              text="Compare Matrix"
+              text="Existence"
               icon="sap-icon://split"
               count="{objSearch>/countMatrix}">
               <content>
                 <VBox height="100%">
                   <Toolbar>
-                    <Title text="Existence Status: Local vs Target" />
+                    <Title text="Existence status" />
                     <ToolbarSpacer />
                     <Label text="View code as server:" class="sapUiTinyMarginEnd" />
                     <SegmentedButton
@@ -272,7 +284,11 @@
                     busy="{objSearch>/busyMatrix}"
                     noDataText="{objSearch>/noDataText}"
                     alternateRowColors="true"
-                    sticky="ColumnHeaders">
+                    sticky="ColumnHeaders"
+                    growing="true"
+                    growingThreshold="50"
+                    growingScrollToLoad="true"
+                    items="{path: 'objSearch>/matrixRows'}">
                     <columns>
                       <Column width="6rem"><Text text="Type" /></Column>
                       <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>

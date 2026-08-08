@@ -4,43 +4,50 @@
   xmlns:mvc="sap.ui.core.mvc"
   xmlns:table="sap.ui.table">
 
-  <Page id="idDetailPage" showHeader="false">
+  <Page id="idDetailPage" showHeader="true" backgroundDesign="List">
     <customHeader>
       <Bar>
         <contentLeft>
-          <Button icon="sap-icon://nav-back" press=".onButtonNavBackPress" type="Transparent" />
-          <Title text="TR Objects: {detail>/trkorr}" />
+          <Button
+            icon="sap-icon://nav-back"
+            text="TR List"
+            press=".onButtonNavBackPress"
+            type="Transparent"
+            tooltip="Back to Transport Request list" />
+          <Title text="TR Objects: {detail>/trkorr}" class="sapUiTinyMarginBegin" />
         </contentLeft>
         <contentRight>
-          <Button text="Release" press=".onReleaseButtonPress" type="Accept" tooltip="Release Transport Request" />
-          <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Emphasized" tooltip="Apply to Target Server" />
+          <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Emphasized" tooltip="Apply to Target after compare (Released TR)" />
           <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
-          <Button icon="sap-icon://decline" press=".onButtonCloseDetailPress" type="Transparent" />
+          <Button
+            icon="sap-icon://home"
+            type="Transparent"
+            press=".onButtonNavObjSearchPress"
+            tooltip="Back to Object Search" />
+          <Button icon="sap-icon://decline" press=".onButtonCloseDetailPress" type="Transparent" tooltip="Close detail" />
         </contentRight>
       </Bar>
     </customHeader>
 
     <content>
       <VBox height="100%">
-        <!-- TR Details Summary -->
         <ObjectHeader
           title="{detail>/trkorr}"
           intro="Selected Transport Request">
           <attributes>
             <ObjectAttribute title="Target Server" text="{appView>/serverId}" />
+            <ObjectAttribute title="Info" text="{detail>/message}" />
           </attributes>
         </ObjectHeader>
 
-        <!-- Objects List with Compare Status -->
         <table:Table
           id="idObjectsTable"
-          selectionMode="Single"
-          rowSelectionChange=".onTableObjectRowSelectionChange"
-          rows="{
-            path: 'detail>/objects'
-          }"
-          busy="{detail>/busy}">
-          
+          selectionMode="None"
+          visibleRowCount="12"
+          busy="{detail>/busy}"
+          noData="{= ${detail>/message} || 'No data' }"
+          rows="{path: 'detail>/objects'}">
+
           <table:columns>
             <table:Column width="5rem">
               <Label text="Type" />
@@ -48,7 +55,7 @@
                 <Text text="{detail>ObjectType}" />
               </table:template>
             </table:Column>
-            
+
             <table:Column>
               <Label text="Object Name" />
               <table:template>
@@ -59,9 +66,9 @@
             <table:Column width="10rem">
               <Label text="Compare Status" />
               <table:template>
-                <ObjectStatus 
-                  text="{detail>CompareStatus}" 
-                  state="{path: 'detail>CompareStatus', formatter: '.formatCompareStatus'}" 
+                <ObjectStatus
+                  text="{detail>CompareStatus}"
+                  state="{path: 'detail>CompareStatus', formatter: '.formatCompareStatus'}"
                   icon="{path: 'detail>CompareStatus', formatter: '.formatCompareIcon'}" />
               </table:template>
             </table:Column>
@@ -70,15 +77,17 @@
               <Label text="Action" />
               <table:template>
                 <HBox>
-                  <Button 
-                    tooltip="Compare Code" 
-                    icon="sap-icon://compare-2" 
-                    type="Transparent" 
+                  <Button
+                    tooltip="Compare Code"
+                    icon="sap-icon://compare-2"
+                    type="Transparent"
+                    enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
                     press=".onButtonComparePress" />
-                  <Button 
-                    tooltip="View Source Code" 
-                    icon="sap-icon://detail-view" 
-                    type="Transparent" 
+                  <Button
+                    tooltip="View Source Code"
+                    icon="sap-icon://detail-view"
+                    type="Transparent"
+                    enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
                     press=".onButtonViewSourcePress" />
                 </HBox>
               </table:template>

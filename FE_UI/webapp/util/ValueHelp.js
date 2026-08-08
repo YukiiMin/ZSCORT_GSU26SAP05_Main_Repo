@@ -63,8 +63,19 @@ sap.ui.define([
       var sPath = oF.sPath || oF.getPath && oF.getPath();
       var sOp = oF.sOperator || (oF.getOperator && oF.getOperator());
       var vVal = oF.oValue1 !== undefined ? oF.oValue1 : (oF.getValue1 && oF.getValue1());
+      if (!sPath) { return ""; }
+      var sEsc = String(vVal).replace(/'/g, "''");
       if (sOp === "EQ" || sOp === FilterOperator.EQ) {
-        return sPath + " eq '" + String(vVal).replace(/'/g, "''") + "'";
+        return sPath + " eq '" + sEsc + "'";
+      }
+      if (sOp === "StartsWith" || sOp === FilterOperator.StartsWith) {
+        return "startswith(" + sPath + ",'" + sEsc + "')";
+      }
+      if (sOp === "EndsWith" || sOp === FilterOperator.EndsWith) {
+        return "endswith(" + sPath + ",'" + sEsc + "')";
+      }
+      if (sOp === "Contains" || sOp === FilterOperator.Contains) {
+        return "contains(" + sPath + ",'" + sEsc + "')";
       }
       return "";
     }).filter(Boolean).join(" and ");

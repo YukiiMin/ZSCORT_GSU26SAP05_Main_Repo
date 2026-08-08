@@ -17,9 +17,11 @@ ENDCLASS.
 CLASS zcl026_scort_release_service IMPLEMENTATION.
 
   METHOD process_release.
+    DATA lv_fm_subrc TYPE sysubrc.
+    DATA lv_try      TYPE i.
+
     ev_success = abap_false.
 
-    " 1. Đọc thông tin từ bảng E070 để xác định loại Request
     SELECT SINGLE trkorr, strkorr, trstatus FROM e070
       WHERE trkorr = @iv_trkorr
       INTO @DATA(ls_e070).
@@ -30,22 +32,39 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Tự động xác định Request Type
     ev_request_type = COND #( WHEN ls_e070-strkorr IS NOT INITIAL THEN 'TASK' ELSE 'REQUEST' ).
     ev_status       = ls_e070-trstatus.
 
-    " 2. Kiểm tra nếu đã Released trước đó
-    IF ls_e070-trstatus = 'R'.
-      ev_message = |{ COND string( WHEN ev_request_type = 'TASK' THEN 'Task' ELSE 'Transport Request' ) } { iv_trkorr } đã ở trạng thái Released.|.
+    " Đã Released
+    IF ls_e070-trstatus = 'R' OR ls_e070-trstatus = 'N'.
+      ev_success = abap_true.
+      ev_message = |{ COND string( WHEN ev_request_type = 'TASK' THEN 'Task' ELSE 'TR' ) } { iv_trkorr } đã Released (status={ ls_e070-trstatus }).|.
       RETURN.
     ENDIF.
 
-    " 3. Gọi Function Module chuẩn của SAP để Release (Không dính dáng tới Target Apply)
+    " O = Release started / đang export — không gọi CTS lại
+    IF ls_e070-trstatus = 'O'.
+      DO 5 TIMES.
+        lv_try = lv_try + 1.
+        WAIT UP TO 1 SECONDS.
+        SELECT SINGLE trstatus FROM e070 WHERE trkorr = @iv_trkorr INTO @ev_status.
+        IF ev_status = 'R' OR ev_status = 'N'.
+          ev_success = abap_true.
+          ev_message = |Export xong: { iv_trkorr } → status { ev_status }.|.
+          RETURN.
+        ENDIF.
+      ENDDO.
+      ev_success = abap_true.
+      ev_message = |{ iv_trkorr } đang export (status O). Chờ SE09/STMS xong → R, rồi Search lại. Compare/Apply cần R.|.
+      RETURN.
+    ENDIF.
+
     CALL FUNCTION 'TR_RELEASE_REQUEST'
       EXPORTING
-        iv_trkorr                  = iv_trkorr
-        iv_dialog                  = iv_dialog
-        iv_display_export_log      = abap_false
+        iv_trkorr             = iv_trkorr
+        iv_dialog             = iv_dialog
+        iv_display_export_log = abap_false
+        iv_success_message    = abap_false
       EXCEPTIONS
         cts_initialization_failure = 1
         enqueue_failed             = 2
@@ -62,20 +81,55 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
         cancelled                  = 13
         OTHERS                     = 14.
 
-    IF sy-subrc = 0 OR sy-subrc = 10.
-      ev_success = abap_true.
-      ev_status  = 'R'.
+    lv_fm_subrc = sy-subrc.
 
-      IF ev_request_type = 'TASK'.
-        ev_message = |Release thành công Task { iv_trkorr }. Object đã merge về TR Cha { ls_e070-strkorr }.|.
+    IF lv_fm_subrc = 0 OR lv_fm_subrc = 10 OR lv_fm_subrc = 12.
+      " Chờ export (Request thường D→O→R)
+      CLEAR lv_try.
+      DO 8 TIMES.
+        lv_try = lv_try + 1.
+        SELECT SINGLE trstatus FROM e070 WHERE trkorr = @iv_trkorr INTO @ev_status.
+        IF ev_status = 'R' OR ev_status = 'N'.
+          EXIT.
+        ENDIF.
+        WAIT UP TO 1 SECONDS.
+      ENDDO.
+      SELECT SINGLE trstatus FROM e070 WHERE trkorr = @iv_trkorr INTO @ev_status.
+
+      IF ev_status = 'R' OR ev_status = 'N'.
+        ev_success = abap_true.
+        IF ev_request_type = 'TASK'.
+          ev_message = |Release Task { iv_trkorr } OK. Object merge về TR { ls_e070-strkorr }.|.
+        ELSE.
+          ev_message = |Release TR { iv_trkorr } OK (status { ev_status }).|.
+        ENDIF.
+      ELSEIF ev_status = 'O'.
+        " CTS đã nhận release — export chưa xong (bình thường với TR cha)
+        ev_success = abap_true.
+        ev_message = |Release { iv_trkorr } đã start (status O). Chờ export SE09 → R rồi Search. Compare/Apply cần R.|.
       ELSE.
-        ev_message = |Release thành công Transport Request { iv_trkorr }.|.
+        ev_success = abap_false.
+        ev_message = |Release { iv_trkorr } chưa xong (status={ ev_status }, FM={ lv_fm_subrc }). Xem SE09.|.
       ENDIF.
-
-    ELSE.
-      ev_success = abap_false.
-      ev_message = |Lỗi khi Release { iv_trkorr } (Mã lỗi Subrc: { sy-subrc }).|.
+      RETURN.
     ENDIF.
+
+    ev_success = abap_false.
+    CASE lv_fm_subrc.
+      WHEN 1.  ev_message = |Release { iv_trkorr }: CTS init failed|.
+      WHEN 2.  ev_message = |Release { iv_trkorr }: locked — SE03 unlock / thử lại|.
+      WHEN 3.  ev_message = |Release { iv_trkorr }: no authorization|.
+      WHEN 4.  ev_message = |Release { iv_trkorr }: invalid request|.
+      WHEN 5.  ev_message = |Release { iv_trkorr }: already released|.
+      WHEN 6.  ev_message = |Release { iv_trkorr }: cannot repeat yet|.
+      WHEN 7.  ev_message = |Release { iv_trkorr }: object check — SE09 Release xem log (không chỉ Activate; có thể $TMP/ATC/syntax)|.
+      WHEN 8.  ev_message = |Release { iv_trkorr }: object conversion error|.
+      WHEN 9.  ev_message = |Release { iv_trkorr }: model check error|.
+      WHEN 11. ev_message = |Release { iv_trkorr }: released with error — SE09 export log|.
+      WHEN 13. ev_message = |Release { iv_trkorr }: cancelled|.
+      WHEN OTHERS.
+        ev_message = |Release { iv_trkorr } failed (subrc { lv_fm_subrc })|.
+    ENDCASE.
   ENDMETHOD.
 
 ENDCLASS.

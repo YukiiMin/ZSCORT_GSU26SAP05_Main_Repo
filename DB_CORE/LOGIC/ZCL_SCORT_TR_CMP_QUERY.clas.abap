@@ -1,12 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_TR_CMP_QUERY
-*"* REQ3 — BƯỚC 1 (Cột Master): quét object của Transport Request và tô
-*"* Status Badge chỉ bằng so Hash. KHÔNG giải nén GZIP, KHÔNG chạy LCS.
-*"*
-*"* Query Provider của Custom Entity ZCR_SCORT_TR_CMP.
-*"* Filter: Trkorr (bắt buộc), ServerId (mặc định TGT),
-*"*         ReleasedOnly (mặc định 'X' theo SPEC — TR phải đã Release).
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_tr_cmp_query DEFINITION
   PUBLIC
   FINAL
@@ -56,12 +47,12 @@ CLASS zcl_scort_tr_cmp_query DEFINITION
       tt_entity TYPE STANDARD TABLE OF zcr_scort_tr_cmp WITH DEFAULT KEY,
       tt_e071   TYPE STANDARD TABLE OF e071 WITH DEFAULT KEY,
       BEGIN OF ty_filters,
-        trkorr          TYPE trkorr,
-        server_id       TYPE c LENGTH 10,
-        object_type     TYPE trobjtype,
-        object_name     TYPE sobj_name,
-        compare_status  TYPE c LENGTH 20,
-        released_only   TYPE abap_bool,
+        trkorr         TYPE trkorr,
+        server_id      TYPE c LENGTH 10,
+        object_type    TYPE trobjtype,
+        object_name    TYPE sobj_name,
+        compare_status TYPE c LENGTH 20,
+        released_only  TYPE abap_bool,
       END OF ty_filters.
 
     CLASS-METHODS collect_e071
@@ -159,17 +150,17 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
       ENDIF.
 
       CLEAR ls_entity.
-      ls_entity-Trkorr            = ls_row-trkorr.
-      ls_entity-ObjectType        = ls_row-object_type.
-      ls_entity-ObjectName        = ls_row-object_name.
-      ls_entity-CompareStatus     = ls_row-compare_status.
-      ls_entity-StatusCriticality = map_criticality( ls_row-compare_status ).
-      ls_entity-OriginHash        = ls_row-origin_hash.
-      ls_entity-TargetHash        = ls_row-target_hash.
-      ls_entity-OriginLines       = ls_row-origin_lines.
-      ls_entity-TargetVers        = ls_row-target_vers.
-      ls_entity-ServerId          = lv_srv.
-      ls_entity-Message           = ls_row-message.
+      ls_entity-trkorr            = ls_row-trkorr.
+      ls_entity-objecttype        = ls_row-object_type.
+      ls_entity-objectname        = ls_row-object_name.
+      ls_entity-comparestatus     = ls_row-compare_status.
+      ls_entity-statuscriticality = map_criticality( ls_row-compare_status ).
+      ls_entity-originhash        = ls_row-origin_hash.
+      ls_entity-targethash        = ls_row-target_hash.
+      ls_entity-originlines       = ls_row-origin_lines.
+      ls_entity-targetvers        = ls_row-target_vers.
+      ls_entity-serverid          = lv_srv.
+      ls_entity-message           = ls_row-message.
       APPEND ls_entity TO lt_entity.
     ENDLOOP.
 
@@ -327,10 +318,10 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
     rs_row-origin_hash  = ls_ori-hash.
     rs_row-origin_lines = ls_ori-line_count.
 
+    " ZCL_SCORT_T_READER has no IV_SERVER_ID on S40 (ZA05_SCORT_T is single-tenant)
     ls_tgt = zcl_scort_t_reader=>read_current(
                iv_object_type = iv_object_type
-               iv_object_name = iv_object_name
-               iv_server_id   = iv_server_id ).
+               iv_object_name = iv_object_name ).
 
     rs_row-target_vers = ls_tgt-version_no.
     rs_row-target_hash = ls_tgt-hash_stored.
@@ -340,7 +331,9 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
 
     IF ls_tgt-is_new_target = abap_true.
       rs_row-compare_status = 'NEW_AT_TARGET'.
-      rs_row-message        = 'Chưa có trong ZA05_SCORT_T — lần Apply đầu'.
+      rs_row-message        = COND #(
+        WHEN ls_tgt-message IS NOT INITIAL THEN ls_tgt-message
+        ELSE 'Chưa có trong ZA05_SCORT_T — lần Apply đầu' ).
       CLEAR rs_row-target_hash.
       RETURN.
     ENDIF.

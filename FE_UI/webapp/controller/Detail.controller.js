@@ -1,18 +1,24 @@
 sap.ui.define([
   "zscort/app/controller/BaseController",
   "sap/ui/model/json/JSONModel",
-  "sap/ui/model/Filter",
-  "sap/ui/model/FilterOperator",
-  "sap/ui/core/ValueState"
-], function (BaseController, JSONModel, Filter, FilterOperator, ValueState) {
+  "sap/m/MessageToast",
+  "sap/m/MessageBox",
+  "sap/ui/core/ValueState",
+  "sap/f/library",
+  "zscort/app/util/ValueHelp"
+], function (BaseController, JSONModel, MessageToast, MessageBox, ValueState, fLibrary, ValueHelp) {
   "use strict";
+
+  var LayoutType = fLibrary.LayoutType;
 
   return BaseController.extend("zscort.app.controller.Detail", {
 
     onInit: function () {
       var oViewModel = new JSONModel({
         trkorr: "",
-        busy: false
+        busy: false,
+        objects: [],
+        message: ""
       });
       this.getView().setModel(oViewModel, "detail");
 
@@ -23,110 +29,168 @@ sap.ui.define([
       var oArgs = oEvent.getParameter("arguments");
       var sTrkorr = decodeURIComponent(oArgs.trkorr);
       var oViewModel = this.getView().getModel("detail");
-      
+
       oViewModel.setProperty("/trkorr", sTrkorr);
       this._app().setProperty("/currentModule", "detail");
-      
-      this._bindTable(sTrkorr);
+      this._app().setProperty("/trkorr", sTrkorr);
+      this._app().setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
+
+      this._loadObjects(sTrkorr);
     },
 
-    _bindTable: function (sTrkorr) {
-      var oTable = this.byId("idObjectsTable");
-      var sServerId = this._app().getProperty("/serverId") || "TARGET";
-      
-      var aFilters = [
-        new Filter("Trkorr", FilterOperator.EQ, sTrkorr),
-        new Filter("ServerId", FilterOperator.EQ, sServerId)
-      ];
+    _serviceUri: function () {
+      var oModel = this.getOwnerComponent().getModel();
+      var sUri = oModel && oModel.getServiceUrl && oModel.getServiceUrl();
+      return sUri || this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri;
+    },
 
-      var oMainModel = this.getOwnerComponent().getModel(); // mainService
-      
-      // Bind directly to /TrCmp from mainService
-      oTable.bindRows({
-        path: "/TrCmp",
-        model: "", // default model
-        filters: aFilters,
-        parameters: {
-          $select: "ObjectType,ObjectName,CompareStatus,Message"
+    /**
+     * Load TrCmp via fetch into detail>/objects (matches XML binding).
+     * OData V4 bindRows + detail> cell paths was why the table always showed "No data".
+     */
+    _loadObjects: function (sTrkorr) {
+      var oM = this.getView().getModel("detail");
+      var sServerId = this._app().getProperty("/serverId") || "TGT";
+      var that = this;
+
+      oM.setProperty("/busy", true);
+      oM.setProperty("/objects", []);
+      oM.setProperty("/message", "");
+
+      // TrCmp backend: ReleasedOnly mặc định true → Modifiable trả NOT_SUPPORTED, không lấy object.
+      var sFilter = [
+        "Trkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "'",
+        "ServerId eq '" + String(sServerId).replace(/'/g, "''") + "'"
+      ].join(" and ");
+      var sUrl = this._serviceUri().replace(/\/?$/, "/") +
+        "TrCmp?$filter=" + encodeURIComponent(sFilter);
+
+      ValueHelp.fetchJson(sUrl, 25000).then(function (aData) {
+        aData = aData || [];
+        // TR-level block only: NOT_SUPPORTED without ObjectName (e.g. not Released).
+        // Per-object NOT_SUPPORTED (TABL/DDLS…) must still appear in the table.
+        var oTrBlocked = aData.find(function (r) {
+          return r.CompareStatus === "NOT_SUPPORTED" && !(r.ObjectName || r.ObjectType);
+        });
+        if (oTrBlocked) {
+          oM.setProperty("/objects", []);
+          oM.setProperty("/busy", false);
+          oM.setProperty("/message", oTrBlocked.Message ||
+            "TR chưa Released — không mở Compare. Release trước rồi so sánh.");
+          MessageToast.show(oM.getProperty("/message"));
+          return;
         }
+        oM.setProperty("/objects", aData);
+        oM.setProperty("/busy", false);
+        if (!aData.length) {
+          oM.setProperty("/message", "No objects for this TR (or empty E071).");
+          MessageToast.show(oM.getProperty("/message"));
+          return;
+        }
+        var nOk = aData.filter(function (r) {
+          return r.CompareStatus !== "NOT_SUPPORTED";
+        }).length;
+        var nSkip = aData.length - nOk;
+        if (nOk === 0) {
+          oM.setProperty("/message", "No comparable objects (CLAS/PROG/INTF/FUNC/FUGR).");
+          MessageToast.show(oM.getProperty("/message"));
+        } else if (nSkip > 0) {
+          oM.setProperty("/message", nOk + " comparable; " + nSkip + " skipped.");
+        }
+      }).catch(function (oErr) {
+        oM.setProperty("/busy", false);
+        oM.setProperty("/message", "TrCmp error: " + (oErr.message || oErr));
+        MessageBox.warning(oM.getProperty("/message"));
       });
+    },
+
+    _invokeTrTreeAction: function (sActionName, sTrkorr) {
+      var oOdm = this.getOwnerComponent().getModel("trModel");
+      if (!oOdm) {
+        return Promise.reject(new Error("TR service (trModel) not available"));
+      }
+      var sKey = String(sTrkorr || "").toUpperCase().replace(/'/g, "''");
+      var sNs = "com.sap.gateway.srvd.zsd_scort_tr_search.v0001";
+      var sPath = "/TrTree('" + sKey + "')/" + sNs + "." + sActionName + "(...)";
+      return oOdm.bindContext(sPath).execute();
     },
 
     onReleaseButtonPress: function () {
       var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
-      if (!sTrkorr) return;
-      var oOdm = this.getOwnerComponent().getModel("trModel");
-      var oAction = oOdm.bindContext("/TrTree('" + sTrkorr + "')/com.sap.gateway.srvd.zsd_scort_tr_search.v0001.ReleaseRequest(...)");
-      
+      if (!sTrkorr) { return; }
       var that = this;
-      oAction.execute().then(function () {
-        sap.m.MessageToast.show("Release triggered successfully.");
-        that.onButtonRefreshPress(); // Refresh data to update status
+      this._invokeTrTreeAction("ReleaseRequest", sTrkorr).then(function () {
+        MessageToast.show("Release OK: " + sTrkorr);
+        that.onButtonRefreshPress();
       }).catch(function (oError) {
-        sap.m.MessageBox.error("Error triggering Release: " + oError.message);
+        MessageBox.error("Release failed: " + (oError.message || oError));
       });
     },
 
     onApplyToTargetButtonPress: function () {
       var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
-      if (!sTrkorr) return;
-      var oOdm = this.getOwnerComponent().getModel("trModel");
-      var oAction = oOdm.bindContext("/TrTree('" + sTrkorr + "')/com.sap.gateway.srvd.zsd_scort_tr_search.v0001.ApplyToTarget(...)");
-      
-      oAction.execute().then(function () {
-        sap.m.MessageToast.show("Apply to Target triggered successfully.");
+      if (!sTrkorr) { return; }
+      var that = this;
+      var oM = this.getView().getModel("detail");
+      oM.setProperty("/busy", true);
+      MessageToast.show("Applying " + sTrkorr + "…");
+      this._invokeTrTreeAction("ApplyToTarget", sTrkorr).then(function () {
+        oM.setProperty("/busy", false);
+        that._loadObjects(sTrkorr);
+        MessageToast.show("Apply OK: " + sTrkorr);
       }).catch(function (oError) {
-        sap.m.MessageBox.error("Error triggering Apply to Target: " + oError.message);
+        oM.setProperty("/busy", false);
+        MessageBox.error("Apply failed: " + (oError.message || oError));
       });
     },
 
     onButtonRefreshPress: function () {
       var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
       if (sTrkorr) {
-        this._bindTable(sTrkorr);
+        this._loadObjects(sTrkorr);
       }
     },
 
     onButtonNavBackPress: function () {
+      this._app().setProperty("/layout", LayoutType.OneColumn);
       this.getOwnerComponent().getRouter().navTo("master", {}, undefined, true);
     },
 
     onButtonCloseDetailPress: function () {
-      this.getOwnerComponent().getRouter().navTo("master", {}, undefined, true);
+      this.onButtonNavBackPress();
+    },
+
+    onButtonNavObjSearchPress: function () {
+      this.onNavObjSearch();
     },
 
     onButtonComparePress: function (oEvent) {
-      var oRow = oEvent.getSource().getParent();
-      var oCtx = oRow.getBindingContext();
-      if (!oCtx) return;
+      var oCtx = oEvent.getSource().getBindingContext("detail");
+      if (!oCtx) { return; }
 
       var sObjectType = oCtx.getProperty("ObjectType");
       var sObjectName = oCtx.getProperty("ObjectName");
+      var oApp = this._app();
 
-      // Navigate to Compare view (End Column)
       this.getOwnerComponent().getRouter().navTo("compare", {
-        objectType: encodeURIComponent(sObjectType),
-        objectName: encodeURIComponent(sObjectName)
+        objectType: sObjectType,
+        objectName: encodeURIComponent(sObjectName),
+        query: {
+          serverId: oApp.getProperty("/serverId") || "TGT",
+          mode: oApp.getProperty("/compareMode") || "L_VS_T"
+        }
       });
     },
 
     onButtonViewSourcePress: function (oEvent) {
-      var oRow = oEvent.getSource().getParent().getParent(); // Button -> HBox -> table:Row
-      if (oRow && oRow.getBindingContext) {
-        var oCtx = oRow.getBindingContext();
-        if (oCtx) {
-          var sObjectType = oCtx.getProperty("ObjectType");
-          var sObjectName = oCtx.getProperty("ObjectName");
-          var sServerId = this._app().getProperty("/serverId") || "TARGET";
-          var sServerType = (sServerId === "TARGET") ? "T" : "L";
-          this._openSourceDialog(sObjectType, sObjectName, sServerType);
-        }
-      }
+      var oCtx = oEvent.getSource().getBindingContext("detail");
+      if (!oCtx) { return; }
+      var sObjectType = oCtx.getProperty("ObjectType");
+      var sObjectName = oCtx.getProperty("ObjectName");
+      this._openSourceDialog(sObjectType, sObjectName, "L");
     },
 
-    onTableObjectRowSelectionChange: function (oEvent) {
-      // Optional: Handle row selection to show quick info, or just rely on Compare button
-    },
+    onTableObjectRowSelectionChange: function () { /* reserved */ },
 
     formatCompareStatus: function (sStatus) {
       switch ((sStatus || "").toUpperCase()) {

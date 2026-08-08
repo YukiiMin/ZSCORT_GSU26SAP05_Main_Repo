@@ -64,6 +64,7 @@ sap.ui.define([], function () {
 
       that._model = monaco.editor.createModel(sValue, sLang);
       that._editor.setModel(that._model);
+      that._editor.layout();
     }).catch(function (e) {
       that._el.innerHTML =
         "<pre style='padding:1rem;white-space:pre-wrap;font-family:monospace'>" +

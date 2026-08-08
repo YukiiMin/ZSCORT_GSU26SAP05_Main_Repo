@@ -102,7 +102,6 @@ CLASS zcl_scort_compare_query DEFINITION
       IMPORTING
         iv_object_type TYPE trobjtype
         iv_object_name TYPE sobj_name
-        iv_server_id   TYPE c
         iv_version_no  TYPE versno OPTIONAL
       CHANGING
         cs_detail      TYPE ty_detail.
@@ -344,11 +343,12 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " ZCL_SCORT_T_READER on S40 has no IV_SERVER_ID (table ZA05_SCORT_T is single-tenant).
+    " Passing iv_server_id caused SYNTAX_ERROR / CX_SY_DYN_CALL_PARAM_NOT_FOUND.
     compare_local_target(
       EXPORTING
         iv_object_type = iv_object_type
         iv_object_name = iv_object_name
-        iv_server_id   = iv_server_id
         iv_version_no  = iv_version_no
       CHANGING
         cs_detail      = rs_detail ).
@@ -447,13 +447,11 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       ls_tgt = zcl_scort_t_reader=>read_version(
                  iv_object_type = iv_object_type
                  iv_object_name = iv_object_name
-                 iv_server_id   = iv_server_id
                  iv_version_no  = lv_vers ).
     ELSE.
       ls_tgt = zcl_scort_t_reader=>read_current(
                  iv_object_type = iv_object_type
-                 iv_object_name = iv_object_name
-                 iv_server_id   = iv_server_id ).
+                 iv_object_name = iv_object_name ).
     ENDIF.
 
     IF ls_tgt-is_new_target = abap_true.

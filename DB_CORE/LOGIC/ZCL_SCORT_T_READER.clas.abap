@@ -50,7 +50,7 @@ CLASS zcl_scort_t_reader DEFINITION
         iv_object_type   TYPE trobjtype
         iv_object_name   TYPE sobj_name
 
-        iv_version_no    TYPE numc5 OPTIONAL
+        iv_version_no    TYPE versno OPTIONAL
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
@@ -77,12 +77,14 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
   METHOD read_current.
     DATA lv_vers     TYPE versno.
     DATA lv_obj_name TYPE trobj_name.
+    DATA lv_max      TYPE versno.
 
     CLEAR rs_source.
     rs_source-object_type = iv_object_type.
     rs_source-object_name = iv_object_name.
 
     lv_obj_name = CONV trobj_name( iv_object_name ).
+    CONDENSE lv_obj_name.
 
     SELECT SINGLE current_version FROM za05_scort_t
       WHERE pgmid    = @c_pgmid_r3tr
@@ -90,17 +92,26 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
         AND obj_name = @lv_obj_name
       INTO @lv_vers.
 
+    " Header thiếu / current_version = 0 nhưng SE16N đã có T_SRC → lấy MAX version
     IF sy-subrc <> 0 OR lv_vers IS INITIAL OR lv_vers = '00000'.
-      rs_source-found         = abap_false.
-      rs_source-is_new_target = abap_true.
-      rs_source-message       = 'NEW_AT_TARGET — chưa có trong ZA05_SCORT_T'.
-      RETURN.
+      SELECT MAX( version_no ) FROM za05_scort_t_src
+        WHERE pgmid    = @c_pgmid_r3tr
+          AND object   = @iv_object_type
+          AND obj_name = @lv_obj_name
+        INTO @lv_max.
+      IF lv_max IS NOT INITIAL AND lv_max <> '00000'.
+        lv_vers = lv_max.
+      ELSE.
+        rs_source-found         = abap_false.
+        rs_source-is_new_target = abap_true.
+        rs_source-message       = |NEW_AT_TARGET — chưa có { iv_object_type } { lv_obj_name } trong ZA05_SCORT_T/_SRC|.
+        RETURN.
+      ENDIF.
     ENDIF.
 
     rs_source = read_version(
       iv_object_type = iv_object_type
-      iv_object_name = iv_object_name
-
+      iv_object_name = CONV sobj_name( lv_obj_name )
       iv_version_no  = lv_vers ).
     rs_source-is_current = abap_true.
   ENDMETHOD.
@@ -119,6 +130,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     rs_source-object_name = iv_object_name.
 
     lv_obj_name = CONV trobj_name( iv_object_name ).
+    CONDENSE lv_obj_name.
 
     IF iv_version_no IS SUPPLIED AND iv_version_no IS NOT INITIAL
         AND iv_version_no <> '00000'.
@@ -164,12 +176,23 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    " REQ3 util = GZIP binary UTF-8; REQ2 Apply (ZCL026) dùng compress_text → thử cả 2.
     lv_text = zcl_scort_compression_utl=>decode_hex_to_text( lv_hex ).
+    IF lv_text IS INITIAL.
+      TRY.
+          cl_abap_gzip=>decompress_text(
+            EXPORTING gzip_in = lv_hex
+            IMPORTING text_out = lv_text ).
+        CATCH cx_root.
+          CLEAR lv_text.
+      ENDTRY.
+    ENDIF.
     IF lv_text IS INITIAL.
       rs_source-found         = abap_false.
       rs_source-decompress_ok = abap_false.
       rs_source-hash_stored   = lv_hash.
-      rs_source-message       = |Decompress failed (vers { lv_vers })|.
+      rs_source-is_new_target = abap_false.
+      rs_source-message       = |Decompress failed (vers { lv_vers }) — kiểm tra SOURCE_HEX từ Apply|.
       RETURN.
     ENDIF.
 

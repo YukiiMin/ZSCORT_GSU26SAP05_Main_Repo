@@ -7,13 +7,19 @@
   xmlns:table="sap.ui.table"
   height="100%">
 
-  <Page id="trSearchPage" showHeader="false" backgroundDesign="List">
+  <Page id="trSearchPage" showHeader="true" backgroundDesign="List">
 
-    <!-- ── Shell Navigation Bar ── -->
     <customHeader>
       <Bar>
         <contentLeft>
-          <Title text="SCORT — SAP Cross-system Object Replication Toolkit" />
+          <Button
+            id="idTrSearchBackButton"
+            icon="sap-icon://nav-back"
+            type="Transparent"
+            text="Object Search"
+            tooltip="Back to Object Search"
+            press=".onNavObjSearch" />
+          <Title text="TR Search" class="sapUiTinyMarginBegin" />
         </contentLeft>
         <contentMiddle>
           <SegmentedButton
@@ -27,7 +33,7 @@
           </SegmentedButton>
         </contentMiddle>
         <contentRight>
-          <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home" />
+          <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home — Object Search" />
         </contentRight>
       </Bar>
     </customHeader>
@@ -35,7 +41,6 @@
     <content>
       <VBox height="100%">
 
-        <!-- ── Filter Header ── -->
         <Panel headerText="TR Search Filters" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
           <content>
             <HBox alignItems="End" wrap="Wrap" class="sapUiTinyMargin">
@@ -56,7 +61,7 @@
                 <Input id="inputOwner"
                   width="10rem"
                   value="{trSearch>/filterOwner}"
-                  placeholder="USERNAME"
+                  placeholder="e.g. DEV*"
                   submit=".onSearch" />
               </VBox>
 
@@ -109,7 +114,6 @@
           </content>
         </Panel>
 
-        <!-- ── Result Tabs: Tree / Flat List ── -->
         <IconTabBar
           id="tabBarTrMode"
           selectedKey="{trSearch>/activeTab}"
@@ -204,15 +208,30 @@
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="5rem">
+                      <table:Column width="11rem">
                         <Label text="Actions" />
                         <table:template>
-                          <Button
-                            icon="sap-icon://compare-2"
-                            tooltip="Open in Code Compare"
-                            type="Transparent"
-                            visible="{= ${trTree>NodeType} === 'OBJ' }"
-                            press=".onTreeObjCompare" />
+                          <HBox>
+                            <Button
+                              text="Release"
+                              icon="sap-icon://shipping-status"
+                              tooltip="Release TR / Task"
+                              type="Emphasized"
+                              visible="{= (${trTree>NodeType} === 'TR' || ${trTree>NodeType} === 'TASK') &amp;&amp; ${trTree>TrStatus} !== 'R' }"
+                              press=".onTreeReleasePress" />
+                            <Button
+                              icon="sap-icon://detail-view"
+                              tooltip="Open TR Detail / Apply"
+                              type="Transparent"
+                              visible="{= ${trTree>NodeType} === 'TR' || ${trTree>NodeType} === 'TASK' }"
+                              press=".onTreeOpenDetail" />
+                            <Button
+                              icon="sap-icon://compare-2"
+                              tooltip="Open in Code Compare"
+                              type="Transparent"
+                              visible="{= ${trTree>NodeType} === 'OBJ' }"
+                              press=".onTreeObjCompare" />
+                          </HBox>
                         </table:template>
                       </table:Column>
                     </table:columns>
@@ -287,10 +306,16 @@
                           <ObjectStatus
                             text="{trSearch>TrStatus}"
                             state="{path:'trSearch>TrStatus', formatter:'.formatTrStatus'}" />
-                          <Button icon="sap-icon://compare-2"
-                            tooltip="Open in Code Compare"
-                            type="Transparent"
-                            press=".onFlatObjCompare" />
+                          <HBox>
+                            <Button icon="sap-icon://detail-view"
+                              tooltip="Open TR Detail (Release / Apply)"
+                              type="Transparent"
+                              press=".onFlatOpenDetail" />
+                            <Button icon="sap-icon://compare-2"
+                              tooltip="Open in Code Compare"
+                              type="Transparent"
+                              press=".onFlatObjCompare" />
+                          </HBox>
                         </cells>
                       </ColumnListItem>
                     </items>

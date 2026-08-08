@@ -54,7 +54,7 @@
       "viewName": "zscort.app.view.App",
       "type": "XML",
       "id": "app",
-      "async": true
+      "async": false
     },
     "dependencies": {
       "minUI5Version": "1.108.0",
@@ -76,7 +76,9 @@
       "i18n": {
         "type": "sap.ui.model.resource.ResourceModel",
         "settings": {
-          "bundleName": "zscort.app.i18n.i18n"
+          "bundleName": "zscort.app.i18n.i18n",
+          "supportedLocales": ["", "en", "en_US"],
+          "fallbackLocale": ""
         }
       },
       "": {
@@ -125,38 +127,52 @@
         "viewPath": "zscort.app.view",
         "controlId": "fcl",
         "transition": "slide",
-        "async": true
+        "async": true,
+        "initializeImmediately": false,
+        "clearControlAggregation": true
       },
       "routes": [
         {
           "pattern": "",
           "name": "home",
-          "target": ["master"]
+          "target": ["master"],
+          "layout": "OneColumn"
         },
         {
           "pattern": "master",
           "name": "master",
-          "target": ["master"]
+          "target": ["master"],
+          "layout": "OneColumn"
         },
         {
           "pattern": "detail/{trkorr}",
           "name": "detail",
-          "target": ["master", "detail"]
+          "target": ["master", "detail"],
+          "layout": "TwoColumnsMidExpanded"
         },
         {
           "pattern": "compare/{objectType}/{objectName}",
           "name": "compare",
-          "target": ["master", "detail", "compare"]
+          "target": ["compare"],
+          "layout": "ThreeColumnsEndExpanded"
+        },
+        {
+          "pattern": "objCompare/{objectType}/{objectName}",
+          "name": "objCompare",
+          "target": ["compareMid"],
+          "layout": "TwoColumnsMidExpanded"
         },
         {
           "pattern": "objSearch/:?query:",
           "name": "objSearch",
-          "target": ["objSearch"]
+          "target": ["objSearch"],
+          "layout": "OneColumn"
         },
         {
           "pattern": "trSearch/:?query:",
           "name": "trSearch",
-          "target": ["trSearch"]
+          "target": ["trSearch"],
+          "layout": "OneColumn"
         }
       ],
       "targets": {
@@ -164,7 +180,8 @@
           "viewName": "Master",
           "type": "View",
           "id": "masterView",
-          "controlAggregation": "beginColumnPages"
+          "controlAggregation": "beginColumnPages",
+          "clearControlAggregation": true
         },
         "detail": {
           "viewName": "Detail",
@@ -178,17 +195,26 @@
           "id": "compareView",
           "controlAggregation": "endColumnPages"
         },
+        "compareMid": {
+          "viewName": "Compare",
+          "type": "View",
+          "id": "compareMidView",
+          "controlAggregation": "midColumnPages",
+          "clearControlAggregation": true
+        },
         "objSearch": {
           "viewName": "ObjSearch",
           "type": "View",
           "id": "objSearchView",
-          "controlAggregation": "beginColumnPages"
+          "controlAggregation": "beginColumnPages",
+          "clearControlAggregation": true
         },
         "trSearch": {
           "viewName": "TrSearch",
           "type": "View",
           "id": "trSearchView",
-          "controlAggregation": "beginColumnPages"
+          "controlAggregation": "beginColumnPages",
+          "clearControlAggregation": true
         }
       }
     },
