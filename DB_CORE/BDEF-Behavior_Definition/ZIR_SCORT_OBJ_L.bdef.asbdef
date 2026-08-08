@@ -4,19 +4,16 @@
   Mode: Read-Only (lock master, no CUD operations)
   Behavior Pool: ZBP_IR_SCORT_OBJ_L (auto-generated, CCIMP empty)
 */
-managed implementation in class ZBP_IR_SCORT_OBJ_L unique;
+unmanaged implementation in class ZBP_IR_SCORT_OBJ_L unique;
 
 define behavior for ZIR_SCORT_OBJ_L
 {
-  /* Read-only: no create/update/delete */
-  lock master;
-
+  /* Static field control to guarantee read-only integrity */
   field ( readonly )
     Pgmid,
     ObjectType,
     ObjectName,
     PackageName,
     PersonResponsible,
-    CreatedOn,
-    CreatedAt;
+    CreatedOn;
 }

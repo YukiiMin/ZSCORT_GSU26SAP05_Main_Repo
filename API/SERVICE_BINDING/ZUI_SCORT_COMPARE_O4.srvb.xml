@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_SRVB" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <SRVB>
+    <SRVB_NAME>ZUI_SCORT_COMPARE_O4</SRVB_NAME>
+    <DESCRIPTION>SCORT — Compare Service Binding</DESCRIPTION>
+    <BINDING_TYPE>ODATA_V4_WEB_API</BINDING_TYPE>
+    <IS_ACTIVE>X</IS_ACTIVE>
+   </SRVB>
+  </asx:values>
+ </asx:abap>
+</abapGit>

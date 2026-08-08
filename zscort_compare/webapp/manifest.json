@@ -1,0 +1,113 @@
+{
+  "_version": "1.42.0",
+  "sap.app": {
+    "id": "zscort.compare",
+    "type": "application",
+    "i18n": "i18n/i18n.properties",
+    "title": "{{appTitle}}",
+    "description": "{{appDescription}}",
+    "applicationVersion": {
+      "version": "1.0.0"
+    },
+    "dataSources": {
+      "mainService": {
+        "uri": "/sap/opu/odata4/sap/zui_scort_compare_o4/srvd/sap/zsd_scort_compare/0001/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      }
+    },
+    "sourceTemplate": {
+      "id": "scort.req3.compare",
+      "version": "1.0.0"
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "icons": {
+      "icon": "sap-icon://compare-2"
+    },
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": false
+    }
+  },
+  "sap.ui5": {
+    "flexEnabled": false,
+    "rootView": {
+      "viewName": "zscort.compare.view.App",
+      "type": "XML",
+      "id": "app",
+      "async": false
+    },
+
+    "dependencies": {
+      "minUI5Version": "1.108.0",
+      "libs": {
+        "sap.m": {},
+        "sap.f": {},
+        "sap.ui.core": {},
+        "sap.ui.layout": {},
+        "sap.ui.comp": {}
+      }
+    },
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    },
+    "models": {
+      "i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": {
+          "bundleName": "zscort.compare.i18n.i18n",
+          "supportedLocales": ["", "en", "en_US"],
+          "fallbackLocale": ""
+        }
+      }
+    },
+    "routing": {
+      "config": {
+        "routerClass": "sap.f.routing.Router",
+        "viewType": "XML",
+        "viewPath": "zscort.compare.view",
+        "controlId": "fcl",
+        "transition": "slide",
+        "async": true,
+        "initializeImmediately": false
+      },
+      "routes": [
+        {
+          "pattern": ":?query:",
+          "name": "master",
+          "layout": "OneColumn"
+        },
+        {
+          "pattern": "detail/{objectType}/{objectName}/:?query:",
+          "name": "detail",
+          "layout": "TwoColumnsMidExpanded",
+          "target": ["detail"]
+        }
+      ],
+      "targets": {
+        "detail": {
+          "viewName": "Detail",
+          "controlAggregation": "midColumnPages",
+          "type": "View"
+        }
+      }
+    },
+    "resources": {
+      "css": [
+        {
+          "uri": "css/style.css"
+        }
+      ]
+    }
+  },
+  "sap.fiori": {
+    "registrationIds": [],
+    "archeType": "transactional"
+  }
+}

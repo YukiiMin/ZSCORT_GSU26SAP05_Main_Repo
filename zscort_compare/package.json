@@ -1,0 +1,28 @@
+{
+  "name": "zscort-compare",
+  "version": "1.0.0",
+  "description": "SCORT REQ3 — Fiori FCL + Monaco Diff (TargetCode vs SourceCode)",
+  "private": true,
+  "scripts": {
+    "start": "ui5 serve --port 8080 --open index.html",
+    "start-proxy": "fiori run --open index.html",
+    "build": "ui5 build --clean-dest --dest dist",
+    "deploy": "npm run build && fiori deploy --config ui5-deploy.yaml",
+    "deploy-test": "npm run build && fiori deploy --config ui5-deploy.yaml --testMode true",
+    "undeploy": "fiori undeploy --config ui5-deploy.yaml"
+  },
+  "devDependencies": {
+    "@ui5/cli": "^3.11.0",
+    "@sap/ux-ui5-tooling": "^1.15.4",
+    "ui5-middleware-simpleproxy": "^3.4.1"
+  },
+  "dependencies": {
+    "monaco-editor": "^0.52.0"
+  },
+  "ui5": {
+    "dependencies": [
+      "@sap/ux-ui5-tooling",
+      "ui5-middleware-simpleproxy"
+    ]
+  }
+}

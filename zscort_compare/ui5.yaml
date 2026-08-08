@@ -1,0 +1,26 @@
+specVersion: "3.0"
+metadata:
+  name: zscort.compare
+type: application
+framework:
+  name: SAPUI5
+  version: "1.120.0"
+  libraries:
+    - name: sap.m
+    - name: sap.ui.core
+    - name: sap.f
+    - name: sap.ui.layout
+    - name: sap.ui.comp
+    - name: themelib_sap_horizon
+server:
+  customMiddleware:
+    # Proxy OData V4 của UI_SCORT_COMPARE_O4 khi chạy local (npm start).
+    # Đổi baseUri sang host S40 của bạn.
+    - name: ui5-middleware-simpleproxy
+      afterMiddleware: compression
+      mountPath: /sap
+      configuration:
+        # Host S40 — chỉ proxy /sap/** (OData), không proxy UI5 CDN
+        baseUri: https://s40lp1.ucc.cit.tum.de/sap
+        strictSSL: false
+        limit: false

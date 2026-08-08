@@ -1,0 +1,19 @@
+<mvc:View
+  controllerName="zscort.compare.controller.App"
+  xmlns="sap.f"
+  xmlns:mvc="sap.ui.core.mvc"
+  displayBlock="true"
+  height="100%"
+  width="100%">
+  <!-- Master gắn sẵn: không phụ thuộc router (tránh FCL trống / màn trắng) -->
+  <FlexibleColumnLayout
+    id="fcl"
+    stateChange=".onStateChanged"
+    layout="{appView>/layout}"
+    backgroundDesign="Solid"
+    busyIndicatorDelay="0">
+    <beginColumnPages>
+      <mvc:XMLView id="beginMaster" viewName="zscort.compare.view.Master" />
+    </beginColumnPages>
+  </FlexibleColumnLayout>
+</mvc:View>

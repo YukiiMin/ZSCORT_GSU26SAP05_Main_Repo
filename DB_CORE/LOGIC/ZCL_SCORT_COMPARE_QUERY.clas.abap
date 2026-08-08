@@ -4,11 +4,11 @@
 *"* Không LCS / DiffLine / tô màu dòng trên ABAP.
 *"*
 *"* CompareMode:
-*"*   L_VS_T        — Trái = ZA026_SCORT_REPO (VersionNo hoặc is_current),
+*"*   L_VS_T        — Trái = ZA05_SCORT_T_SRC (VersionNo hoặc current_version),
 *"*                   Phải = Local Active
 *"*   VER_VS_VER    — Trái = Local VersionNo (VRSD), Phải = Local VersionNoRight
 *"*   ACTIVE_VS_VER — alias → VER_VS_VER (Right = 99998 Active)
-*"* Target simulator: SOURCE_CODE plain STRING (không GZIP).
+*"* Target: SOURCE_HEX GZIP + SRC_HASH (plain-text SHA1).
 *"*---------------------------------------------------------------------*
 CLASS zcl_scort_compare_query DEFINITION
   PUBLIC
@@ -441,7 +441,7 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
     cs_detail-source_hash  = CONV #( ls_ori-hash ).
     cs_detail-source_lines = ls_ori-line_count.
 
-    " Trái = version trong ZA026_SCORT_REPO (chọn VersionNo hoặc is_current)
+    " Trái = version trong ZA05_SCORT_T_SRC (VersionNo hoặc current_version)
     lv_vers = to_versno( iv_version_no ).
     IF lv_vers IS NOT INITIAL.
       ls_tgt = zcl_scort_t_reader=>read_version(
@@ -461,7 +461,7 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       cs_detail-target_code  = ``.
       cs_detail-target_lines = 0.
       cs_detail-version_no   = ls_tgt-version_no.
-      cs_detail-message      = 'Chưa có version Target trong ZA026_SCORT_REPO'.
+      cs_detail-message      = 'Chưa có version Target trong ZA05_SCORT_T'.
       RETURN.
     ENDIF.
 
@@ -481,10 +481,10 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
 
     IF cs_detail-source_hash = cs_detail-target_hash.
       cs_detail-status_code = 'IDENTICAL'.
-      cs_detail-message     = |Local Active vs REPO { ls_tgt-version_no }: identical|.
+      cs_detail-message     = |Local Active vs ZA05 { ls_tgt-version_no }: identical|.
     ELSE.
       cs_detail-status_code = 'DIFFERENT'.
-      cs_detail-message     = |Local Active vs REPO { ls_tgt-version_no }: different|.
+      cs_detail-message     = |Local Active vs ZA05 { ls_tgt-version_no }: different|.
     ENDIF.
   ENDMETHOD.
 

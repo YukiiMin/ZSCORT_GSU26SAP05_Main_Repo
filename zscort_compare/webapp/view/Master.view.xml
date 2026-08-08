@@ -1,0 +1,106 @@
+<mvc:View
+  controllerName="zscort.compare.controller.Master"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:f="sap.f"
+  xmlns:core="sap.ui.core"
+  displayBlock="true"
+  height="100%">
+  <f:DynamicPage id="masterPage" toggleHeaderOnTitleClick="false">
+    <f:title>
+      <f:DynamicPageTitle>
+        <f:heading>
+          <Title text="{i18n>masterTitle}" />
+        </f:heading>
+      </f:DynamicPageTitle>
+    </f:title>
+    <f:header>
+      <f:DynamicPageHeader pinnable="true">
+        <HBox alignItems="End" wrap="Wrap" renderType="Bare" class="sapUiTinyMarginBottom">
+          <Label text="{i18n>trkorr}" class="sapUiTinyMarginEnd sapUiTinyMarginTop" />
+          <Input
+            id="trkorrInput"
+            width="12rem"
+            value="{appView>/trkorr}"
+            placeholder="S40K....."
+            showValueHelp="true"
+            valueHelpRequest=".onVHTrkorr"
+            submit=".onLoadTr"
+            class="sapUiTinyMarginEnd" />
+          <Label text="{i18n>serverId}" class="sapUiTinyMarginEnd sapUiTinyMarginTop" />
+          <Input
+            id="serverIdInput"
+            width="7rem"
+            value="{appView>/serverId}"
+            showValueHelp="true"
+            valueHelpRequest=".onVHServerId"
+            class="sapUiTinyMarginEnd" />
+          <Button text="{i18n>load}" type="Emphasized" press=".onLoadTr" class="sapUiTinyMarginEnd" />
+        </HBox>
+        <Label text="{i18n>compareMode}" class="sapUiTinyMarginTop" />
+        <HBox alignItems="Center" class="sapUiTinyMarginBottom" wrap="Wrap">
+          <SegmentedButton
+            selectedKey="{appView>/compareMode}"
+            selectionChange=".onModeChange"
+            class="sapUiTinyMarginEnd">
+            <items>
+              <SegmentedButtonItem key="L_VS_T" text="{i18n>modeLvsT}" />
+              <SegmentedButtonItem key="VER_VS_VER" text="{i18n>modeVerVsVer}" />
+            </items>
+          </SegmentedButton>
+          <Input
+            id="compareModeInput"
+            width="12rem"
+            value="{appView>/compareMode}"
+            showValueHelp="true"
+            valueHelpOnly="true"
+            valueHelpRequest=".onVHCompareMode"
+            placeholder="{i18n>vhCompareMode}" />
+        </HBox>
+        <SearchField
+          width="100%"
+          placeholder="{i18n>searchPlaceholder}"
+          liveChange=".onSearch" />
+        <HBox alignItems="Center" class="sapUiTinyMarginTop" wrap="Wrap">
+          <SegmentedButton
+            selectedKey="{appView>/filterStatus}"
+            selectionChange=".onFilterStatus"
+            class="sapUiTinyMarginEnd">
+            <items>
+              <SegmentedButtonItem key="" text="{i18n>filterAll}" />
+              <SegmentedButtonItem key="DIFFERENT" text="DIFFERENT" />
+              <SegmentedButtonItem key="NEW_AT_TARGET" text="NEW" />
+              <SegmentedButtonItem key="IDENTICAL" text="IDENTICAL" />
+            </items>
+          </SegmentedButton>
+          <Input
+            width="12rem"
+            value="{appView>/filterStatus}"
+            showValueHelp="true"
+            valueHelpOnly="false"
+            valueHelpRequest=".onVHCompareStatus"
+            placeholder="{i18n>vhCompareStatus}" />
+        </HBox>
+      </f:DynamicPageHeader>
+    </f:header>
+    <f:content>
+      <List
+        id="objectList"
+        mode="SingleSelectMaster"
+        busy="{appView>/busy}"
+        items="{path: 'local>/objects'}"
+        selectionChange=".onSelect"
+        noDataText="{appView>/noDataText}">
+        <StandardListItem
+          title="{local>ObjectName}"
+          description="{local>ObjectType}"
+          info="{local>CompareStatus}"
+          infoState="{
+            path: 'local>CompareStatus',
+            formatter: '.formatInfoState'
+          }"
+          type="Active" />
+      </List>
+    </f:content>
+  </f:DynamicPage>
+</mvc:View>

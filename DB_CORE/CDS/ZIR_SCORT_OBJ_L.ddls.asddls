@@ -12,7 +12,7 @@ define root view entity ZIR_SCORT_OBJ_L
   association [0..1] to ZCR_SCORT_OBJ_SRC as _SourceCode
     on  _SourceCode.ObjectType  = $projection.ObjectType
     and _SourceCode.ObjectName  = $projection.ObjectName
-    and _SourceCode.ServerType  = 'L'
+    and _SourceCode.ServerType  = $projection.ServerType
 {
   key pgmid       as Pgmid,
   key object      as ObjectType,
@@ -20,8 +20,9 @@ define root view entity ZIR_SCORT_OBJ_L
 
       devclass    as PackageName,
       author      as PersonResponsible,
-      as4date     as CreatedOn,
-      as4time     as CreatedAt,
+      created_on as CreatedOn, // Resolves the unknown as4date error
+
+      cast( 'L' as abap.char(1) ) as ServerType,
 
       /* Navigation */
       _SourceCode

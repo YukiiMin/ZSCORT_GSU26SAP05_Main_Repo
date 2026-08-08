@@ -276,6 +276,108 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    "===== VH User / Person Responsible =====
+    IF lv_entity CS 'VH_USER' OR lv_entity CS 'VHUSER'.
+      DATA lt_user TYPE STANDARD TABLE OF zc_scort_vh_user WITH DEFAULT KEY.
+      DATA ls_user TYPE zc_scort_vh_user.
+      DATA lt_usr02 TYPE STANDARD TABLE OF usr02 WITH DEFAULT KEY.
+
+      lv_pat = zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'USERID' ).
+      IF lv_pat IS INITIAL.
+        lv_pat = zcl_scort_query_utl=>value_of( iv_sql = lv_sql iv_field = 'USERID' ).
+      ENDIF.
+
+      IF lv_pat IS NOT INITIAL.
+        " Exact
+        SELECT bname FROM usr02 WHERE bname = @lv_pat INTO TABLE @DATA(lt_usr_exact) UP TO 5 ROWS.
+        IF lt_usr_exact IS INITIAL AND strlen( lv_pat ) >= 2.
+          lv_like = |{ lv_pat }%|.
+          SELECT bname FROM usr02 WHERE bname LIKE @lv_like ORDER BY bname
+            INTO TABLE @DATA(lt_usr_like) UP TO 100 ROWS.
+          LOOP AT lt_usr_like INTO DATA(lv_bname_like).
+            CLEAR ls_user.
+            ls_user-UserId = lv_bname_like.
+            APPEND ls_user TO lt_user.
+          ENDLOOP.
+        ELSE.
+          LOOP AT lt_usr_exact INTO DATA(lv_bname_ex).
+            CLEAR ls_user.
+            ls_user-UserId = lv_bname_ex.
+            APPEND ls_user TO lt_user.
+          ENDLOOP.
+        ENDIF.
+      ELSE.
+        " Browse: 100 users gần nhất (active)
+        SELECT bname FROM usr02 WHERE gltgv <= @sy-datum
+          ORDER BY bname INTO TABLE @DATA(lt_usr_browse) UP TO 100 ROWS.
+        LOOP AT lt_usr_browse INTO DATA(lv_bname_br).
+          CLEAR ls_user.
+          ls_user-UserId = lv_bname_br.
+          APPEND ls_user TO lt_user.
+        ENDLOOP.
+      ENDIF.
+
+      respond_typed( EXPORTING io_request = io_request io_response = io_response
+                     CHANGING  ct_data = lt_user ).
+      RETURN.
+    ENDIF.
+
+    "===== VH Package / Development Class =====
+    IF lv_entity CS 'VH_PACKAGE' OR lv_entity CS 'VHPACKAGE'.
+      DATA lt_pkg TYPE STANDARD TABLE OF zc_scort_vh_package WITH DEFAULT KEY.
+      DATA ls_pkg TYPE zc_scort_vh_package.
+
+      lv_pat = zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'PACKAGENAME' ).
+      IF lv_pat IS INITIAL.
+        lv_pat = zcl_scort_query_utl=>value_of( iv_sql = lv_sql iv_field = 'PACKAGENAME' ).
+      ENDIF.
+
+      IF lv_pat IS NOT INITIAL.
+        " Exact
+        SELECT devclass, ctext FROM tdevc AS p
+          LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
+          WHERE p~devclass = @lv_pat
+          INTO TABLE @DATA(lt_pkg_exact) UP TO 5 ROWS.
+        IF lt_pkg_exact IS INITIAL AND strlen( lv_pat ) >= 2.
+          lv_like = |{ lv_pat }%|.
+          SELECT devclass, ctext FROM tdevc AS p
+            LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
+            WHERE p~devclass LIKE @lv_like ORDER BY p~devclass
+            INTO TABLE @DATA(lt_pkg_like) UP TO 100 ROWS.
+          LOOP AT lt_pkg_like INTO DATA(ls_pkg_row).
+            CLEAR ls_pkg.
+            ls_pkg-PackageName  = ls_pkg_row-devclass.
+            ls_pkg-Description  = ls_pkg_row-ctext.
+            APPEND ls_pkg TO lt_pkg.
+          ENDLOOP.
+        ELSE.
+          LOOP AT lt_pkg_exact INTO DATA(ls_pkg_ex).
+            CLEAR ls_pkg.
+            ls_pkg-PackageName  = ls_pkg_ex-devclass.
+            ls_pkg-Description  = ls_pkg_ex-ctext.
+            APPEND ls_pkg TO lt_pkg.
+          ENDLOOP.
+        ENDIF.
+      ELSE.
+        " Browse: chỉ Z*/Y* package
+        SELECT devclass, ctext FROM tdevc AS p
+          LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
+          WHERE ( p~devclass LIKE 'Z%' OR p~devclass LIKE 'Y%' )
+          ORDER BY p~devclass
+          INTO TABLE @DATA(lt_pkg_browse) UP TO 100 ROWS.
+        LOOP AT lt_pkg_browse INTO DATA(ls_pkg_br).
+          CLEAR ls_pkg.
+          ls_pkg-PackageName  = ls_pkg_br-devclass.
+          ls_pkg-Description  = ls_pkg_br-ctext.
+          APPEND ls_pkg TO lt_pkg.
+        ENDLOOP.
+      ENDIF.
+
+      respond_typed( EXPORTING io_request = io_request io_response = io_response
+                     CHANGING  ct_data = lt_pkg ).
+      RETURN.
+    ENDIF.
+
     "===== Unknown entity — vẫn cover =====
     DATA lt_fallback TYPE STANDARD TABLE OF zc_scort_vh_obj_type WITH DEFAULT KEY.
     respond_typed( EXPORTING io_request = io_request io_response = io_response

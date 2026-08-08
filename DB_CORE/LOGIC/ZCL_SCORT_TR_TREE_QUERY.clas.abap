@@ -30,7 +30,7 @@ CLASS zcl_scort_tr_tree_query DEFINITION
         obj_type       TYPE e071-object,
         pgmid          TYPE e071-pgmid,
       END OF ty_node.
-    TYPES tt_nodes TYPE STANDARD TABLE OF ty_node.
+    TYPES tt_nodes TYPE STANDARD TABLE OF ty_node WITH DEFAULT KEY.
 
     CLASS-METHODS build_tree
       IMPORTING
@@ -66,16 +66,16 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     LOOP AT lt_ranges ASSIGNING FIELD-SYMBOL(<range>).
       CASE <range>-name.
         WHEN 'TRKORR'.
-          READ TABLE <range>-t_range INDEX 1 ASSIGNING FIELD-SYMBOL(<r1>).
+          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r1>).
           IF sy-subrc = 0. lv_trkorr = <r1>-low. ENDIF.
         WHEN 'OWNER'.
-          READ TABLE <range>-t_range INDEX 1 ASSIGNING FIELD-SYMBOL(<r2>).
+          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r2>).
           IF sy-subrc = 0. lv_owner = <r2>-low. ENDIF.
         WHEN 'AS4DATE'.
-          READ TABLE <range>-t_range INDEX 1 ASSIGNING FIELD-SYMBOL(<r3>).
+          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r3>).
           IF sy-subrc = 0. lv_date_from = <r3>-low. lv_date_to = <r3>-high. ENDIF.
         WHEN 'TRSTATUS'.
-          READ TABLE <range>-t_range INDEX 1 ASSIGNING FIELD-SYMBOL(<r4>).
+          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r4>).
           IF sy-subrc = 0. lv_trstatus = <r4>-low. ENDIF.
       ENDCASE.
     ENDLOOP.
@@ -89,24 +89,24 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       iv_trstatus  = lv_trstatus
     ).
 
-    "-- Step 3: Convert to Custom Entity result structure
-    DATA lt_result TYPE STANDARD TABLE OF zce_scort_tr_tree.
+    "-- Step 3: Convert to Custom Entity result structure (matching CDS CamelCase)
+    DATA lt_result TYPE STANDARD TABLE OF zce_scort_tr_tree WITH DEFAULT KEY.
     DATA ls_result LIKE LINE OF lt_result.
 
     LOOP AT lt_nodes ASSIGNING FIELD-SYMBOL(<node>).
-      ls_result-node_id        = <node>-node_id.
-      ls_result-parent_node_id = <node>-parent_node_id.
-      ls_result-tree_level     = <node>-tree_level.
-      ls_result-node_type      = <node>-node_type.
-      ls_result-trkorr         = <node>-trkorr.
-      ls_result-parent_trkorr  = <node>-parent_trkorr.
-      ls_result-description    = <node>-description.
-      ls_result-owner          = <node>-owner.
-      ls_result-as4date        = <node>-as4date.
-      ls_result-tr_status      = <node>-tr_status.
-      ls_result-obj_name       = <node>-obj_name.
-      ls_result-obj_type       = <node>-obj_type.
-      ls_result-pgmid          = <node>-pgmid.
+      ls_result-NodeId        = <node>-node_id.
+      ls_result-ParentNodeId  = <node>-parent_node_id.
+      ls_result-TreeLevel     = <node>-tree_level.
+      ls_result-NodeType      = <node>-node_type.
+      ls_result-Trkorr        = <node>-trkorr.
+      ls_result-ParentTrkorr  = <node>-parent_trkorr.
+      ls_result-Description   = <node>-description.
+      ls_result-Owner         = <node>-owner.
+      ls_result-As4date       = <node>-as4date.
+      ls_result-TrStatus      = <node>-tr_status.
+      ls_result-ObjName       = <node>-obj_name.
+      ls_result-ObjType       = <node>-obj_type.
+      ls_result-Pgmid         = <node>-pgmid.
       APPEND ls_result TO lt_result.
       CLEAR ls_result.
     ENDLOOP.
@@ -123,22 +123,47 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    io_response->set_total_number_of_records( lv_total ).
+    io_response->set_total_number_of_records( CONV int8( lv_total ) ).
     io_response->set_data( lt_result ).
   ENDMETHOD.
 
   METHOD build_tree.
     "-- B1: SELECT TR Parents (strkorr IS INITIAL = root TR)
     DATA lt_tr_parents TYPE TABLE OF e070.
+    DATA lv_tr_pattern TYPE string.
+    DATA lv_owner_pattern TYPE string.
+
+    IF iv_trkorr IS NOT INITIAL.
+      lv_tr_pattern = iv_trkorr.
+    ELSE.
+      lv_tr_pattern = '%'.
+    ENDIF.
+
+    IF iv_owner IS NOT INITIAL.
+      lv_owner_pattern = iv_owner.
+    ELSE.
+      lv_owner_pattern = '%'.
+    ENDIF.
+
     SELECT trkorr, strkorr, as4user, as4date, trstatus
       FROM e070
       WHERE strkorr = ''
-        AND ( trkorr LIKE COND #( WHEN iv_trkorr IS INITIAL THEN '%' ELSE iv_trkorr ) )
-        AND ( as4user LIKE COND #( WHEN iv_owner IS INITIAL THEN '%' ELSE iv_owner ) )
-        AND ( trstatus = COND #( WHEN iv_trstatus IS INITIAL THEN trstatus ELSE iv_trstatus ) )
-        AND ( as4date BETWEEN COND #( WHEN iv_date_from IS INITIAL THEN '00000000' ELSE iv_date_from )
-                          AND COND #( WHEN iv_date_to IS INITIAL THEN '99991231' ELSE iv_date_to ) )
-      INTO TABLE @lt_tr_parents.
+        AND trkorr  LIKE @lv_tr_pattern
+        AND as4user LIKE @lv_owner_pattern
+      INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents.
+
+    IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
+
+    "-- Filter status & dates if requested
+    IF iv_trstatus IS NOT INITIAL.
+      DELETE lt_tr_parents WHERE trstatus <> iv_trstatus.
+    ENDIF.
+    IF iv_date_from IS NOT INITIAL.
+      DELETE lt_tr_parents WHERE as4date < iv_date_from.
+    ENDIF.
+    IF iv_date_to IS NOT INITIAL.
+      DELETE lt_tr_parents WHERE as4date > iv_date_to.
+    ENDIF.
 
     IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
 
@@ -149,7 +174,7 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       FOR ALL ENTRIES IN @lt_tr_parents
       WHERE trkorr = @lt_tr_parents-trkorr
         AND langu  = @sy-langu
-      INTO TABLE @lt_tr_texts.
+      INTO CORRESPONDING FIELDS OF TABLE @lt_tr_texts.
 
     "-- B2: SELECT Tasks (strkorr = parent TR)
     DATA lt_tasks TYPE TABLE OF e070.
@@ -157,22 +182,24 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       FROM e070
       FOR ALL ENTRIES IN @lt_tr_parents
       WHERE strkorr = @lt_tr_parents-trkorr
-      INTO TABLE @lt_tasks.
+      INTO CORRESPONDING FIELDS OF TABLE @lt_tasks.
 
     "-- B3: SELECT Objects for all TRs and Tasks
-    DATA lt_all_tr TYPE TABLE OF e071.
     DATA lt_tr_keys TYPE TABLE OF e070.
     lt_tr_keys = lt_tr_parents.
     APPEND LINES OF lt_tasks TO lt_tr_keys.
+    SORT lt_tr_keys BY trkorr.
     DELETE ADJACENT DUPLICATES FROM lt_tr_keys COMPARING trkorr.
 
     DATA lt_objects TYPE TABLE OF e071.
-    SELECT trkorr, pgmid, object, obj_name, activity
-      FROM e071
-      FOR ALL ENTRIES IN @lt_tr_keys
-      WHERE trkorr = @lt_tr_keys-trkorr
-        AND pgmid  = 'R3TR'
-      INTO TABLE @lt_objects.
+    IF lt_tr_keys IS NOT INITIAL.
+      SELECT trkorr, pgmid, object, obj_name, activity
+        FROM e071
+        FOR ALL ENTRIES IN @lt_tr_keys
+        WHERE trkorr = @lt_tr_keys-trkorr
+          AND pgmid  = 'R3TR'
+        INTO CORRESPONDING FIELDS OF TABLE @lt_objects.
+    ENDIF.
 
     "-- B4: Build hierarchy
     "-- Level 0: TR Parents

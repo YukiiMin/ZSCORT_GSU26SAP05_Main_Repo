@@ -1,0 +1,23 @@
+/*
+  Behavior Definition for ZI_SCORT_TR_OBJ_SEARCH
+  Root Entity: Search Objects in TR (Flat List)
+  Mode: Read-Only (no CUD operations)
+  Behavior Pool: ZBP_I_SCORT_TR_OBJ_SEARCH (auto-generated, CCIMP empty)
+*/
+unmanaged implementation in class ZBP_I_SCORT_TR_OBJ_SEARCH unique;
+
+define behavior for ZIR_SCORT_TR_OBJ_SEARCH
+{
+  /* Static field control to guarantee read-only integrity */
+  field ( readonly )
+    Trkorr,
+    Pgmid,
+    ObjectType,
+    ObjectName,
+    ParentTrkorr,
+    Owner,
+    CreatedOn,
+    TrStatus,
+    CurrentManagingTr,
+    Activity;
+}

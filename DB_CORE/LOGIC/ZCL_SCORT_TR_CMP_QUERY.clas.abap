@@ -70,6 +70,16 @@ CLASS zcl_scort_tr_cmp_query DEFINITION
       RETURNING
         VALUE(rt_e071) TYPE tt_e071.
 
+    "! LIMU REPS/… → R3TR PROG/… (SE09 "Report Source Code" thường là LIMU)
+    CLASS-METHODS normalize_e071_object
+      IMPORTING
+        iv_pgmid  TYPE e071-pgmid
+        iv_object TYPE e071-object
+      EXPORTING
+        ev_pgmid  TYPE e071-pgmid
+        ev_object TYPE e071-object
+        ev_ok     TYPE abap_bool.
+
     CLASS-METHODS map_criticality
       IMPORTING
         iv_status      TYPE clike
@@ -211,16 +221,50 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
+  METHOD normalize_e071_object.
+    CLEAR: ev_pgmid, ev_object, ev_ok.
+    ev_pgmid  = iv_pgmid.
+    ev_object = iv_object.
+
+    IF iv_pgmid = 'R3TR'.
+      ev_ok = abap_true.
+      RETURN.
+    ENDIF.
+
+    " SE09: "Report Source Code" / class includes… thường ghi LIMU trên E071
+    IF iv_pgmid = 'LIMU'.
+      ev_pgmid = 'R3TR'.
+      CASE iv_object.
+        WHEN 'REPS' OR 'REPT'.
+          ev_object = 'PROG'.
+          ev_ok     = abap_true.
+        WHEN 'FUNC'.
+          ev_object = 'FUGR'.
+          ev_ok     = abap_true.
+        WHEN 'CPUB' OR 'CPRI' OR 'CPRO' OR 'CLSD' OR 'METH' OR 'CINC'.
+          ev_object = 'CLAS'.
+          ev_ok     = abap_true.
+        WHEN OTHERS.
+          CLEAR: ev_pgmid, ev_object, ev_ok.
+      ENDCASE.
+    ENDIF.
+  ENDMETHOD.
+
   METHOD collect_e071.
     DATA lt_task TYPE STANDARD TABLE OF e070 WITH DEFAULT KEY.
-    DATA lt_all  TYPE tt_e071.
+    DATA lt_raw  TYPE tt_e071.
     DATA lt_one  TYPE tt_e071.
+    DATA ls_out  TYPE e071.
+    DATA lv_pgmid TYPE e071-pgmid.
+    DATA lv_object TYPE e071-object.
+    DATA lv_ok TYPE abap_bool.
 
+    " Parent + task: lấy cả R3TR và LIMU (không chỉ R3TR)
     SELECT * FROM e071
       WHERE trkorr = @iv_trkorr
-        AND pgmid  = 'R3TR'
+        AND ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
       INTO TABLE @lt_one.
-    APPEND LINES OF lt_one TO lt_all.
+    APPEND LINES OF lt_one TO lt_raw.
 
     SELECT * FROM e070
       WHERE strkorr = @iv_trkorr
@@ -230,14 +274,31 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
       CLEAR lt_one.
       SELECT * FROM e071
         WHERE trkorr = @ls_task-trkorr
-          AND pgmid  = 'R3TR'
+          AND ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
         INTO TABLE @lt_one.
-      APPEND LINES OF lt_one TO lt_all.
+      APPEND LINES OF lt_one TO lt_raw.
     ENDLOOP.
 
-    SORT lt_all BY object obj_name.
-    DELETE ADJACENT DUPLICATES FROM lt_all COMPARING object obj_name.
-    rt_e071 = lt_all.
+    CLEAR rt_e071.
+    LOOP AT lt_raw INTO DATA(ls_raw).
+      normalize_e071_object(
+        EXPORTING
+          iv_pgmid  = ls_raw-pgmid
+          iv_object = ls_raw-object
+        IMPORTING
+          ev_pgmid  = lv_pgmid
+          ev_object = lv_object
+          ev_ok     = lv_ok ).
+      CHECK lv_ok = abap_true.
+      CLEAR ls_out.
+      ls_out = ls_raw.
+      ls_out-pgmid  = lv_pgmid.
+      ls_out-object = lv_object.
+      APPEND ls_out TO rt_e071.
+    ENDLOOP.
+
+    SORT rt_e071 BY object obj_name.
+    DELETE ADJACENT DUPLICATES FROM rt_e071 COMPARING object obj_name.
   ENDMETHOD.
 
   METHOD status_of_object.
@@ -279,7 +340,7 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
 
     IF ls_tgt-is_new_target = abap_true.
       rs_row-compare_status = 'NEW_AT_TARGET'.
-      rs_row-message        = 'Chưa có trong ZA026_SCORT_REPO — lần Apply đầu'.
+      rs_row-message        = 'Chưa có trong ZA05_SCORT_T — lần Apply đầu'.
       CLEAR rs_row-target_hash.
       RETURN.
     ENDIF.
@@ -331,7 +392,7 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
       " Released nhưng không có R3TR (chỉ LIMU / TR rỗng) — báo rõ, không im lặng
       ls_row-trkorr         = iv_trkorr.
       ls_row-compare_status = 'SOURCE_MISSING'.
-      ls_row-message        = 'TR không có object R3TR (PROG/CLAS/…) trong E071 — không so Compare được'.
+      ls_row-message        = 'TR không có object so Compare được (R3TR/LIMU→PROG/CLAS/…) trong E071'.
       APPEND ls_row TO rt_rows.
       RETURN.
     ENDIF.

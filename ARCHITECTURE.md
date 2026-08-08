@@ -56,7 +56,6 @@ FE_UI/
 | Service Binding (UI OData V4) | `UI_` + `_O4` | `UI_SCORT_OBJ_SEARCH_O4` |
 | Custom Table | `ZA_` | `ZA_SCORT_T`, `ZA_SCORT_T_SRC` |
 | Data Element | `ZDE_` | `ZDE_SCORT_NODE_ID` |
-| Table Type | `ZTT_` | `ZTT_SCORT_TR_TREE` |
 
 ---
 
@@ -104,7 +103,6 @@ FE_UI/
 | `ZDE_SCORT_PARENT_NODE_ID` | Data Element | CHAR40, parent node reference |
 | `ZDE_SCORT_TREE_LEVEL` | Data Element | INT1 (0/1/2) |
 | `ZDE_SCORT_CURRENT_MANAGING_TR` | Data Element | TRKORR domain — computed field |
-| `ZTT_SCORT_TR_TREE` | Table Type | Internal table for TR tree query result |
 
 ---
 

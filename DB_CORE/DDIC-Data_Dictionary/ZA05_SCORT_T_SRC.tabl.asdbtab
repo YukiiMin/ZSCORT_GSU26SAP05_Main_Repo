@@ -1,0 +1,23 @@
+@EndUserText.label : 'SCORT Target Source Code per Version'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #ALLOWED
+define table za05_scort_t_src {
+  key client     : abap.clnt not null;
+  key pgmid      : pgmid not null;
+  key object     : trobjtype not null;
+  key obj_name   : trobj_name not null;
+  key version_no : versno not null;
+  origin         : abap.char(10);
+  src_trkorr     : trkorr;
+  source_hex     : abap.rawstring(0);
+  src_hash       : abap.char(40);
+  src_preview    : abap.char(255);
+  created_by     : as4user;
+  created_at     : as4date;
+  created_tm     : as4time;
+  released_by    : uname;
+  released_at    : abp_lastchange_tstmpl;
+
+}

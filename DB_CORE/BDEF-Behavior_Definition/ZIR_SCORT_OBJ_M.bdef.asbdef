@@ -11,8 +11,6 @@ managed implementation in class ZBP_IR_SCORT_OBJ_M unique;
 
 define behavior for ZIR_SCORT_OBJ_M
 {
-  /* Read-only base */
-  lock master;
 
   field ( readonly )
     Pgmid,

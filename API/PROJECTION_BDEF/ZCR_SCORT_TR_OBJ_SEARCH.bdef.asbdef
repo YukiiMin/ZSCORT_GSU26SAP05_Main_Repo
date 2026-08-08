@@ -1,0 +1,10 @@
+/*
+  Behavior Projection for ZC_SCORT_TR_OBJ_SEARCH
+  Projects ZI_SCORT_TR_OBJ_SEARCH BDEF to UI layer.
+  Read-only: Flat List Report of objects in TR, no modification allowed.
+*/
+projection;
+
+define behavior for ZC_SCORT_TR_OBJ_SEARCH
+{
+}

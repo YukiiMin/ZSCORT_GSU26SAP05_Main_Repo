@@ -1,96 +1,87 @@
+*"*---------------------------------------------------------------------*
+*"* Class: ZCL_SCORT_COMPRESSION_UTL
+*"* GZIP encode/decode for ZA05_SCORT_T_SRC-SOURCE_HEX
+*"* REQ2: encode when Apply | REQ3: decode when Detail
+*"*---------------------------------------------------------------------*
 CLASS zcl_scort_compression_utl DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC.
 
   PUBLIC SECTION.
-    "! Encodes source code lines to GZIP-compressed RAWSTRING.
-    "! @parameter it_source_lines | Input: table of source code lines (string_table)
-    "! @parameter rv_compressed   | Output: GZIP-compressed binary (RAWSTRING) for DB storage
-    CLASS-METHODS encode_source_to_hex
-      IMPORTING
-        it_source_lines   TYPE string_table
-      RETURNING
-        VALUE(rv_compressed) TYPE xstring
-      RAISING
-        cx_parameter_invalid.
+    TYPES ty_string_tab TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
 
-    "! Decodes GZIP-compressed RAWSTRING back to source code line table.
-    "! @parameter iv_compressed   | Input: GZIP-compressed binary from DB
-    "! @parameter rt_source_lines | Output: table of source code lines (string_table)
+    CLASS-METHODS encode_text_to_hex
+      IMPORTING
+        iv_text        TYPE string
+      RETURNING
+        VALUE(rv_hex)  TYPE xstring.
+
+    CLASS-METHODS encode_lines_to_hex
+      IMPORTING
+        it_lines       TYPE ty_string_tab
+      RETURNING
+        VALUE(rv_hex)  TYPE xstring.
+
     CLASS-METHODS decode_hex_to_text
       IMPORTING
-        iv_compressed     TYPE xstring
+        iv_hex         TYPE xstring
       RETURNING
-        VALUE(rt_source_lines) TYPE string_table
-      RAISING
-        cx_parameter_invalid.
+        VALUE(rv_text) TYPE string.
 
-  PROTECTED SECTION.
-  PRIVATE SECTION.
+    CLASS-METHODS decode_hex_to_lines
+      IMPORTING
+        iv_hex          TYPE xstring
+      RETURNING
+        VALUE(rt_lines) TYPE ty_string_tab.
+
 ENDCLASS.
+
 
 CLASS zcl_scort_compression_utl IMPLEMENTATION.
 
-  METHOD encode_source_to_hex.
-    "-- Guard: empty input
-    IF it_source_lines IS INITIAL.
-      RAISE EXCEPTION TYPE cx_parameter_invalid
-        EXPORTING
-          parameter = 'IT_SOURCE_LINES'.
+  METHOD encode_text_to_hex.
+    DATA lv_raw TYPE xstring.
+    CLEAR rv_hex.
+    IF iv_text IS INITIAL.
+      RETURN.
     ENDIF.
+    TRY.
+        lv_raw = cl_abap_conv_codepage=>create_out( codepage = `UTF-8` )->convert( iv_text ).
+        cl_abap_gzip=>compress_binary(
+          EXPORTING raw_in   = lv_raw
+          IMPORTING gzip_out = rv_hex ).
+      CATCH cx_root.
+        CLEAR rv_hex.
+    ENDTRY.
+  ENDMETHOD.
 
-    "-- Step 1: Concatenate all lines with newline separator into one long string
-    DATA(lv_newline)     = cl_abap_char_utilities=>newline.
-    DATA(lv_full_source) = REDUCE string(
-      INIT acc  = ``
-      FOR  line IN it_source_lines
-      NEXT acc  = COND #(
-        WHEN acc IS INITIAL
-          THEN line
-          ELSE |{ acc }{ lv_newline }{ line }|
-      )
-    ).
-
-    "-- Step 2: Convert string → xstring (UTF-8)
-    DATA(lv_raw) = cl_abap_codepage=>convert_to( lv_full_source ).
-
-    "-- Step 3: GZIP compress
-    DATA lo_gzip TYPE REF TO cl_abap_gzip.
-    CREATE OBJECT lo_gzip.
-    lo_gzip->compress_binary(
-      EXPORTING
-        raw_in        = lv_raw
-      IMPORTING
-        gzip_out      = rv_compressed
-    ).
+  METHOD encode_lines_to_hex.
+    DATA lv_text TYPE string.
+    lv_text = zcl_scort_hash_utl=>lines_to_text( it_lines ).
+    rv_hex  = encode_text_to_hex( lv_text ).
   ENDMETHOD.
 
   METHOD decode_hex_to_text.
-    "-- Guard: empty input
-    IF iv_compressed IS INITIAL.
-      RAISE EXCEPTION TYPE cx_parameter_invalid
-        EXPORTING
-          parameter = 'IV_COMPRESSED'.
+    DATA lv_raw TYPE xstring.
+    CLEAR rv_text.
+    IF iv_hex IS INITIAL.
+      RETURN.
     ENDIF.
+    TRY.
+        cl_abap_gzip=>decompress_binary(
+          EXPORTING gzip_in = iv_hex
+          IMPORTING raw_out = lv_raw ).
+        rv_text = cl_abap_conv_codepage=>create_in( codepage = `UTF-8` )->convert( lv_raw ).
+      CATCH cx_root.
+        CLEAR rv_text.
+    ENDTRY.
+  ENDMETHOD.
 
-    "-- Step 1: GZIP decompress → xstring
-    DATA lo_gzip TYPE REF TO cl_abap_gzip.
-    DATA lv_raw  TYPE xstring.
-    CREATE OBJECT lo_gzip.
-    lo_gzip->decompress_binary(
-      EXPORTING
-        gzip_in   = iv_compressed
-      IMPORTING
-        raw_out   = lv_raw
-    ).
-
-    "-- Step 2: xstring → string (UTF-8)
-    DATA(lv_full_source) = cl_abap_codepage=>convert_from( lv_raw ).
-
-    "-- Step 3: Split by newline → string_table
-    DATA(lv_newline) = cl_abap_char_utilities=>newline.
-    SPLIT lv_full_source AT lv_newline INTO TABLE rt_source_lines.
+  METHOD decode_hex_to_lines.
+    DATA lv_text TYPE string.
+    lv_text  = decode_hex_to_text( iv_hex ).
+    rt_lines = zcl_scort_hash_utl=>text_to_lines( lv_text ).
   ENDMETHOD.
 
 ENDCLASS.

@@ -9,8 +9,6 @@ projection;
 
 define behavior for ZCR_SCORT_OBJ_M
 {
-  use readonly;
-
   /* Expose custom instance action to UI */
   use action checkDiff;
 }

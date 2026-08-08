@@ -1,0 +1,20 @@
+@EndUserText.label : 'SCORT Target Catalog Header Metadata'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #ALLOWED
+define table za05_scort_t {
+  key client      : abap.clnt not null;
+  key pgmid       : pgmid not null;
+  key object      : trobjtype not null;
+  key obj_name    : trobj_name not null;
+  devclass        : devclass;
+  author          : as4user;
+  descript        : as4text;
+  current_version : versno;
+  changed_by      : as4user;
+  changed_at      : as4date;
+  changed_tm      : as4time;
+  last_changed_at : abp_lastchange_tstmpl;
+
+}
