@@ -97,6 +97,32 @@ sap.ui.define([
     return withTimeout(oFetch, iTimeoutMs || 12000);
   }
 
+  function fetchAllJson(sUrl, iTimeoutMs) {
+    var aAllData = [];
+    function fetchNext(sNextUrl) {
+      return fetch(sNextUrl, {
+        method: "GET",
+        credentials: "same-origin",
+        headers: { Accept: "application/json" }
+      }).then(function (oRes) {
+        if (!oRes.ok) { throw new Error("HTTP " + oRes.status); }
+        return oRes.json();
+      }).then(function (oJson) {
+        if (!oJson) { return aAllData; }
+        var aData = oJson.value || (oJson.d && oJson.d.results) || [];
+        aAllData = aAllData.concat(aData);
+        var sNextLink = oJson["@odata.nextLink"] || (oJson.d && oJson.d.__next);
+        if (sNextLink) {
+          var sAbs = sNextLink;
+          try { sAbs = new URL(sNextLink, sNextUrl).href; } catch (e) { /* ignore */ }
+          return fetchNext(sAbs);
+        }
+        return aAllData;
+      });
+    }
+    return withTimeout(fetchNext(sUrl), iTimeoutMs || 60000);
+  }
+
   function loadRows(mOpts) {
     var sSet = mOpts.sEntitySet;
     if (STATIC[sSet] && !mOpts.bForceOData) {
@@ -237,6 +263,8 @@ sap.ui.define([
     open: open,
     withTimeout: withTimeout,
     fetchJson: fetchJson,
+    fetchAllJson: fetchAllJson,
+    loadRows: loadRows,
     filtersToOData: filtersToOData
   };
 });

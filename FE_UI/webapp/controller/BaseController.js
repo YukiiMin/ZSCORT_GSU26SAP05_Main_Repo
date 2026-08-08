@@ -3,8 +3,9 @@ sap.ui.define([
   "sap/ui/core/Fragment",
   "sap/m/MessageToast",
   "sap/f/library",
-  "zscort/app/monaco/CodeHost"
-], function (Controller, Fragment, MessageToast, fLibrary, CodeHost) {
+  "zscort/app/monaco/CodeHost",
+  "sap/ui/core/format/DateFormat"
+], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
@@ -228,6 +229,42 @@ sap.ui.define([
       if (this._oSourceDialog) {
         this._oSourceDialog.close();
       }
+    },
+
+    onButtonCopySourcePress: function () {
+      if (this._pendingSourceCode) {
+        var el = document.createElement("textarea");
+        el.value = this._pendingSourceCode;
+        document.body.appendChild(el);
+        el.select();
+        document.execCommand("copy");
+        document.body.removeChild(el);
+        MessageToast.show("Source code copied to clipboard!");
+      } else {
+        MessageToast.show("No source code to copy.");
+      }
+    },
+
+    formatDate: function (vDate) {
+      if (!vDate) { return ""; }
+      var s = String(vDate);
+      var oDate;
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        oDate = new Date(s);
+      } else {
+        var sDigits = s.replace(/\D/g, "");
+        if (sDigits.length >= 8) {
+          var y = sDigits.substring(0, 4);
+          var m = parseInt(sDigits.substring(4, 6), 10) - 1;
+          var d = sDigits.substring(6, 8);
+          oDate = new Date(y, m, d);
+        }
+      }
+      if (oDate && !isNaN(oDate.getTime())) {
+        var oFormat = DateFormat.getDateInstance({ style: "medium" });
+        return oFormat.format(oDate);
+      }
+      return s;
     }
   });
 });

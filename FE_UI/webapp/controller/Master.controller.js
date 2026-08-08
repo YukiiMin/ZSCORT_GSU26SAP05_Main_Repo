@@ -91,23 +91,11 @@ sap.ui.define([
       }
 
       var sTrkorr = oCtx.getProperty("Trkorr");
+      var sAs4date = oCtx.getProperty("As4date");
+      this.getView().getModel("detail").setProperty("/as4date", sAs4date);
       this.getOwnerComponent().getRouter().navTo("detail", {
         trkorr: encodeURIComponent(sTrkorr)
       });
-    },
-
-    formatDate: function (vDate) {
-      if (!vDate) { return ""; }
-      var s = String(vDate);
-      // OData V4 may return "2026-08-08" — do not treat as YYYYMMDD
-      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-        return s.substring(0, 10);
-      }
-      var sDigits = s.replace(/\D/g, "");
-      if (sDigits.length >= 8) {
-        return sDigits.substring(0, 4) + "-" + sDigits.substring(4, 6) + "-" + sDigits.substring(6, 8);
-      }
-      return s;
     }
 
   });

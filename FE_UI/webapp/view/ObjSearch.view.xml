@@ -2,10 +2,11 @@
   controllerName="zscort.app.controller.ObjSearch"
   xmlns="sap.m"
   xmlns:mvc="sap.ui.core.mvc"
+  xmlns:table="sap.ui.table"
   xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"
   xmlns:core="sap.ui.core">
 
-  <Page id="idObjSearchPage" showHeader="true" backgroundDesign="List">
+  <Page id="idObjSearchPage" showHeader="true" backgroundDesign="List" enableScrolling="false">
 
     <customHeader>
       <Bar>
@@ -30,7 +31,7 @@
     </customHeader>
 
     <content>
-      <VBox height="100%">
+      <VBox height="100%" fitContainer="true">
 
         <Panel headerText="Search &amp; Filter" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
           <content>
@@ -122,7 +123,11 @@
           selectedKey="{objSearch>/activeTab}"
           select=".onIconTabBarModeSelect"
           expandable="false"
+          stretchContentHeight="true"
           class="sapUiNoContentPadding">
+          <layoutData>
+            <FlexItemData growFactor="1" />
+          </layoutData>
 
           <!-- TAB 1: Local Objects (from TADIR) -->
           <items>
@@ -132,42 +137,62 @@
               icon="sap-icon://database"
               count="{objSearch>/countLocal}">
               <content>
-                <VBox height="100%">
+                <VBox height="100%" fitContainer="true">
                   <Toolbar>
                     <Title text="Objects on Local Server — S40" />
                     <ToolbarSpacer />
                     <Label text="{= ${objSearch>/countLocal} + ' object(s)'}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportLocalPress" />
                   </Toolbar>
-                  <Table id="idLocalTable"
+                  <table:Table id="idLocalTable"
                     busy="{objSearch>/busyLocal}"
-                    noDataText="{objSearch>/noDataText}"
-                    mode="SingleSelectMaster"
-                    selectionChange=".onTableLocalSelectionChange"
+                    noData="{objSearch>/noDataText}"
+                    selectionMode="Single"
+                    rowSelectionChange=".onTableLocalSelectionChange"
                     alternateRowColors="true"
-                    sticky="ColumnHeaders"
-                    growing="true"
-                    growingThreshold="50"
-                    growingScrollToLoad="true"
-                    items="{path: 'objSearch>/localRows'}">
-                    <columns>
-                      <Column width="6rem"><Text text="Type" /></Column>
-                      <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
-                      <Column width="10rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Package" /></Column>
-                      <Column width="8rem"  minScreenWidth="Desktop" demandPopin="true"><Text text="Person Resp." /></Column>
-                      <Column width="6rem"  minScreenWidth="Desktop" demandPopin="true"><Text text="Created" /></Column>
-                      <Column width="5rem"><Text text="Actions" /></Column>
-                    </columns>
-                    <items>
-                      <ColumnListItem
-                        type="Active"
-                        press=".onColumnListItemViewSourcePress">
-                        <cells>
+                    enableColumnReordering="true"
+                    enableGrouping="true"
+                    showColumnVisibilityMenu="true"
+                    visibleRowCountMode="Auto"
+                    minAutoRowCount="5"
+                    rows="{path: 'objSearch>/localRows'}">
+                    <table:layoutData>
+                      <FlexItemData growFactor="1" />
+                    </table:layoutData>
+                    <table:columns>
+                      <table:Column width="6rem" filterProperty="ObjectType" sortProperty="ObjectType">
+                        <Label text="{= ${ddic>/LocalObjects/ObjectType} || 'Type' }" />
+                        <table:template>
                           <ObjectStatus text="{objSearch>ObjectType}" state="None" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="20rem" filterProperty="ObjectName" sortProperty="ObjectName">
+                        <Label text="{= ${ddic>/LocalObjects/ObjectName} || 'Object Name' }" />
+                        <table:template>
                           <ObjectIdentifier title="{objSearch>ObjectName}" titleActive="true" titlePress=".onObjectIdentifierObjNameTitlePress" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="15rem" filterProperty="PackageName" sortProperty="PackageName">
+                        <Label text="{= ${ddic>/LocalObjects/PackageName} || 'Package' }" />
+                        <table:template>
                           <Text text="{objSearch>PackageName}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="10rem" filterProperty="PersonResponsible" sortProperty="PersonResponsible">
+                        <Label text="{= ${ddic>/LocalObjects/PersonResponsible} || 'Person Resp.' }" />
+                        <table:template>
                           <Text text="{objSearch>PersonResponsible}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="10rem" filterProperty="CreatedOn" sortProperty="CreatedOn">
+                        <Label text="{= ${ddic>/LocalObjects/CreatedOn} || 'Created' }" />
+                        <table:template>
                           <Text text="{path:'objSearch>CreatedOn', formatter:'.formatDate'}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="6rem">
+                        <Label text="Actions" />
+                        <table:template>
                           <HBox>
                             <Button icon="sap-icon://compare-2"
                               tooltip="Open in Code Compare"
@@ -180,10 +205,10 @@
                               type="Transparent"
                               press=".onButtonViewSourcePress" />
                           </HBox>
-                        </cells>
-                      </ColumnListItem>
-                    </items>
-                  </Table>
+                        </table:template>
+                      </table:Column>
+                    </table:columns>
+                  </table:Table>
                 </VBox>
               </content>
             </IconTabFilter>
@@ -195,40 +220,62 @@
               icon="sap-icon://server-farm"
               count="{objSearch>/countTarget}">
               <content>
-                <VBox height="100%">
+                <VBox height="100%" fitContainer="true">
                   <Toolbar>
                     <Title text="Objects on Target Server (Simulated via ZA_SCORT_T)" />
                     <ToolbarSpacer />
                     <Label text="{= ${objSearch>/countTarget} + ' object(s)'}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportTargetPress" />
                   </Toolbar>
-                  <Table id="idTargetTable"
+                  <table:Table id="idTargetTable"
                     busy="{objSearch>/busyTarget}"
-                    noDataText="{objSearch>/noDataText}"
-                    mode="SingleSelectMaster"
-                    selectionChange=".onTableTargetSelectionChange"
+                    noData="{objSearch>/noDataText}"
+                    selectionMode="Single"
+                    rowSelectionChange=".onTableTargetSelectionChange"
                     alternateRowColors="true"
-                    sticky="ColumnHeaders"
-                    growing="true"
-                    growingThreshold="50"
-                    growingScrollToLoad="true"
-                    items="{path: 'objSearch>/targetRows'}">
-                    <columns>
-                      <Column width="6rem"><Text text="Type" /></Column>
-                      <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
-                      <Column width="10rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Package" /></Column>
-                      <Column width="8rem"  minScreenWidth="Desktop" demandPopin="true"><Text text="Person Resp." /></Column>
-                      <Column width="6rem"  minScreenWidth="Desktop" demandPopin="true"><Text text="Changed" /></Column>
-                      <Column width="5rem"><Text text="Actions" /></Column>
-                    </columns>
-                    <items>
-                      <ColumnListItem type="Active" press=".onColumnListItemViewSourcePress">
-                        <cells>
+                    enableColumnReordering="true"
+                    enableGrouping="true"
+                    showColumnVisibilityMenu="true"
+                    visibleRowCountMode="Auto"
+                    minAutoRowCount="5"
+                    rows="{path: 'objSearch>/targetRows'}">
+                    <table:layoutData>
+                      <FlexItemData growFactor="1" />
+                    </table:layoutData>
+                    <table:columns>
+                      <table:Column width="6rem" filterProperty="ObjectType" sortProperty="ObjectType">
+                        <Label text="{= ${ddic>/TargetObjects/ObjectType} || 'Type' }" />
+                        <table:template>
                           <ObjectStatus text="{objSearch>ObjectType}" state="None" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="20rem" filterProperty="ObjectName" sortProperty="ObjectName">
+                        <Label text="{= ${ddic>/TargetObjects/ObjectName} || 'Object Name' }" />
+                        <table:template>
                           <ObjectIdentifier title="{objSearch>ObjectName}" titleActive="true" titlePress=".onObjectIdentifierObjNameTitlePress" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="15rem" filterProperty="PackageName" sortProperty="PackageName">
+                        <Label text="{= ${ddic>/TargetObjects/PackageName} || 'Package' }" />
+                        <table:template>
                           <Text text="{objSearch>PackageName}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="10rem" filterProperty="PersonResponsible" sortProperty="PersonResponsible">
+                        <Label text="{= ${ddic>/TargetObjects/PersonResponsible} || 'Person Resp.' }" />
+                        <table:template>
                           <Text text="{objSearch>PersonResponsible}" />
-                          <Text text="{path:'objSearch>ChangedOn', formatter:'.formatDate'}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="10rem" filterProperty="CreatedOn" sortProperty="CreatedOn">
+                        <Label text="{= ${ddic>/TargetObjects/CreatedOn} || 'Created' }" />
+                        <table:template>
+                          <Text text="{path:'objSearch>CreatedOn', formatter:'.formatDate'}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="6rem">
+                        <Label text="Actions" />
+                        <table:template>
                           <HBox>
                             <Button icon="sap-icon://compare-2"
                               tooltip="Open in Code Compare"
@@ -239,10 +286,10 @@
                               type="Transparent"
                               press=".onButtonViewSourcePress" />
                           </HBox>
-                        </cells>
-                      </ColumnListItem>
-                    </items>
-                  </Table>
+                        </table:template>
+                      </table:Column>
+                    </table:columns>
+                  </table:Table>
                 </VBox>
               </content>
             </IconTabFilter>
@@ -254,7 +301,7 @@
               icon="sap-icon://split"
               count="{objSearch>/countMatrix}">
               <content>
-                <VBox height="100%">
+                <VBox height="100%" fitContainer="true">
                   <Toolbar>
                     <Title text="Existence status" />
                     <ToolbarSpacer />
@@ -280,48 +327,75 @@
                     </SegmentedButton>
                     <Button icon="sap-icon://refresh" tooltip="Reload" press=".onButtonSearchMatrixPress" type="Transparent" />
                   </Toolbar>
-                  <Table id="idMatrixTable"
+                  <table:Table id="idMatrixTable"
                     busy="{objSearch>/busyMatrix}"
-                    noDataText="{objSearch>/noDataText}"
+                    selectionMode="Single"
                     alternateRowColors="true"
-                    sticky="ColumnHeaders"
-                    growing="true"
-                    growingThreshold="50"
-                    growingScrollToLoad="true"
-                    items="{path: 'objSearch>/matrixRows'}">
-                    <columns>
-                      <Column width="6rem"><Text text="Type" /></Column>
-                      <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
-                      <Column width="7rem"><Text text="Status" /></Column>
-                      <Column width="10rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Local Package" /></Column>
-                      <Column width="10rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Target Package" /></Column>
-                      <Column width="5rem"><Text text="Actions" /></Column>
-                    </columns>
-                    <items>
-                      <ColumnListItem type="Active">
-                        <cells>
-                          <ObjectStatus text="{objSearch>ObjectType}" state="None" />
-                          <ObjectIdentifier title="{objSearch>ObjectName}" />
+                    enableColumnReordering="true"
+                    enableGrouping="true"
+                    showColumnVisibilityMenu="true"
+                    visibleRowCountMode="Auto"
+                    minAutoRowCount="5"
+                    rows="{
+                      path: 'objModel>/CompareMatrix',
+                      parameters: {
+                        $count: true
+                      }
+                    }">
+                    <table:layoutData>
+                      <FlexItemData growFactor="1" />
+                    </table:layoutData>
+                    <table:columns>
+                      <table:Column width="6rem" filterProperty="ObjectType" sortProperty="ObjectType">
+                        <Label text="{= ${ddic>/CompareMatrix/ObjectType} || 'Type' }" />
+                        <table:template>
+                          <ObjectStatus text="{objModel>ObjectType}" state="None" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="20rem" filterProperty="ObjectName" sortProperty="ObjectName">
+                        <Label text="{= ${ddic>/CompareMatrix/ObjectName} || 'Object Name' }" />
+                        <table:template>
+                          <ObjectIdentifier title="{objModel>ObjectName}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="8rem" filterProperty="ExistenceStatus" sortProperty="ExistenceStatus">
+                        <Label text="{= ${ddic>/CompareMatrix/ExistenceStatus} || 'Status' }" />
+                        <table:template>
                           <ObjectStatus
-                            text="{objSearch>ExistenceStatus}"
-                            state="{path:'objSearch>ExistenceStatus', formatter:'.formatExistenceState'}" />
-                          <Text text="{objSearch>LocalPackage}" />
-                          <Text text="{objSearch>TargetPackage}" />
+                            text="{objModel>ExistenceStatus}"
+                            state="{path:'objModel>ExistenceStatus', formatter:'.formatExistenceState'}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="15rem" filterProperty="LocalPackage" sortProperty="LocalPackage">
+                        <Label text="{= ${ddic>/CompareMatrix/LocalPackage} || 'Local Package' }" />
+                        <table:template>
+                          <Text text="{objModel>LocalPackage}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="15rem" filterProperty="TargetPackage" sortProperty="TargetPackage">
+                        <Label text="{= ${ddic>/CompareMatrix/TargetPackage} || 'Target Package' }" />
+                        <table:template>
+                          <Text text="{objModel>TargetPackage}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="6rem">
+                        <Label text="Actions" />
+                        <table:template>
                           <HBox>
                             <Button icon="sap-icon://compare-2"
                               tooltip="Open in Code Compare"
                               type="Transparent"
-                              visible="{= ${objSearch>ExistenceStatus} === 'BOTH' }"
+                              visible="{= ${objModel>ExistenceStatus} === 'BOTH' }"
                               press=".onButtonOpenComparePress" />
                             <Button icon="sap-icon://detail-view"
                               tooltip="View Source Code"
                               type="Transparent"
                               press=".onButtonViewSourcePress" />
                           </HBox>
-                        </cells>
-                      </ColumnListItem>
-                    </items>
-                  </Table>
+                        </table:template>
+                      </table:Column>
+                    </table:columns>
+                  </table:Table>
                 </VBox>
               </content>
             </IconTabFilter>

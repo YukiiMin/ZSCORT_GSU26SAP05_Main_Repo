@@ -338,21 +338,52 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         APPEND ls_node TO rt_nodes.
         CLEAR ls_node.
 
-        "-- Level 2: Objects under this Task
+        "-- Level 2: Virtual Folders for Object Types, Level 3: Objects
+        DATA lv_current_type TYPE e071-object.
+        CLEAR lv_current_type.
+
         LOOP AT lt_objects ASSIGNING FIELD-SYMBOL(<obj>)
             WHERE trkorr = <task>-trkorr.
+
+          IF lv_current_type <> <obj>-object.
+            lv_current_type = <obj>-object.
+            " Create FOLD node
+            ls_node-node_id        = make_node_id(
+              iv_trkorr   = <task>-trkorr
+              iv_obj_name = |#{ <obj>-object }|
+            ).
+            ls_node-parent_node_id = make_node_id( <task>-trkorr ).
+            ls_node-tree_level     = 2.
+            ls_node-node_type      = 'FOLD'.
+            ls_node-trkorr         = <task>-trkorr.
+            ls_node-parent_trkorr  = <tr>-trkorr.
+            ls_node-owner          = ''.
+            ls_node-tr_status      = ''.
+            ls_node-obj_type       = <obj>-object.
+            ls_node-obj_name       = <obj>-object. " Fallback
+            ls_node-description    = <obj>-object. " Folder label
+            APPEND ls_node TO rt_nodes.
+          ENDIF.
+
+          " Create OBJ node
           ls_node-node_id        = make_node_id(
             iv_trkorr   = <task>-trkorr
             iv_obj_name = <obj>-obj_name
           ).
-          ls_node-parent_node_id = make_node_id( <task>-trkorr ).
-          ls_node-tree_level     = 2.
+          ls_node-parent_node_id = make_node_id(
+            iv_trkorr   = <task>-trkorr
+            iv_obj_name = |#{ <obj>-object }|
+          ).
+          ls_node-tree_level     = 3.
           ls_node-node_type      = 'OBJ'.
           ls_node-trkorr         = <task>-trkorr.
-          ls_node-parent_trkorr  = <task>-trkorr.
-          ls_node-obj_name       = <obj>-obj_name.
+          ls_node-parent_trkorr  = <tr>-trkorr.
+          ls_node-owner          = ''.
+          ls_node-tr_status      = ''.
           ls_node-obj_type       = <obj>-object.
+          ls_node-obj_name       = <obj>-obj_name.
           ls_node-pgmid          = <obj>-pgmid.
+          ls_node-description    = ''. " We can leave blank or use standard text
           APPEND ls_node TO rt_nodes.
           CLEAR ls_node.
         ENDLOOP.

@@ -35,8 +35,49 @@ sap.ui.define([
           endColumn: { fullScreen: false }
         }
       });
+      var oMainModel = this.getModel("");
       this.setModel(oAppModel, "appView");
       this.setModel(new JSONModel({}), "detail");
+      var oObjModel = this.getModel("objModel");
+      var oTrModel = this.getModel("trModel");
+
+      var oDdicModel = new JSONModel({});
+      this.setModel(oDdicModel, "ddic");
+
+      var fetchLabel = function(oOdm, sEntity, sProp) {
+        if (!oOdm) return;
+        var sPath = "/" + sEntity + "/" + sProp + "@com.sap.vocabularies.Common.v1.Label";
+        oOdm.getMetaModel().requestObject(sPath).then(function(sLabel) {
+          if (sLabel) {
+             oDdicModel.setProperty("/" + sEntity + "/" + sProp, sLabel);
+          }
+        }).catch(function(){});
+      };
+
+      if (oObjModel) {
+        ["ObjectType", "ObjectName", "PackageName", "PersonResponsible", "CreatedOn"].forEach(function(p){
+          fetchLabel(oObjModel, "LocalObjects", p);
+          fetchLabel(oObjModel, "TargetObjects", p);
+        });
+        ["Pgmid", "ObjectType", "ObjectName", "LocalPackage", "TargetPackage", "LocalAuthor", "TargetAuthor", "ExistenceStatus"].forEach(function(p){
+          fetchLabel(oObjModel, "CompareMatrix", p);
+        });
+      }
+
+      if (oTrModel) {
+        ["Trkorr", "NodeType", "Owner", "Description"].forEach(function(p){
+          fetchLabel(oTrModel, "TrTree", p);
+        });
+      }
+
+      if (oMainModel) {
+        ["As4user", "As4date"].forEach(function(p){
+          fetchLabel(oMainModel, "ZCE_SCORT_TR_VH", p);
+        });
+        ["ObjectType", "ObjectName", "CompareStatus"].forEach(function(p){
+          fetchLabel(oMainModel, "TrCmp", p);
+        });
+      }
 
       this._initRouterWhenReady();
     },

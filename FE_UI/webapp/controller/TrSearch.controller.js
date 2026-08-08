@@ -63,7 +63,16 @@ sap.ui.define([
     },
 
     onSearch: function () {
-      var sTab = this.getView().getModel("trSearch").getProperty("/activeTab");
+      var oM = this.getView().getModel("trSearch");
+      var sTrk = (oM.getProperty("/filterTrkorr") || "").trim();
+      var sOwn = (oM.getProperty("/filterOwner") || "").trim();
+
+      if (!sTrk && !sOwn) {
+        sap.m.MessageBox.warning("Vui lòng nhập ít nhất Transport Request hoặc Owner để giới hạn phạm vi tìm kiếm.");
+        return;
+      }
+
+      var sTab = oM.getProperty("/activeTab");
       if (sTab === "tree") {
         this._searchTree();
       } else {
@@ -178,10 +187,10 @@ sap.ui.define([
     _searchTree: function (bSilent) {
       var oM = this.getView().getModel("trSearch");
       var that = this;
-      var sUrlBare = this._trServiceUri() + "TrTree?$top=100";
+      var sUrlBare = this._trServiceUri() + "TrTree";
       var sFilter = this._buildTrODataFilter();
       var sUrlFiltered = sFilter
-        ? (this._trServiceUri() + "TrTree?$filter=" + encodeURIComponent(sFilter) + "&$top=100")
+        ? (this._trServiceUri() + "TrTree?$filter=" + encodeURIComponent(sFilter))
         : sUrlBare;
 
       oM.setProperty("/busyTree", true);
@@ -199,11 +208,11 @@ sap.ui.define([
         });
       }
 
-      ValueHelp.fetchJson(sUrlFiltered, 30000).then(finish).catch(function () {
+      ValueHelp.fetchAllJson(sUrlFiltered, 60000).then(finish).catch(function () {
         if (!bSilent) {
           MessageToast.show("Retry without filter…");
         }
-        ValueHelp.fetchJson(sUrlBare, 30000).then(finish).catch(fail);
+        ValueHelp.fetchAllJson(sUrlBare, 60000).then(finish).catch(fail);
       });
     },
 
@@ -505,17 +514,6 @@ sap.ui.define([
       return this._buildTrODataFilterParts().join(" and ");
     },
 
-    formatDate: function (vDate) {
-      if (!vDate) { return ""; }
-      var s = String(vDate);
-      if (/^\d{4}-\d{2}-\d{2}/.test(s)) { return s.substring(0, 10); }
-      var sDigits = s.replace(/\D/g, "");
-      if (sDigits.length >= 8) {
-        return sDigits.substring(0, 4) + "-" + sDigits.substring(4, 6) + "-" + sDigits.substring(6, 8);
-      }
-      return s;
-    },
-
     formatTrStatus: function (sStatus) {
       switch ((sStatus || "").toUpperCase()) {
         case "D": return ValueState.Warning;    // Modifiable = orange
@@ -528,6 +526,7 @@ sap.ui.define([
       switch ((sType || "").toUpperCase()) {
         case "TR":   return "sap-icon://transport-request";
         case "TASK": return "sap-icon://task";
+        case "FOLD": return "sap-icon://folder-blank";
         case "OBJ":  return "sap-icon://form";
         default:     return "sap-icon://document";
       }
@@ -537,6 +536,7 @@ sap.ui.define([
       switch ((sType || "").toUpperCase()) {
         case "TR":   return "#0070f2";
         case "TASK": return "#e9730c";
+        case "FOLD": return "#d8b024";
         case "OBJ":  return "#188918";
         default:     return "#6a6d70";
       }

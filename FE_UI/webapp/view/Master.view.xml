@@ -57,8 +57,8 @@
                 <ObjectStatus text="Released" state="Success" />
               </firstStatus>
               <attributes>
-                <ObjectAttribute text="Owner: {master>As4user}" />
-                <ObjectAttribute text="Date: {path: 'master>As4date', formatter: '.formatDate'}" />
+                <ObjectAttribute text="{= ${ddic>/ZCE_SCORT_TR_VH/As4user} || 'Owner' }: {master>As4user}" />
+                <ObjectAttribute text="{= ${ddic>/ZCE_SCORT_TR_VH/As4date} || 'Created' }: {path: 'master>As4date', formatter: '.formatDate'}" />
               </attributes>
             </ObjectListItem>
           </items>

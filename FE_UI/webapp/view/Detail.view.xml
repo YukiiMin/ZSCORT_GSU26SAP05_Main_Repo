@@ -35,7 +35,7 @@
           title="{detail>/trkorr}"
           intro="Selected Transport Request">
           <attributes>
-            <ObjectAttribute title="Target Server" text="{appView>/serverId}" />
+            <ObjectAttribute title="{= ${ddic>/ZCE_SCORT_TR_VH/As4date} || 'Date' }" text="{path: 'detail>/as4date', formatter: '.formatDate'}" />
             <ObjectAttribute title="Info" text="{detail>/message}" />
           </attributes>
         </ObjectHeader>
@@ -50,21 +50,21 @@
 
           <table:columns>
             <table:Column width="5rem">
-              <Label text="Type" />
+              <Label text="{= ${ddic>/TrCmp/ObjectType} || 'Type' }" />
               <table:template>
                 <Text text="{detail>ObjectType}" />
               </table:template>
             </table:Column>
 
             <table:Column>
-              <Label text="Object Name" />
+              <Label text="{= ${ddic>/TrCmp/ObjectName} || 'Object Name' }" />
               <table:template>
                 <ObjectIdentifier title="{detail>ObjectName}" />
               </table:template>
             </table:Column>
 
             <table:Column width="10rem">
-              <Label text="Compare Status" />
+              <Label text="{= ${ddic>/TrCmp/CompareStatus} || 'Compare Status' }" />
               <table:template>
                 <ObjectStatus
                   text="{detail>CompareStatus}"

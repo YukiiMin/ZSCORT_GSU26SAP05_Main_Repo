@@ -16,6 +16,7 @@
         <Title text="Source Code" />
         <ToolbarSpacer />
         <ObjectStatus text="{appView>/viewSourceMessage}" state="{= ${appView>/viewSourceHash} ? 'Success' : 'Error'}" class="sapUiTinyMarginEnd" />
+        <Button icon="sap-icon://copy" press=".onButtonCopySourcePress" tooltip="Copy to Clipboard" type="Transparent" />
         <Button icon="sap-icon://decline" press=".onButtonCloseDialogPress" type="Transparent" />
       </Toolbar>
     </customHeader>

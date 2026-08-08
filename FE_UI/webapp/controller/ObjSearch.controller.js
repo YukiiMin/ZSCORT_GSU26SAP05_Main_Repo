@@ -4,8 +4,11 @@ sap.ui.define([
   "sap/m/MessageBox",
   "sap/m/MessageToast",
   "sap/ui/core/ValueState",
-  "zscort/app/util/ValueHelp"
-], function (BaseController, JSONModel, MessageBox, MessageToast, ValueState, ValueHelp) {
+  "zscort/app/util/ValueHelp",
+  "sap/ui/model/Filter",
+  "sap/ui/model/FilterOperator",
+  "sap/ui/model/Sorter"
+], function (BaseController, JSONModel, MessageBox, MessageToast, ValueState, ValueHelp, Filter, FilterOperator, Sorter) {
   "use strict";
 
   var OBJ_SERVICE_URI = "/sap/opu/odata4/sap/zui_scort_obj_search_o4/srvd/sap/zsd_scort_obj_search/0001/";
@@ -36,8 +39,6 @@ sap.ui.define([
 
       this.getOwnerComponent().getRouter()
         .getRoute("objSearch")
-        .attachPatternMatched(this._onRouteMatched, this);
-
       this._app().setProperty("/currentModule", "objSearch");
     },
 
@@ -83,6 +84,16 @@ sap.ui.define([
     },
 
     onSearchButtonPress: function () {
+      var oM = this.getView().getModel("objSearch");
+      var sObj = (oM.getProperty("/filterObjName") || "").trim();
+      var sPkg = (oM.getProperty("/filterPackage") || "").trim();
+      var sOwn = (oM.getProperty("/filterOwner") || "").trim();
+
+      if (!sObj && !sPkg && !sOwn) {
+        MessageBox.warning("Vui lòng nhập ít nhất 1 điều kiện (Object Name, Package, hoặc Person Responsible) để giới hạn phạm vi tìm kiếm.");
+        return;
+      }
+
       // New criteria apply to all tabs — drop stale caches and refresh Local + Target + Matrix
       // so badge counts stay in sync (previously only the active tab was searched).
       this._invalidateAllTabs();
@@ -389,89 +400,48 @@ sap.ui.define([
       MessageToast.show("Mock Target data loaded");
     },
 
-    /**
-     * Build Compare Matrix client-side from LocalObjects + TargetObjects.
-     * Used when /CompareMatrix dumps (UNION ALL + SADL $filter → HTTP 500).
-     */
-    _synthesizeMatrixFromSides: function () {
-      var that = this;
-      var oM = this.getView().getModel("objSearch");
-      var sLocalFilter = this._buildODataFilter("local");
-      var sTargetFilter = this._buildODataFilter("target");
-      var sStatusFilter = oM.getProperty("/matrixFilter") || "";
-
-      return Promise.all([
-        this._fetchEntitySet("LocalObjects", sLocalFilter, 500).catch(function () { return []; }),
-        this._fetchEntitySet("TargetObjects", sTargetFilter, 500).catch(function () { return []; })
-      ]).then(function (aSides) {
-        var aLocal = that._applyClientFilters(aSides[0] || [], "local");
-        var aTarget = that._applyClientFilters(aSides[1] || [], "target");
-        var mLocal = {};
-        var mTarget = {};
-        var aRows = [];
-
-        aLocal.forEach(function (o) {
-          mLocal[o.ObjectType + "|" + o.ObjectName] = o;
-        });
-        aTarget.forEach(function (o) {
-          mTarget[o.ObjectType + "|" + o.ObjectName] = o;
-        });
-
-        Object.keys(mLocal).forEach(function (k) {
-          var oL = mLocal[k];
-          var oT = mTarget[k];
-          aRows.push({
-            ObjectType: oL.ObjectType,
-            ObjectName: oL.ObjectName,
-            ExistenceStatus: oT ? "BOTH" : "LOCAL_ONLY",
-            LocalPackage: oL.PackageName || "",
-            TargetPackage: oT ? (oT.PackageName || "") : "",
-            LocalAuthor: oL.PersonResponsible || "",
-            TargetAuthor: oT ? (oT.PersonResponsible || "") : "",
-            ServerType: oM.getProperty("/matrixServerType") || "L"
-          });
-        });
-        Object.keys(mTarget).forEach(function (k) {
-          if (mLocal[k]) { return; }
-          var oT = mTarget[k];
-          aRows.push({
-            ObjectType: oT.ObjectType,
-            ObjectName: oT.ObjectName,
-            ExistenceStatus: "TARGET_ONLY",
-            LocalPackage: "",
-            TargetPackage: oT.PackageName || "",
-            LocalAuthor: "",
-            TargetAuthor: oT.PersonResponsible || "",
-            ServerType: oM.getProperty("/matrixServerType") || "L"
-          });
-        });
-
-        if (sStatusFilter) {
-          aRows = aRows.filter(function (o) { return o.ExistenceStatus === sStatusFilter; });
-        }
-        return aRows;
-      });
-    },
-
     onButtonSearchMatrixPress: function () {
       var oM = this.getView().getModel("objSearch");
-      var that = this;
+      var oTable = this.getView().byId("idMatrixTable");
+      var oBinding = oTable.getBinding("items");
+      if (!oBinding) { return; }
 
-      // Do NOT call CompareMatrix OData — ZCR_SCORT_OBJ_M (UNION ALL) dumps on S40:
-      // ST22 CX_SADL_DUMP_APPL_MODEL_ERROR / STOB ZCR_SCORT_OBJ_M.
-      // Existence = synthesize from LocalObjects + TargetObjects only.
-      oM.setProperty("/busyMatrix", true);
-      this._synthesizeMatrixFromSides().then(function (aRows) {
-        that._setRows("matrixRows", aRows, "countMatrix");
-        oM.setProperty("/busyMatrix", false);
-        that._bMatrixLoaded = true;
-        var nLocalOnly = aRows.filter(function (r) { return r.ExistenceStatus === "LOCAL_ONLY"; }).length;
-        var nBoth = aRows.filter(function (r) { return r.ExistenceStatus === "BOTH"; }).length;
-          MessageToast.show("Existence: " + nBoth + " BOTH, " + nLocalOnly + " LOCAL_ONLY");
-      }).catch(function () {
-        oM.setProperty("/busyMatrix", false);
-        that._loadMatrixMock();
-      });
+      var sStatusFilter = oM.getProperty("/matrixFilter");
+      var sObjName = (oM.getProperty("/filterObjName") || "").trim();
+      var aTypes = oM.getProperty("/filterObjTypes") || [];
+      var sPackage = (oM.getProperty("/filterPackage") || "").trim();
+
+      var aFilters = [];
+
+      if (sStatusFilter) {
+        aFilters.push(new sap.ui.model.Filter("ExistenceStatus", sap.ui.model.FilterOperator.EQ, sStatusFilter));
+      }
+
+      if (sObjName) {
+        var sVal = sObjName.toUpperCase().replace(/\*/g, "");
+        if (sVal) {
+          aFilters.push(new sap.ui.model.Filter("ObjectName", sap.ui.model.FilterOperator.Contains, sVal));
+        }
+      }
+
+      if (aTypes.length > 0) {
+        var aTypeFilters = aTypes.map(function(type) {
+          return new sap.ui.model.Filter("ObjectType", sap.ui.model.FilterOperator.EQ, type);
+        });
+        aFilters.push(new sap.ui.model.Filter({ filters: aTypeFilters, and: false }));
+      }
+
+      if (sPackage) {
+        var sPkgVal = sPackage.toUpperCase().replace(/\*/g, "");
+        if (sPkgVal) {
+          var oPkgLocal = new sap.ui.model.Filter("LocalPackage", sap.ui.model.FilterOperator.Contains, sPkgVal);
+          var oPkgTarget = new sap.ui.model.Filter("TargetPackage", sap.ui.model.FilterOperator.Contains, sPkgVal);
+          aFilters.push(new sap.ui.model.Filter({ filters: [oPkgLocal, oPkgTarget], and: false }));
+        }
+      }
+
+      oBinding.filter(aFilters);
+      MessageToast.show("Matrix updated via OData V4.");
     },
 
     onSegmentedButtonMatrixServerSwitchSelectionChange: function () {
@@ -557,11 +527,6 @@ sap.ui.define([
 
     onButtonExportTargetPress: function () {
       MessageToast.show("Export Target — TODO: use sap.ui.export.Spreadsheet");
-    },
-
-    formatDate: function (sDate) {
-      if (!sDate || sDate.length < 8) { return sDate || ""; }
-      return sDate.substring(0, 4) + "-" + sDate.substring(4, 6) + "-" + sDate.substring(6, 8);
     },
 
     formatExistenceState: function (sStatus) {

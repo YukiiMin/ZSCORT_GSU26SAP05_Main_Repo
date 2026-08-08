@@ -34,8 +34,27 @@ sap.ui.define([
       this._app().setProperty("/currentModule", "detail");
       this._app().setProperty("/trkorr", sTrkorr);
       this._app().setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
+      oViewModel.setProperty("/as4date", "");
 
+      this._loadTrHeader(sTrkorr);
       this._loadObjects(sTrkorr);
+    },
+
+    _trServiceUri: function () {
+      var sUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.trService.uri;
+      return String(sUri || "").replace(/\/?$/, "/");
+    },
+
+    _loadTrHeader: function (sTrkorr) {
+      var oM = this.getView().getModel("detail");
+      var sUrl = this._trServiceUri() + "TrTree('" + String(sTrkorr).replace(/'/g, "''") + "')";
+      ValueHelp.fetchJson(sUrl, 10000).then(function (oData) {
+        if (oData && oData.As4date) {
+          oM.setProperty("/as4date", oData.As4date);
+        }
+      }).catch(function () {
+        // silently ignore error if header cannot be loaded
+      });
     },
 
     _serviceUri: function () {

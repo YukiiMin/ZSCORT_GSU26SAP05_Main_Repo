@@ -7,7 +7,7 @@
   xmlns:table="sap.ui.table"
   height="100%">
 
-  <Page id="trSearchPage" showHeader="true" backgroundDesign="List">
+  <Page id="trSearchPage" showHeader="true" backgroundDesign="List" enableScrolling="false">
 
     <customHeader>
       <Bar>
@@ -39,7 +39,7 @@
     </customHeader>
 
     <content>
-      <VBox height="100%">
+      <VBox height="100%" fitContainer="true">
 
         <Panel headerText="TR Search Filters" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
           <content>
@@ -119,7 +119,11 @@
           selectedKey="{trSearch>/activeTab}"
           select=".onTabSelect"
           expandable="false"
-          height="100%">
+          stretchContentHeight="true"
+          class="sapUiNoContentPadding">
+          <layoutData>
+            <FlexItemData growFactor="1" />
+          </layoutData>
 
           <items>
 
@@ -129,7 +133,7 @@
               text="TR Hierarchy Tree"
               icon="sap-icon://tree">
               <content>
-                <VBox height="100%">
+                <VBox height="100%" fitContainer="true">
                   <Toolbar>
                     <Title text="TR Request → Task → Objects (3 Levels)" />
                     <ToolbarSpacer />
@@ -148,63 +152,60 @@
                     rowHeight="36"
                     columnHeaderHeight="36"
                     enableColumnReordering="true"
+                    showColumnVisibilityMenu="true"
                     selectionMode="Single"
                     rowSelectionChange=".onTreeRowSelect"
                     expandFirstLevel="true"
                     useGroupMode="false"
                     visibleRowCountMode="Auto"
                     minAutoRowCount="5">
+                    <table:layoutData>
+                      <FlexItemData growFactor="1" />
+                    </table:layoutData>
 
                     <table:columns>
                       <table:Column width="22rem" filterProperty="Trkorr">
-                        <Label text="TR / Task / Object" />
+                        <Label text="{= ${ddic>/TrTree/Trkorr} || 'TR / Task / Object' }" />
                         <table:template>
                           <HBox alignItems="Center">
                             <core:Icon
                               src="{path:'trTree>NodeType', formatter:'.formatNodeIcon'}"
                               class="sapUiTinyMarginEnd"
                               color="{path:'trTree>NodeType', formatter:'.formatNodeColor'}" />
+                            <!-- Show tick if Released, else nothing (or edit icon if you prefer) -->
+                            <core:Icon 
+                              src="sap-icon://sys-enter-2" 
+                              color="Positive" 
+                              class="sapUiTinyMarginEnd" 
+                              tooltip="Released"
+                              visible="{= ${trTree>TrStatus} === 'R' }" />
+                            
                             <ObjectIdentifier
-                              title="{trTree>Trkorr}"
-                              text="{trTree>ObjName}" />
+                              title="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjName} : (${trTree>NodeType} === 'FOLD' ? ${trTree>ObjType} : ${trTree>Trkorr}) }" />
                           </HBox>
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="6rem" filterProperty="NodeType">
-                        <Label text="Type" />
+                      <table:Column width="8rem" filterProperty="NodeType">
+                        <Label text="{= ${ddic>/TrTree/NodeType} || 'Type' }" />
                         <table:template>
-                          <Text text="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjType} : ${trTree>NodeType} }" />
+                          <Text text="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjType} : (${trTree>NodeType} === 'FOLD' ? '' : ${trTree>NodeType}) }" />
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="8rem" filterProperty="Owner">
-                        <Label text="Owner" />
+                      <table:Column width="10rem" filterProperty="Owner">
+                        <Label text="{= ${ddic>/TrTree/Owner} || 'Owner' }" />
                         <table:template>
                           <Text text="{trTree>Owner}" />
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="7rem" filterProperty="As4date">
-                        <Label text="Date" />
-                        <table:template>
-                          <Text text="{path:'trTree>As4date', formatter:'.formatDate'}" />
-                        </table:template>
-                      </table:Column>
+                      <!-- Removed Date and Status columns to save space -->
 
-                      <table:Column width="7rem" filterProperty="TrStatus">
-                        <Label text="Status" />
+                      <table:Column width="auto" filterProperty="Description">
+                        <Label text="{= ${ddic>/TrTree/Description} || 'Description' }" />
                         <table:template>
-                          <ObjectStatus
-                            text="{trTree>TrStatus}"
-                            state="{path:'trTree>TrStatus', formatter:'.formatTrStatus'}" />
-                        </table:template>
-                      </table:Column>
-
-                      <table:Column width="12rem" filterProperty="Description">
-                        <Label text="Description" />
-                        <table:template>
-                          <Text text="{trTree>Description}" wrapping="false" />
+                          <Text text="{= ${trTree>NodeType} === 'FOLD' ? '' : ${trTree>Description} }" wrapping="false" />
                         </table:template>
                       </table:Column>
 
@@ -279,6 +280,7 @@
                   </Toolbar>
 
                   <Table id="tblFlat"
+                    items="{trSearch>/}"
                     busy="{trSearch>/busyFlat}"
                     noDataText="{trSearch>/noDataText}"
                     mode="None"

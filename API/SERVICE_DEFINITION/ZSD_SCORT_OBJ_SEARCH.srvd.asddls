@@ -9,7 +9,7 @@
 define service ZSD_SCORT_OBJ_SEARCH {
   expose ZCR_SCORT_OBJ_L   as LocalObjects;
   expose ZCR_SCORT_OBJ_T   as TargetObjects;
-  expose ZCR_SCORT_OBJ_M   as CompareMatrix;
+  expose ZCE_SCORT_MATRIX  as CompareMatrix;
   expose ZCR_SCORT_OBJ_SRC as SourceCodeView;
 
   /* Value Helps */
