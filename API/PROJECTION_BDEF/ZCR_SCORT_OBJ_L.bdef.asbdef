@@ -7,4 +7,5 @@ projection;
 
 define behavior for ZCR_SCORT_OBJ_L
 {
+  use association _SourceCode;
 }

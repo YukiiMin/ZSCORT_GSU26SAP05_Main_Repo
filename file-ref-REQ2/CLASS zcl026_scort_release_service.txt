@@ -1,0 +1,81 @@
+CLASS zcl026_scort_release_service DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    CLASS-METHODS process_release
+      IMPORTING
+        iv_trkorr       TYPE trkorr
+        iv_dialog       TYPE abap_bool DEFAULT abap_false
+      EXPORTING
+        ev_success      TYPE abap_bool
+        ev_request_type TYPE string
+        ev_status       TYPE trstatus
+        ev_message      TYPE string.
+ENDCLASS.
+CLASS zcl026_scort_release_service IMPLEMENTATION.
+
+  METHOD process_release.
+    ev_success = abap_false.
+
+    " 1. Đọc thông tin từ bảng E070 để xác định loại Request
+    SELECT SINGLE trkorr, strkorr, trstatus FROM e070
+      WHERE trkorr = @iv_trkorr
+      INTO @DATA(ls_e070).
+
+    IF sy-subrc <> 0.
+      ev_status  = 'UNKNOWN'.
+      ev_message = |Transport Request/Task { iv_trkorr } không tồn tại.|.
+      RETURN.
+    ENDIF.
+
+    " Tự động xác định Request Type
+    ev_request_type = COND #( WHEN ls_e070-strkorr IS NOT INITIAL THEN 'TASK' ELSE 'REQUEST' ).
+    ev_status       = ls_e070-trstatus.
+
+    " 2. Kiểm tra nếu đã Released trước đó
+    IF ls_e070-trstatus = 'R'.
+      ev_message = |{ COND string( WHEN ev_request_type = 'TASK' THEN 'Task' ELSE 'Transport Request' ) } { iv_trkorr } đã ở trạng thái Released.|.
+      RETURN.
+    ENDIF.
+
+    " 3. Gọi Function Module chuẩn của SAP để Release (Không dính dáng tới Target Apply)
+    CALL FUNCTION 'TR_RELEASE_REQUEST'
+      EXPORTING
+        iv_trkorr                  = iv_trkorr
+        iv_dialog                  = iv_dialog
+        iv_display_export_log      = abap_false
+      EXCEPTIONS
+        cts_initialization_failure = 1
+        enqueue_failed             = 2
+        no_authorization           = 3
+        invalid_request            = 4
+        request_already_released   = 5
+        repeat_unable              = 6
+        object_check_error         = 7
+        object_conversion_error    = 8
+        model_check_error          = 9
+        released_with_warning      = 10
+        released_with_error        = 11
+        information_to_display     = 12
+        cancelled                  = 13
+        OTHERS                     = 14.
+
+    IF sy-subrc = 0 OR sy-subrc = 10.
+      ev_success = abap_true.
+      ev_status  = 'R'.
+
+      IF ev_request_type = 'TASK'.
+        ev_message = |Release thành công Task { iv_trkorr }. Object đã merge về TR Cha { ls_e070-strkorr }.|.
+      ELSE.
+        ev_message = |Release thành công Transport Request { iv_trkorr }.|.
+      ENDIF.
+
+    ELSE.
+      ev_success = abap_false.
+      ev_message = |Lỗi khi Release { iv_trkorr } (Mã lỗi Subrc: { sy-subrc }).|.
+    ENDIF.
+  ENDMETHOD.
+
+ENDCLASS.

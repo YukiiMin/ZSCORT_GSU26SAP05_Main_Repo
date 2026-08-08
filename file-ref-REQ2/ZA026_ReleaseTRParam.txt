@@ -1,0 +1,6 @@
+@EndUserText.label: 'Input Parameter for Release TR Service'
+define abstract entity ZA026_ReleaseTRParam
+{
+  @EndUserText.label: 'Transport Request / Task'
+  trkorr : trkorr;
+}

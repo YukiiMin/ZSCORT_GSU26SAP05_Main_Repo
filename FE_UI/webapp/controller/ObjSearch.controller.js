@@ -58,7 +58,7 @@ sap.ui.define([
     //  MODULE SWITCH (SegmentedButton in ShellBar area)
     // ─────────────────────────────────────────────────────────────────────
 
-    onModuleSwitch: function (oEvent) {
+    onSegmentedButtonModuleSwitchSelectionChange: function (oEvent) {
       var sKey = oEvent.getParameter("item").getKey();
       switch (sKey) {
         case "trSearch": this.onNavTrSearch(); break;
@@ -66,12 +66,17 @@ sap.ui.define([
         default: break;
       }
     },
+    
+    // ─── BaseController Wrappers (for UI5 Linter) ─────────────────────────
+    onButtonNavObjSearchPress: function(oEvent) { return BaseController.prototype.onButtonNavObjSearchPress.apply(this, arguments); },
+    onDialogViewSourceAfterClose: function(oEvent) { return BaseController.prototype.onDialogViewSourceAfterClose.apply(this, arguments); },
+    onButtonCloseDialogPress: function(oEvent) { return BaseController.prototype.onButtonCloseDialogPress.apply(this, arguments); },
 
     // ─────────────────────────────────────────────────────────────────────
     //  SEARCH
     // ─────────────────────────────────────────────────────────────────────
 
-    onSearch: function () {
+    onSearchButtonPress: function () {
       var sActiveTab = this.getView().getModel("objSearch").getProperty("/activeTab");
       switch (sActiveTab) {
         case "local":  this._searchLocal();  break;
@@ -81,7 +86,11 @@ sap.ui.define([
       }
     },
 
-    onTabSelect: function (oEvent) {
+    onFilterObjNameInputSubmit: function () { this.onSearchButtonPress(); },
+    onFilterPackageInputSubmit: function () { this.onSearchButtonPress(); },
+    onFilterAuthorInputSubmit: function () { this.onSearchButtonPress(); },
+
+    onIconTabBarModeSelect: function (oEvent) {
       var sKey = oEvent.getParameter("key");
       this.getView().getModel("objSearch").setProperty("/activeTab", sKey);
       // Auto-search on first switch if no data loaded yet
@@ -93,12 +102,12 @@ sap.ui.define([
           if (!this._bTargetLoaded) { this._searchTarget(); }
           break;
         case "matrix":
-          if (!this._bMatrixLoaded) { this.onSearchMatrix(); }
+          if (!this._bMatrixLoaded) { this.onButtonSearchMatrixPress(); }
           break;
       }
     },
 
-    onClearFilter: function () {
+    onClearButtonPress: function () {
       var oM = this.getView().getModel("objSearch");
       oM.setProperty("/filterObjName", "");
       oM.setProperty("/filterObjTypes", []);
@@ -207,7 +216,7 @@ sap.ui.define([
 
     // ─── Search Matrix (ZCR_SCORT_OBJ_M — BOTH/LOCAL_ONLY/TARGET_ONLY) ──
 
-    onSearchMatrix: function () {
+    onButtonSearchMatrixPress: function () {
       var oM         = this.getView().getModel("objSearch");
       var oOdm       = this.getOwnerComponent().getModel("objModel");
       var sServerType = oM.getProperty("/matrixServerType") || "L";
@@ -244,13 +253,13 @@ sap.ui.define([
       });
     },
 
-    onMatrixServerSwitch: function () {
+    onSegmentedButtonMatrixServerSwitchSelectionChange: function () {
       this._bMatrixLoaded = false;
-      this.onSearchMatrix();
+      this.onButtonSearchMatrixPress();
     },
 
-    onMatrixFilter: function () {
-      this.onSearchMatrix();
+    onSegmentedButtonMatrixFilterSelectionChange: function () {
+      this.onButtonSearchMatrixPress();
     },
 
     _loadMatrixMock: function () {
@@ -308,21 +317,21 @@ sap.ui.define([
     //  ROW ACTIONS
     // ─────────────────────────────────────────────────────────────────────
 
-    onLocalRowSelect: function (oEvent) {
+    onTableLocalSelectionChange: function (oEvent) {
       var oCtx = oEvent.getParameter("listItem") && oEvent.getParameter("listItem").getBindingContext("objSearch");
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
     },
 
-    onTargetRowSelect: function (oEvent) {
+    onTableTargetSelectionChange: function (oEvent) {
       var oCtx = oEvent.getParameter("listItem") && oEvent.getParameter("listItem").getBindingContext("objSearch");
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "T", "BOTH");
     },
 
-    onObjNamePress: function (oEvent) {
+    onObjectIdentifierObjNameTitlePress: function (oEvent) {
       var oSrc = oEvent.getSource();
       var oCtx = oSrc.getBindingContext("objSearch");
       if (!oCtx) { return; }
@@ -330,7 +339,7 @@ sap.ui.define([
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
     },
 
-    onOpenCompare: function (oEvent) {
+    onButtonOpenComparePress: function (oEvent) {
       var oCtx = oEvent.getSource().getBindingContext("objSearch");
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
@@ -338,18 +347,26 @@ sap.ui.define([
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, sServer, oObj.ExistenceStatus || "BOTH");
     },
 
-    onViewSource: function (oEvent) {
+    onColumnListItemViewSourcePress: function(oEvent) { this.onButtonViewSourcePress(oEvent); },
+
+    onButtonViewSourcePress: function (oEvent) {
       var oCtx = oEvent.getSource().getBindingContext("objSearch");
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
-      MessageToast.show("View Source: " + oObj.ObjectType + " " + oObj.ObjectName + " — TODO: open source dialog");
+      
+      var sServerType = oObj.ServerType || "L";
+      // If from Target table, it's 'T'
+      if (oCtx.getPath().indexOf("TargetObjects") > -1) { sServerType = "T"; }
+      if (oObj.ExistenceStatus === "TARGET_ONLY") { sServerType = "T"; }
+
+      this._openSourceDialog(oObj.ObjectType, oObj.ObjectName, sServerType);
     },
 
-    onExportLocal: function () {
+    onButtonExportLocalPress: function () {
       MessageToast.show("Export Local — TODO: use sap.ui.export.Spreadsheet");
     },
 
-    onExportTarget: function () {
+    onButtonExportTargetPress: function () {
       MessageToast.show("Export Target — TODO: use sap.ui.export.Spreadsheet");
     },
 

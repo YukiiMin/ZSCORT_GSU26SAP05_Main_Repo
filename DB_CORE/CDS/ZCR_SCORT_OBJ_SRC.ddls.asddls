@@ -23,14 +23,14 @@ define root custom entity ZCR_SCORT_OBJ_SRC
   @UI.lineItem: [{ position: 10 }]
   @UI.selectionField: [{ position: 10 }]
   @UI.identification: [{ position: 10 }]
-  key ServerType : abap.char(1);
+  key ServerType : abap.char(1);   // Custom flag: 'L'=Local, 'T'=Target — no matching SAP DE
 
   @EndUserText.label: 'Object Type'
   @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_OBJ_TYPE', element: 'ObjectType' } }]
   @UI.lineItem: [{ position: 20 }]
   @UI.selectionField: [{ position: 20 }]
   @UI.identification: [{ position: 20 }]
-  key ObjectType : abap.char(4);
+  key ObjectType : trobjtype;      // SAP DE: Transport Object Type (CHAR 4)
 
   @EndUserText.label: 'Object Name'
   @Consumption.valueHelpDefinition: [{
@@ -43,14 +43,7 @@ define root custom entity ZCR_SCORT_OBJ_SRC
   @UI.lineItem: [{ position: 30 }]
   @UI.selectionField: [{ position: 30 }]
   @UI.identification: [{ position: 30 }]
-  key ObjectName : abap.char(40);
-
-  @EndUserText.label: 'Server Id'
-  @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_SERVER_ID', element: 'ServerId' } }]
-  @UI.lineItem: [{ position: 40 }]
-  @UI.selectionField: [{ position: 40 }]
-  @UI.identification: [{ position: 40 }]
-  ServerId : abap.char(10);
+  key ObjectName : trobj_name;     // SAP DE: Transport Object Name (CHAR 40)
 
   @EndUserText.label: 'Version No'
   @Consumption.valueHelpDefinition: [{
@@ -58,14 +51,13 @@ define root custom entity ZCR_SCORT_OBJ_SRC
     additionalBinding: [
       { localElement: 'ServerType', element: 'ServerType', usage: #FILTER },
       { localElement: 'ObjectType', element: 'ObjectType', usage: #FILTER },
-      { localElement: 'ObjectName', element: 'ObjectName', usage: #FILTER },
-      { localElement: 'ServerId', element: 'ServerId', usage: #FILTER }
+      { localElement: 'ObjectName', element: 'ObjectName', usage: #FILTER }
     ]
   }]
   @UI.lineItem: [{ position: 50 }]
   @UI.selectionField: [{ position: 50 }]
   @UI.identification: [{ position: 50 }]
-  VersionNo : abap.numc(5);
+  VersionNo : versno;              // SAP DE: Version Number (NUMC 5)
 
   @EndUserText.label: 'Line Count'
   @UI.lineItem: [{ position: 60 }]
@@ -75,7 +67,7 @@ define root custom entity ZCR_SCORT_OBJ_SRC
   @EndUserText.label: 'Source Hash'
   @UI.lineItem: [{ position: 70 }]
   @UI.identification: [{ position: 70 }]
-  SrcHash : abap.char(40);
+  SrcHash : abap.char(40);        // Project-specific hash — no matching SAP DE
 
   @EndUserText.label: 'Message'
   @UI.lineItem: [{ position: 80 }]

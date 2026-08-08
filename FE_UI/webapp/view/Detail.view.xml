@@ -12,6 +12,8 @@
           <Title text="TR Objects: {detail>/trkorr}" />
         </contentLeft>
         <contentRight>
+          <Button text="Release" press=".onReleaseButtonPress" type="Accept" tooltip="Release Transport Request" />
+          <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Emphasized" tooltip="Apply to Target Server" />
           <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
           <Button icon="sap-icon://decline" press=".onButtonCloseDetailPress" type="Transparent" />
         </contentRight>
@@ -67,11 +69,18 @@
             <table:Column width="7rem">
               <Label text="Action" />
               <table:template>
-                <Button 
-                  text="Compare" 
-                  icon="sap-icon://compare-2" 
-                  type="Transparent" 
-                  press=".onCompareButtonPress" />
+                <HBox>
+                  <Button 
+                    tooltip="Compare Code" 
+                    icon="sap-icon://compare-2" 
+                    type="Transparent" 
+                    press=".onButtonComparePress" />
+                  <Button 
+                    tooltip="View Source Code" 
+                    icon="sap-icon://detail-view" 
+                    type="Transparent" 
+                    press=".onButtonViewSourcePress" />
+                </HBox>
               </table:template>
             </table:Column>
           </table:columns>

@@ -52,6 +52,34 @@ sap.ui.define([
       });
     },
 
+    onReleaseButtonPress: function () {
+      var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
+      if (!sTrkorr) return;
+      var oOdm = this.getOwnerComponent().getModel("trModel");
+      var oAction = oOdm.bindContext("/TrTree('" + sTrkorr + "')/com.sap.gateway.srvd.zsd_scort_tr_search.v0001.ReleaseRequest(...)");
+      
+      var that = this;
+      oAction.execute().then(function () {
+        sap.m.MessageToast.show("Release triggered successfully.");
+        that.onButtonRefreshPress(); // Refresh data to update status
+      }).catch(function (oError) {
+        sap.m.MessageBox.error("Error triggering Release: " + oError.message);
+      });
+    },
+
+    onApplyToTargetButtonPress: function () {
+      var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
+      if (!sTrkorr) return;
+      var oOdm = this.getOwnerComponent().getModel("trModel");
+      var oAction = oOdm.bindContext("/TrTree('" + sTrkorr + "')/com.sap.gateway.srvd.zsd_scort_tr_search.v0001.ApplyToTarget(...)");
+      
+      oAction.execute().then(function () {
+        sap.m.MessageToast.show("Apply to Target triggered successfully.");
+      }).catch(function (oError) {
+        sap.m.MessageBox.error("Error triggering Apply to Target: " + oError.message);
+      });
+    },
+
     onButtonRefreshPress: function () {
       var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
       if (sTrkorr) {
@@ -67,7 +95,7 @@ sap.ui.define([
       this.getOwnerComponent().getRouter().navTo("master", {}, undefined, true);
     },
 
-    onCompareButtonPress: function (oEvent) {
+    onButtonComparePress: function (oEvent) {
       var oRow = oEvent.getSource().getParent();
       var oCtx = oRow.getBindingContext();
       if (!oCtx) return;
@@ -80,6 +108,20 @@ sap.ui.define([
         objectType: encodeURIComponent(sObjectType),
         objectName: encodeURIComponent(sObjectName)
       });
+    },
+
+    onButtonViewSourcePress: function (oEvent) {
+      var oRow = oEvent.getSource().getParent().getParent(); // Button -> HBox -> table:Row
+      if (oRow && oRow.getBindingContext) {
+        var oCtx = oRow.getBindingContext();
+        if (oCtx) {
+          var sObjectType = oCtx.getProperty("ObjectType");
+          var sObjectName = oCtx.getProperty("ObjectName");
+          var sServerId = this._app().getProperty("/serverId") || "TARGET";
+          var sServerType = (sServerId === "TARGET") ? "T" : "L";
+          this._openSourceDialog(sObjectType, sObjectName, sServerType);
+        }
+      }
     },
 
     onTableObjectRowSelectionChange: function (oEvent) {

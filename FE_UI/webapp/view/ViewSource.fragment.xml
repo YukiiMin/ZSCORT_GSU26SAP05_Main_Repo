@@ -1,0 +1,30 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+  <Dialog
+    id="idViewSourceDialog"
+    title="Source Code: {objSearch>/viewSourceType} {objSearch>/viewSourceName} ({objSearch>/viewSourceServer})"
+    contentWidth="80vw"
+    contentHeight="80vh"
+    resizable="true"
+    draggable="true"
+    afterClose=".onDialogViewSourceAfterClose">
+
+    <customHeader>
+      <Toolbar>
+        <Title text="Source Code" />
+        <ToolbarSpacer />
+        <ObjectStatus text="{objSearch>/viewSourceMessage}" state="{= ${objSearch>/viewSourceHash} ? 'Success' : 'Error'}" class="sapUiTinyMarginEnd" />
+        <Button icon="sap-icon://decline" press=".onButtonCloseDialogPress" type="Transparent" />
+      </Toolbar>
+    </customHeader>
+
+    <content>
+      <VBox height="100%" class="sapUiNoContentPadding">
+        <!-- The monaco editor requires a standard HTML div. We use the 'content' property of sap.ui.core.HTML -->
+        <core:HTML content='&lt;div class=&quot;codeHost&quot; style=&quot;width: 100%; height: 100%;&quot;&gt;&lt;/div&gt;' />
+      </VBox>
+    </content>
+
+  </Dialog>
+</core:FragmentDefinition>

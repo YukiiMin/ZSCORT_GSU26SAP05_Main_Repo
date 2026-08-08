@@ -11,21 +11,21 @@
     },
     "dataSources": {
       "mainService": {
-        "uri": "/sap/opu/odata4/sap/ui_scort_compare_o4/srvd/sap/sd_scort_compare/0001/",
+        "uri": "/sap/opu/odata4/sap/zui_scort_compare_o4/srvd/sap/zsd_scort_compare/0001/",
         "type": "OData",
         "settings": {
           "odataVersion": "4.0"
         }
       },
       "objService": {
-        "uri": "/sap/opu/odata4/sap/ui_scort_obj_search_o4/srvd/sap/sd_scort_obj_search/0001/",
+        "uri": "/sap/opu/odata4/sap/zui_scort_obj_search_o4/srvd/sap/zsd_scort_obj_search/0001/",
         "type": "OData",
         "settings": {
           "odataVersion": "4.0"
         }
       },
       "trService": {
-        "uri": "/sap/opu/odata4/sap/ui_scort_tr_search_o4/srvd/sap/sd_scort_tr_search/0001/",
+        "uri": "/sap/opu/odata4/sap/zui_scort_tr_search_o4/srvd/sap/zsd_scort_tr_search/0001/",
         "type": "OData",
         "settings": {
           "odataVersion": "4.0"

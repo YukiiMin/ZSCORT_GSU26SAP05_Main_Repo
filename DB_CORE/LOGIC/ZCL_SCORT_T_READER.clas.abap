@@ -15,7 +15,7 @@ CLASS zcl_scort_t_reader DEFINITION
       BEGIN OF ty_source,
         object_type   TYPE trobjtype,
         object_name   TYPE sobj_name,
-        server_id     TYPE c LENGTH 10,
+
         version_no    TYPE numc5,
         found         TYPE abap_bool,
         is_new_target TYPE abap_bool,
@@ -42,15 +42,14 @@ CLASS zcl_scort_t_reader DEFINITION
       END OF ty_version,
       tt_version TYPE STANDARD TABLE OF ty_version WITH DEFAULT KEY.
 
-    " API giữ server_id (ignore) — 1 Target simulator, không có cột server_id
-    CONSTANTS c_server_tgt TYPE c LENGTH 10 VALUE 'TGT'.
+
     CONSTANTS c_pgmid_r3tr TYPE pgmid VALUE 'R3TR'.
 
     CLASS-METHODS read_version
       IMPORTING
         iv_object_type   TYPE trobjtype
         iv_object_name   TYPE sobj_name
-        iv_server_id     TYPE c DEFAULT c_server_tgt
+
         iv_version_no    TYPE numc5 OPTIONAL
       RETURNING
         VALUE(rs_source) TYPE ty_source.
@@ -59,7 +58,7 @@ CLASS zcl_scort_t_reader DEFINITION
       IMPORTING
         iv_object_type   TYPE trobjtype
         iv_object_name   TYPE sobj_name
-        iv_server_id     TYPE c DEFAULT c_server_tgt
+
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
@@ -82,7 +81,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     CLEAR rs_source.
     rs_source-object_type = iv_object_type.
     rs_source-object_name = iv_object_name.
-    rs_source-server_id   = COND #( WHEN iv_server_id IS INITIAL THEN c_server_tgt ELSE iv_server_id ).
+
     lv_obj_name = CONV trobj_name( iv_object_name ).
 
     SELECT SINGLE current_version FROM za05_scort_t
@@ -101,7 +100,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     rs_source = read_version(
       iv_object_type = iv_object_type
       iv_object_name = iv_object_name
-      iv_server_id   = rs_source-server_id
+
       iv_version_no  = lv_vers ).
     rs_source-is_current = abap_true.
   ENDMETHOD.
@@ -118,7 +117,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     CLEAR rs_source.
     rs_source-object_type = iv_object_type.
     rs_source-object_name = iv_object_name.
-    rs_source-server_id   = COND #( WHEN iv_server_id IS INITIAL THEN c_server_tgt ELSE iv_server_id ).
+
     lv_obj_name = CONV trobj_name( iv_object_name ).
 
     IF iv_version_no IS SUPPLIED AND iv_version_no IS NOT INITIAL
@@ -127,8 +126,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     ELSE.
       rs_source = read_current(
         iv_object_type = iv_object_type
-        iv_object_name = iv_object_name
-        iv_server_id   = rs_source-server_id ).
+      iv_object_name = iv_object_name ).
       RETURN.
     ENDIF.
     rs_source-version_no = lv_vers.

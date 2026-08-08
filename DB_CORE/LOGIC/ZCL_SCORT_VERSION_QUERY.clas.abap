@@ -23,7 +23,7 @@ CLASS zcl_scort_version_query DEFINITION
       tt_entity TYPE STANDARD TABLE OF zcr_scort_obj_version WITH DEFAULT KEY,
       BEGIN OF ty_filters,
         server_type TYPE c LENGTH 1,
-        server_id   TYPE c LENGTH 10,
+
         object_type TYPE trobjtype,
         object_name TYPE sobj_name,
         version_no  TYPE versno,
@@ -123,8 +123,7 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
       zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'OBJECTNAME' ) ).
     rs_filter-server_type = CONV char1(
       zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'SERVERTYPE' ) ).
-    rs_filter-server_id = CONV char10(
-      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'SERVERID' ) ).
+
     rs_filter-version_no = CONV versno(
       zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'VERSIONNO' ) ).
 
@@ -151,7 +150,7 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
     LOOP AT lt_vers INTO DATA(ls_v).
       CLEAR ls_entity.
       ls_entity-ServerType = c_server_local.
-      ls_entity-ServerId   = is_filter-server_id.
+
       ls_entity-ObjectType = ls_v-object_type.
       ls_entity-ObjectName = ls_v-object_name.
       ls_entity-VersionNo  = ls_v-version_no.
@@ -185,7 +184,7 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
     LOOP AT lt_vers INTO DATA(ls_v).
       CLEAR ls_entity.
       ls_entity-ServerType = c_server_target.
-      ls_entity-ServerId   = is_filter-server_id.
+
       ls_entity-ObjectType = is_filter-object_type.
       ls_entity-ObjectName = is_filter-object_name.
       ls_entity-VersionNo  = ls_v-version_no.
@@ -211,7 +210,7 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
     CLEAR ls_entity.
     ls_entity-ServerType = COND #( WHEN is_filter-server_type = c_server_target
                                    THEN c_server_target ELSE c_server_local ).
-    ls_entity-ServerId   = is_filter-server_id.
+
     ls_entity-ObjectType = is_filter-object_type.
     ls_entity-ObjectName = is_filter-object_name.
     ls_entity-VersionNo  = zcl_scort_v_reader=>c_vers_active.

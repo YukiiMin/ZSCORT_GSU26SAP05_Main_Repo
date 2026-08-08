@@ -334,13 +334,13 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
 
       IF lv_pat IS NOT INITIAL.
         " Exact
-        SELECT devclass, ctext FROM tdevc AS p
+        SELECT p~devclass AS devclass, t~ctext AS ctext FROM tdevc AS p
           LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
           WHERE p~devclass = @lv_pat
           INTO TABLE @DATA(lt_pkg_exact) UP TO 5 ROWS.
         IF lt_pkg_exact IS INITIAL AND strlen( lv_pat ) >= 2.
           lv_like = |{ lv_pat }%|.
-          SELECT devclass, ctext FROM tdevc AS p
+          SELECT p~devclass AS devclass, t~ctext AS ctext FROM tdevc AS p
             LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
             WHERE p~devclass LIKE @lv_like ORDER BY p~devclass
             INTO TABLE @DATA(lt_pkg_like) UP TO 100 ROWS.
@@ -360,7 +360,7 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
         ENDIF.
       ELSE.
         " Browse: chỉ Z*/Y* package
-        SELECT devclass, ctext FROM tdevc AS p
+        SELECT p~devclass AS devclass, t~ctext AS ctext FROM tdevc AS p
           LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
           WHERE ( p~devclass LIKE 'Z%' OR p~devclass LIKE 'Y%' )
           ORDER BY p~devclass

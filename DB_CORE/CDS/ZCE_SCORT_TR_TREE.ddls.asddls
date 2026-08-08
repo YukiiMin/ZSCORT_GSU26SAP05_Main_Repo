@@ -20,7 +20,11 @@
 define root custom entity ZCE_SCORT_TR_TREE
 {
   @EndUserText.label: 'Node ID (Virtual, CHAR40)'
-  @UI.lineItem: [{ position: 10, label: 'Node ID' }]
+  @UI.lineItem: [
+    { position: 10, label: 'Node ID' },
+    { type: #FOR_ACTION, dataAction: 'ReleaseRequest', label: 'Release' },
+    { type: #FOR_ACTION, dataAction: 'ApplyToTarget', label: 'Apply to Target' }
+  ]
   key NodeId             : zde_scort_node_id;
 
   @EndUserText.label: 'Parent Node ID'

@@ -18,4 +18,6 @@ define behavior for ZIR_SCORT_OBJ_T
     PersonResponsible,
     CreatedOn,
     ChangedOn;
+
+  association _SourceCode;
 }

@@ -11,4 +11,5 @@ define behavior for ZCR_SCORT_OBJ_M
 {
   /* Expose custom instance action to UI */
   use action checkDiff;
+  use association _SourceCode;
 }

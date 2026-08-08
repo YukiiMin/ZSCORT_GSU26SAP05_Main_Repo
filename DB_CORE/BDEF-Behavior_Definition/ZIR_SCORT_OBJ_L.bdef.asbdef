@@ -16,4 +16,6 @@ define behavior for ZIR_SCORT_OBJ_L
     PackageName,
     PersonResponsible,
     CreatedOn;
+
+  association _SourceCode;
 }

@@ -1,0 +1,5 @@
+CLASS zbp_ce_scort_tr_tree DEFINITION PUBLIC ABSTRACT FINAL FOR BEHAVIOR OF zce_scort_tr_tree.
+ENDCLASS.
+
+CLASS zbp_ce_scort_tr_tree IMPLEMENTATION.
+ENDCLASS.

@@ -1,0 +1,8 @@
+unmanaged implementation in class zbp_cr_scort_obj_src unique;
+strict ( 2 );
+
+define behavior for ZCR_SCORT_OBJ_SRC
+lock master
+authorization master ( global )
+{
+}

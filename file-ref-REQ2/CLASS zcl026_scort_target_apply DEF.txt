@@ -1,0 +1,335 @@
+CLASS zcl026_scort_target_apply DEFINITION
+  PUBLIC
+  FINAL
+  CREATE PUBLIC .
+
+  PUBLIC SECTION.
+    CLASS-METHODS apply_to_target
+      IMPORTING
+        iv_parent_trkorr TYPE trkorr
+      EXPORTING
+        ev_success       TYPE abap_bool
+        ev_message       TYPE string .
+
+  PRIVATE SECTION.
+    CLASS-METHODS normalize_object
+      IMPORTING
+        iv_pgmid  TYPE e071-pgmid
+        iv_object TYPE e071-object
+      EXPORTING
+        ev_pgmid  TYPE e071-pgmid
+        ev_object TYPE e071-object .
+
+    CLASS-METHODS calculate_checksum
+      IMPORTING
+        iv_source          TYPE string
+      RETURNING
+        VALUE(rv_checksum) TYPE char40 .
+
+    CLASS-METHODS compress_source
+      IMPORTING
+        iv_source            TYPE string
+      RETURNING
+        VALUE(rv_source_hex) TYPE xstring .
+ENDCLASS.
+
+
+CLASS zcl026_scort_target_apply IMPLEMENTATION.
+
+  METHOD apply_to_target.
+    DATA: lt_catalog_modify  TYPE TABLE OF za05_scort_t,
+          lt_src_insert      TYPE TABLE OF za05_scort_t_src,
+          lv_changed_count   TYPE i VALUE 0,
+          lv_unchanged_count TYPE i VALUE 0.
+
+    ev_success = abap_false.
+
+    " 1. Đọc thông tin TR từ E070
+    SELECT SINGLE trkorr, trfunction, trstatus, as4user, as4date, as4time, strkorr
+      FROM e070
+      WHERE trkorr = @iv_parent_trkorr
+      INTO @DATA(ls_e070).
+
+    IF sy-subrc <> 0.
+      ev_message = |Transport Request { iv_parent_trkorr } không tồn tại.|.
+      RETURN.
+    ENDIF.
+
+    " --- RÀO CHẮN 1: CHẶN TASK CON (Chỉ chấp nhận TR Cha) ---
+    IF ls_e070-strkorr IS NOT INITIAL OR ls_e070-trfunction = 'S' OR ls_e070-trfunction = 'Q'.
+      ev_message = |{ iv_parent_trkorr } là Task con (thuộc TR Cha { ls_e070-strkorr }). Vui lòng chỉ định và Apply TR Cha!|.
+      RETURN.
+    ENDIF.
+
+    " --- RÀO CHẮN 2: CHỈ XỬ LÝ WORKBENCH REQUEST (TRFUNCTION = 'K') ---
+    IF ls_e070-trfunction <> 'K'.
+      ev_message = |Transport Request { iv_parent_trkorr } không phải là Workbench Request (Loại hiện tại: { ls_e070-trfunction }).|.
+      RETURN.
+    ENDIF.
+
+    " --- RÀO CHẮN 3: KIỂM TRA TRẠNG THÁI RELEASED (TRSTATUS = 'R' HOẶC 'N') ---
+    IF ls_e070-trstatus <> 'R' AND ls_e070-trstatus <> 'N'.
+      ev_message = |Transport Request { iv_parent_trkorr } chưa được Release hoàn tất (Trạng thái hiện tại: { ls_e070-trstatus }).|.
+      RETURN.
+    ENDIF.
+
+    " Đọc Description của TR từ E07T
+    SELECT SINGLE as4text
+      FROM e07t
+      WHERE trkorr = @iv_parent_trkorr
+        AND langu  = @sy-langu
+      INTO @DATA(lv_descript).
+
+    " 2. Đọc danh sách Object thô từ E071
+    SELECT pgmid, object, obj_name
+      FROM e071
+      WHERE ( trkorr = @iv_parent_trkorr OR trkorr IN ( SELECT trkorr FROM e070 WHERE strkorr = @iv_parent_trkorr ) )
+        AND pgmid IN ('R3TR', 'LIMU')
+      INTO TABLE @DATA(lt_raw_objects).
+
+    IF lt_raw_objects IS INITIAL.
+      ev_message = |Không tìm thấy Object nào trong TR { iv_parent_trkorr } hoặc các Task con của nó.|.
+      RETURN.
+    ENDIF.
+
+    " --- CHUẨN HÓA PGMID/OBJECT VÀ LỌC TRÙNG LẶP ---
+    TYPES: BEGIN OF ty_object,
+             pgmid    TYPE e071-pgmid,
+             object   TYPE e071-object,
+             obj_name TYPE e071-obj_name,
+           END OF ty_object.
+
+    DATA: lt_objects TYPE TABLE OF ty_object,
+          ls_norm    TYPE ty_object.
+
+    LOOP AT lt_raw_objects INTO DATA(ls_raw).
+      ls_norm-obj_name = ls_raw-obj_name.
+
+      normalize_object(
+        EXPORTING
+          iv_pgmid  = ls_raw-pgmid
+          iv_object = ls_raw-object
+        IMPORTING
+          ev_pgmid  = ls_norm-pgmid
+          ev_object = ls_norm-object
+      ).
+
+      APPEND ls_norm TO lt_objects.
+    ENDLOOP.
+
+    SORT lt_objects BY pgmid object obj_name.
+    DELETE ADJACENT DUPLICATES FROM lt_objects COMPARING pgmid object obj_name.
+
+    GET TIME STAMP FIELD DATA(lv_timestamp).
+
+    " 3. DUYỆT TỪNG OBJECT ĐỂ ĐỌC SOURCE CODE & XỬ LÝ VERSION
+    LOOP AT lt_objects INTO DATA(ls_obj).
+
+      IF zcl_scort_l_reader=>is_supported( ls_obj-object ) = abap_false.
+        CONTINUE.
+      ENDIF.
+
+      DATA(ls_src) = zcl_scort_l_reader=>read_active(
+        iv_object_type = ls_obj-object
+        iv_object_name = CONV sobj_name( ls_obj-obj_name ) ).
+
+      IF ls_src-found = abap_false.
+        CONTINUE.
+      ENDIF.
+
+      " --- BỔ SUNG: ĐỌC PACKAGE (DEVCLASS) TỪ BẢNG TADIR ---
+      SELECT SINGLE devclass
+        FROM tadir
+        WHERE pgmid    = @ls_obj-pgmid
+          AND object   = @ls_obj-object
+          AND obj_name = @ls_obj-obj_name
+        INTO @DATA(lv_devclass).
+
+      DATA(lv_source)     = ls_src-text.
+      DATA(lv_checksum)   = calculate_checksum( lv_source ).
+      DATA(lv_source_hex) = compress_source( lv_source ).
+      DATA(lv_preview)    = COND char255( WHEN strlen( lv_source ) > 255 THEN lv_source(255) ELSE lv_source ).
+
+      SELECT SINGLE *
+        FROM za05_scort_t
+        WHERE pgmid    = @ls_obj-pgmid
+          AND object   = @ls_obj-object
+          AND obj_name = @ls_obj-obj_name
+        INTO @DATA(ls_catalog).
+
+      DATA: ls_new_catalog TYPE za05_scort_t,
+            ls_src_detail  TYPE za05_scort_t_src.
+
+      IF sy-subrc <> 0.
+        " --- TRƯỜNG HỢP 1: TẠO MỚI OBJECT (Khởi tạo Version 1) ---
+        ls_new_catalog-client          = sy-mandt.
+        ls_new_catalog-pgmid           = ls_obj-pgmid.
+        ls_new_catalog-object          = ls_obj-object.
+        ls_new_catalog-obj_name        = ls_obj-obj_name.
+        ls_new_catalog-devclass        = lv_devclass. " <-- Đã cập nhật Package
+        ls_new_catalog-author          = ls_e070-as4user.
+        ls_new_catalog-descript        = lv_descript.
+        ls_new_catalog-current_version = 1.
+        ls_new_catalog-changed_by      = sy-uname.
+        ls_new_catalog-changed_at      = sy-datum.
+        ls_new_catalog-changed_tm      = sy-uzeit.
+        ls_new_catalog-last_changed_at = lv_timestamp.
+        APPEND ls_new_catalog TO lt_catalog_modify.
+
+        ls_src_detail-client      = sy-mandt.
+        ls_src_detail-pgmid       = ls_obj-pgmid.
+        ls_src_detail-object      = ls_obj-object.
+        ls_src_detail-obj_name    = ls_obj-obj_name.
+        ls_src_detail-version_no  = 1.
+        ls_src_detail-src_trkorr  = iv_parent_trkorr.
+        ls_src_detail-source_hex  = lv_source_hex.
+        ls_src_detail-src_hash    = lv_checksum.
+        ls_src_detail-src_preview = lv_preview.
+        ls_src_detail-created_by  = sy-uname.
+        ls_src_detail-created_at  = sy-datum.
+        ls_src_detail-created_tm  = sy-uzeit.
+        ls_src_detail-released_by = sy-uname.
+        ls_src_detail-released_at = lv_timestamp.
+        APPEND ls_src_detail TO lt_src_insert.
+
+        lv_changed_count = lv_changed_count + 1.
+
+      ELSE.
+        " --- ĐÃ TỒN TẠI -> SO SÁNH CHECKSUM VỚI CURRENT VERSION ---
+        SELECT SINGLE src_hash
+          FROM za05_scort_t_src
+          WHERE pgmid      = @ls_catalog-pgmid
+            AND object     = @ls_catalog-object
+            AND obj_name   = @ls_catalog-obj_name
+            AND version_no = @ls_catalog-current_version
+          INTO @DATA(lv_current_hash).
+
+        IF lv_checksum = lv_current_hash.
+          " --- TRƯỜNG HỢP 2: CODE KHÔNG ĐỔI -> GIỮ NGUYÊN VERSION & DATA ---
+          lv_unchanged_count = lv_unchanged_count + 1.
+
+        ELSE.
+          " --- TRƯỜNG HỢP 3: CODE CÓ THAY ĐỔI -> TĂNG VERSION + 1 ---
+          DATA(lv_next_ver) = ls_catalog-current_version + 1.
+
+          ls_new_catalog                 = ls_catalog.
+          ls_new_catalog-devclass        = lv_devclass. " <-- Cập nhật lại Package nếu có thay đổi
+          ls_new_catalog-current_version = lv_next_ver.
+          ls_new_catalog-changed_by      = sy-uname.
+          ls_new_catalog-changed_at      = sy-datum.
+          ls_new_catalog-changed_tm      = sy-uzeit.
+          ls_new_catalog-last_changed_at = lv_timestamp.
+          APPEND ls_new_catalog TO lt_catalog_modify.
+
+          ls_src_detail-client      = sy-mandt.
+          ls_src_detail-pgmid       = ls_obj-pgmid.
+          ls_src_detail-object      = ls_obj-object.
+          ls_src_detail-obj_name    = ls_obj-obj_name.
+          ls_src_detail-version_no  = lv_next_ver.
+          ls_src_detail-src_trkorr  = iv_parent_trkorr.
+          ls_src_detail-source_hex  = lv_source_hex.
+          ls_src_detail-src_hash    = lv_checksum.
+          ls_src_detail-src_preview = lv_preview.
+          ls_src_detail-created_by  = sy-uname.
+          ls_src_detail-created_at  = sy-datum.
+          ls_src_detail-created_tm  = sy-uzeit.
+          ls_src_detail-released_by = sy-uname.
+          ls_src_detail-released_at = lv_timestamp.
+          APPEND ls_src_detail TO lt_src_insert.
+
+          lv_changed_count = lv_changed_count + 1.
+
+        ENDIF.
+
+      ENDIF.
+
+    ENDLOOP.
+
+    " 4. CẬP NHẬT DATABASE
+    IF lt_catalog_modify IS NOT INITIAL OR lt_src_insert IS NOT INITIAL.
+
+      IF lt_catalog_modify IS NOT INITIAL.
+        MODIFY za05_scort_t FROM TABLE @lt_catalog_modify.
+      ENDIF.
+
+      IF lt_src_insert IS NOT INITIAL.
+        INSERT za05_scort_t_src FROM TABLE @lt_src_insert.
+      ENDIF.
+
+      IF sy-subrc = 0.
+        COMMIT WORK.
+        ev_success = abap_true.
+        ev_message = |Apply thành công TR { iv_parent_trkorr }. Đã cập nhật/thêm mới { lv_changed_count } object ({ lv_unchanged_count } object giữ nguyên).|.
+      ELSE.
+        ROLLBACK WORK.
+        ev_success = abap_false.
+        ev_message = |Lỗi Database khi cập nhật bảng Repository Header/Source.|.
+      ENDIF.
+
+    ELSE.
+      ev_success = abap_true.
+      ev_message = |Tất cả object trong TR { iv_parent_trkorr } trùng khớp với Target System. Không có gì thay đổi, Version giữ nguyên.|.
+    ENDIF.
+
+  ENDMETHOD.
+
+
+  METHOD normalize_object.
+    ev_pgmid  = iv_pgmid.
+    ev_object = iv_object.
+
+    IF iv_pgmid = 'LIMU'.
+      ev_pgmid = 'R3TR'.
+      CASE iv_object.
+        WHEN 'REPS' OR 'REPT'.
+          ev_object = 'PROG'.
+        WHEN 'FUNC'.
+          ev_object = 'FUGR'.
+        WHEN 'CPUB' OR 'CPRI' OR 'CPRO' OR 'CLSD' OR 'METH'.
+          ev_object = 'CLAS'.
+      ENDCASE.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD calculate_checksum.
+    CLEAR rv_checksum.
+    IF iv_source IS INITIAL.
+      rv_checksum = 'INITIAL'.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        cl_abap_message_digest=>calculate_hash_for_char(
+          EXPORTING
+            if_algorithm  = 'SHA1'
+            if_data       = iv_source
+          IMPORTING
+            ef_hashstring = DATA(lv_hash)
+        ).
+        rv_checksum = lv_hash.
+      CATCH cx_root.
+        rv_checksum = 'ERROR'.
+    ENDTRY.
+  ENDMETHOD.
+
+
+  METHOD compress_source.
+    CLEAR rv_source_hex.
+    IF iv_source IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        cl_abap_gzip=>compress_text(
+          EXPORTING
+            text_in  = iv_source
+          IMPORTING
+            gzip_out = rv_source_hex
+        ).
+      CATCH cx_root.
+        CLEAR rv_source_hex.
+    ENDTRY.
+  ENDMETHOD.
+
+ENDCLASS.

@@ -35,7 +35,7 @@ define root view entity ZCR_SCORT_OBJ_L
   key ObjectType,
 
   @Search.defaultSearchElement: true
-  @UI.lineItem: [{ position: 30, label: 'Object Name' }]
+  @UI.lineItem: [{ position: 30, type: #WITH_NAVIGATION_PATH, targetElement: '_SourceCode', label: 'Object Name' }]
   @UI.identification: [{ position: 30 }]
   @UI.selectionField: [{ position: 30 }]
   @Consumption.valueHelpDefinition: [{

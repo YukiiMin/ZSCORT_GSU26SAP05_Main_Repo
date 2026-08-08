@@ -12,8 +12,6 @@ CLASS zcl_scort_tr_tree_query DEFINITION
   PUBLIC SECTION.
     INTERFACES if_rap_query_provider.
 
-  PROTECTED SECTION.
-  PRIVATE SECTION.
     TYPES:
       BEGIN OF ty_node,
         node_id        TYPE zde_scort_node_id,
@@ -48,6 +46,10 @@ CLASS zcl_scort_tr_tree_query DEFINITION
         iv_obj_name  TYPE e071-obj_name  OPTIONAL
       RETURNING
         VALUE(rv_id) TYPE zde_scort_node_id.
+
+  PROTECTED SECTION.
+  PRIVATE SECTION.
+
 ENDCLASS.
 
 CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
@@ -65,9 +67,14 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
     LOOP AT lt_ranges ASSIGNING FIELD-SYMBOL(<range>).
       CASE <range>-name.
+        WHEN 'NODEID'.
+          READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r0>).
+          IF sy-subrc = 0 AND <r0>-low IS NOT INITIAL.
+            lv_trkorr = <r0>-low(20).
+          ENDIF.
         WHEN 'TRKORR'.
           READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r1>).
-          IF sy-subrc = 0. lv_trkorr = <r1>-low. ENDIF.
+          IF sy-subrc = 0 AND lv_trkorr IS INITIAL. lv_trkorr = <r1>-low. ENDIF.
         WHEN 'OWNER'.
           READ TABLE <range>-range INDEX 1 ASSIGNING FIELD-SYMBOL(<r2>).
           IF sy-subrc = 0. lv_owner = <r2>-low. ENDIF.
@@ -116,11 +123,11 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     DATA(lv_rows)   = io_request->get_paging( )->get_page_size( ).
     DATA(lv_total)  = lines( lt_result ).
 
-    IF lv_rows > 0.
+    IF lv_offset > 0.
       DELETE lt_result FROM 1 TO lv_offset.
-      IF lines( lt_result ) > lv_rows.
-        DELETE lt_result FROM lv_rows + 1.
-      ENDIF.
+    ENDIF.
+    IF lv_rows > 0 AND lines( lt_result ) > lv_rows.
+      DELETE lt_result FROM lv_rows + 1.
     ENDIF.
 
     io_response->set_total_number_of_records( CONV int8( lv_total ) ).
@@ -150,7 +157,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       WHERE strkorr = ''
         AND trkorr  LIKE @lv_tr_pattern
         AND as4user LIKE @lv_owner_pattern
-      INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents.
+      ORDER BY as4date DESCENDING, as4time DESCENDING
+      INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents
+      UP TO 200 ROWS.
 
     IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
 
@@ -278,7 +287,7 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
   METHOD make_node_id.
     "-- Build unique CHAR40 NodeID: Trkorr(20) + ObjName(20)
-    rv_id = |{ iv_trkorr }{ iv_obj_name }|.
+    rv_id = |{ iv_trkorr WIDTH = 20 }{ iv_obj_name }|.
     rv_id = rv_id(40).
   ENDMETHOD.
 

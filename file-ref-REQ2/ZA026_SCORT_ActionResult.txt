@@ -1,0 +1,8 @@
+@EndUserText.label: 'SCORT Action Result Structure'
+define abstract entity ZA026_SCORT_ActionResult
+  with parameters parameter_name : parameter_type
+{
+  trkorr      : trkorr;
+  status      : trstatus;
+    
+}

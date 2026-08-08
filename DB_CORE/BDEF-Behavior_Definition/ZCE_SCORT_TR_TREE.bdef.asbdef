@@ -4,7 +4,9 @@
   Mode: Read-Only (Custom Entity — query provider pattern)
   No lock master for Custom Entity (not needed — virtual data)
 */
-define behavior for ZCE_SCORT_TR_TREE
+unmanaged implementation in class zbp_ce_scort_tr_tree unique;
+
+define behavior for ZCE_SCORT_TR_TREE alias TrTree
 {
   /* Custom Entity — read-only, no standard CRUD */
   field ( readonly )
@@ -21,4 +23,8 @@ define behavior for ZCE_SCORT_TR_TREE
     ObjName,
     ObjType,
     Pgmid;
+
+  /* REQ2 Actions */
+  action ( features : instance ) ReleaseRequest result [1] $self;
+  action ( features : instance ) ApplyToTarget result [1] $self;
 }

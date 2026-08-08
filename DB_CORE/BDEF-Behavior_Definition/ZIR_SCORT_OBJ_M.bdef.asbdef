@@ -7,7 +7,7 @@
   Local (from TADIR/native APIs) and Target (from ZA_SCORT_T_SRC compressed).
   Result is $self with additional diff metadata.
 */
-managed implementation in class ZBP_IR_SCORT_OBJ_M unique;
+unmanaged implementation in class ZBP_IR_SCORT_OBJ_M unique;
 
 define behavior for ZIR_SCORT_OBJ_M
 {
@@ -22,6 +22,8 @@ define behavior for ZIR_SCORT_OBJ_M
     TargetAuthor,
     ExistenceStatus,
     ServerType;
+
+  association _SourceCode;
 
   /* Custom Instance Action: trigger deep code comparison */
   action ( features : instance ) checkDiff result [1] $self;

@@ -22,7 +22,7 @@ CLASS zcl_scort_r_src DEFINITION
       tt_entity TYPE STANDARD TABLE OF zcr_scort_obj_src WITH DEFAULT KEY,
       BEGIN OF ty_filters,
         server_type TYPE c LENGTH 1,
-        server_id   TYPE c LENGTH 10,
+
         object_type TYPE trobjtype,
         object_name TYPE sobj_name,
         version_no  TYPE versno,
@@ -71,7 +71,7 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
 
     CLEAR ls_entity.
     ls_entity-ServerType = ls_filter-server_type.
-    ls_entity-ServerId   = ls_filter-server_id.
+
     ls_entity-ObjectType = ls_filter-object_type.
     ls_entity-ObjectName = ls_filter-object_name.
 
@@ -82,13 +82,12 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
             ls_tgt = zcl_scort_t_reader=>read_version(
                        iv_object_type = ls_filter-object_type
                        iv_object_name = ls_filter-object_name
-                       iv_server_id   = ls_filter-server_id
+
                        iv_version_no  = ls_filter-version_no ).
           ELSE.
             ls_tgt = zcl_scort_t_reader=>read_current(
                        iv_object_type = ls_filter-object_type
-                       iv_object_name = ls_filter-object_name
-                       iv_server_id   = ls_filter-server_id ).
+                       iv_object_name = ls_filter-object_name ).
           ENDIF.
           ls_entity-VersionNo      = ls_tgt-version_no.
           ls_entity-SourceCodeText = ls_tgt-text.
@@ -136,8 +135,7 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
     CLEAR rs_filter.
     rs_filter-server_type = CONV char1(
       zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'SERVERTYPE' ) ).
-    rs_filter-server_id = CONV char10(
-      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'SERVERID' ) ).
+
     rs_filter-object_type = CONV trobjtype(
       zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'OBJECTTYPE' ) ).
     rs_filter-object_name = CONV sobj_name(
@@ -148,9 +146,7 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
     IF rs_filter-server_type IS INITIAL.
       rs_filter-server_type = c_server_local.
     ENDIF.
-    IF rs_filter-server_id IS INITIAL.
-      rs_filter-server_id = c_server_tgt_id.
-    ENDIF.
+
   ENDMETHOD.
 
 ENDCLASS.

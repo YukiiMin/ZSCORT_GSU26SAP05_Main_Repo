@@ -1,0 +1,8 @@
+@EndUserText.label: 'Output Result for Release TR Service'
+define abstract entity ZA026_ReleaseTRResult
+{
+  success      : abap.char(1);
+  request_type : abap.string;    
+  status       : trstatus;
+  message      : abap.string;      
+}

@@ -2,13 +2,10 @@
   controllerName="zscort.app.controller.ObjSearch"
   xmlns="sap.m"
   xmlns:mvc="sap.ui.core.mvc"
-  xmlns:f="sap.f"
-  xmlns:tnt="sap.tnt"
-  xmlns:core="sap.ui.core"
-  xmlns:table="sap.ui.table"
-  height="100%">
+  xmlns:customData="http://schemas.sap.com/sapui5/extension/sap.ui.core.CustomData/1"
+  xmlns:core="sap.ui.core">
 
-  <Page id="objSearchPage" showHeader="false" backgroundDesign="List">
+  <Page id="idObjSearchPage" showHeader="false" backgroundDesign="List">
 
     <!-- ── Shell Navigation Bar ── -->
     <customHeader>
@@ -19,7 +16,7 @@
         <contentMiddle>
           <SegmentedButton
             selectedKey="{appView>/currentModule}"
-            selectionChange=".onModuleSwitch">
+            selectionChange=".onSegmentedButtonModuleSwitchSelectionChange">
             <items>
               <SegmentedButtonItem key="objSearch" text="Object Search" icon="sap-icon://search" />
               <SegmentedButtonItem key="trSearch"  text="TR Search"     icon="sap-icon://org-chart" />
@@ -28,7 +25,7 @@
           </SegmentedButton>
         </contentMiddle>
         <contentRight>
-          <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home" />
+          <Button icon="sap-icon://home" type="Transparent" press=".onButtonNavObjSearchPress" tooltip="Home" />
         </contentRight>
       </Bar>
     </customHeader>
@@ -44,17 +41,17 @@
               <!-- Object Name -->
               <VBox class="sapUiTinyMarginEnd">
                 <Label text="Object Name (Wildcard)" />
-                <Input id="inputObjName"
+                <Input id="idFilterObjNameInput"
                   width="14rem"
                   value="{objSearch>/filterObjName}"
                   placeholder="ZSCORT*"
-                  submit=".onSearch" />
+                  submit=".onFilterObjNameInputSubmit" />
               </VBox>
 
               <!-- Object Type (multi-select) -->
               <VBox class="sapUiTinyMarginEnd">
                 <Label text="Object Type" />
-                <MultiComboBox id="mboxObjType"
+                <MultiComboBox id="idFilterObjTypeMultiComboBox"
                   width="14rem"
                   placeholder="All types"
                   selectedKeys="{objSearch>/filterObjTypes}">
@@ -78,36 +75,36 @@
               <!-- Package -->
               <VBox class="sapUiTinyMarginEnd">
                 <Label text="Package (Wildcard)" />
-                <Input id="inputPackage"
+                <Input id="idFilterPackageInput"
                   width="12rem"
                   value="{objSearch>/filterPackage}"
                   placeholder="ZSCORT*"
-                  submit=".onSearch" />
+                  submit=".onFilterPackageInputSubmit" />
               </VBox>
 
               <!-- Person Responsible -->
               <VBox class="sapUiTinyMarginEnd">
                 <Label text="Person Responsible" />
-                <Input id="inputAuthor"
+                <Input id="idFilterAuthorInput"
                   width="10rem"
                   value="{objSearch>/filterAuthor}"
                   placeholder="USER*"
-                  submit=".onSearch" />
+                  submit=".onFilterAuthorInputSubmit" />
               </VBox>
 
               <!-- Search Buttons -->
               <VBox justifyContent="End">
                 <HBox>
-                  <Button id="btnSearch"
+                  <Button id="idSearchButton"
                     text="Search"
                     type="Emphasized"
                     icon="sap-icon://search"
-                    press=".onSearch"
+                    press=".onSearchButtonPress"
                     class="sapUiTinyMarginEnd" />
-                  <Button id="btnClear"
+                  <Button id="idClearButton"
                     text="Clear"
                     type="Transparent"
-                    press=".onClearFilter" />
+                    press=".onClearButtonPress" />
                 </HBox>
               </VBox>
 
@@ -117,12 +114,11 @@
 
         <!-- ── Result Tabs: Local / Target / Compare Matrix ── -->
         <IconTabBar
-          id="tabBarMode"
+          id="idModeIconTabBar"
           selectedKey="{objSearch>/activeTab}"
-          select=".onTabSelect"
+          select=".onIconTabBarModeSelect"
           expandable="false"
-          class="sapUiNoContentPadding"
-          height="100%">
+          class="sapUiNoContentPadding">
 
           <!-- TAB 1: Local Objects (from TADIR) -->
           <items>
@@ -137,13 +133,13 @@
                     <Title text="Objects on Local Server (S40)" />
                     <ToolbarSpacer />
                     <Label text="{= ${objSearch>/countLocal} + ' object(s)'}" class="sapUiTinyMarginEnd" />
-                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onExportLocal" />
+                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportLocalPress" />
                   </Toolbar>
-                  <Table id="tblLocal"
+                  <Table id="idLocalTable"
                     busy="{objSearch>/busyLocal}"
                     noDataText="{objSearch>/noDataText}"
                     mode="SingleSelectMaster"
-                    selectionChange=".onLocalRowSelect"
+                    selectionChange=".onTableLocalSelectionChange"
                     alternateRowColors="true"
                     sticky="ColumnHeaders">
                     <columns>
@@ -157,19 +153,25 @@
                     <items>
                       <ColumnListItem
                         type="Active"
-                        press=".onLocalRowSelect">
+                        press=".onColumnListItemViewSourcePress">
                         <cells>
                           <ObjectStatus text="{objSearch>ObjectType}" state="None" />
-                          <ObjectIdentifier title="{objSearch>ObjectName}" titleActive="true" titlePress=".onObjNamePress" />
+                          <ObjectIdentifier title="{objSearch>ObjectName}" titleActive="true" titlePress=".onObjectIdentifierObjNameTitlePress" />
                           <Text text="{objSearch>PackageName}" />
                           <Text text="{objSearch>PersonResponsible}" />
                           <Text text="{path:'objSearch>CreatedOn', formatter:'.formatDate'}" />
-                          <Button icon="sap-icon://compare-2"
-                            tooltip="Open in Code Compare"
-                            type="Transparent"
-                            customData:objType="{objSearch>ObjectType}"
-                            customData:objName="{objSearch>ObjectName}"
-                            press=".onOpenCompare" />
+                          <HBox>
+                            <Button icon="sap-icon://compare-2"
+                              tooltip="Open in Code Compare"
+                              type="Transparent"
+                              customData:objType="{objSearch>ObjectType}"
+                              customData:objName="{objSearch>ObjectName}"
+                              press=".onButtonOpenComparePress" />
+                            <Button icon="sap-icon://detail-view"
+                              tooltip="View Source Code"
+                              type="Transparent"
+                              press=".onButtonViewSourcePress" />
+                          </HBox>
                         </cells>
                       </ColumnListItem>
                     </items>
@@ -190,13 +192,13 @@
                     <Title text="Objects on Target Server (Simulated via ZA_SCORT_T)" />
                     <ToolbarSpacer />
                     <Label text="{= ${objSearch>/countTarget} + ' object(s)'}" class="sapUiTinyMarginEnd" />
-                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onExportTarget" />
+                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportTargetPress" />
                   </Toolbar>
-                  <Table id="tblTarget"
+                  <Table id="idTargetTable"
                     busy="{objSearch>/busyTarget}"
                     noDataText="{objSearch>/noDataText}"
                     mode="SingleSelectMaster"
-                    selectionChange=".onTargetRowSelect"
+                    selectionChange=".onTableTargetSelectionChange"
                     alternateRowColors="true"
                     sticky="ColumnHeaders">
                     <columns>
@@ -208,17 +210,23 @@
                       <Column width="5rem"><Text text="Actions" /></Column>
                     </columns>
                     <items>
-                      <ColumnListItem type="Active" press=".onTargetRowSelect">
+                      <ColumnListItem type="Active" press=".onColumnListItemViewSourcePress">
                         <cells>
                           <ObjectStatus text="{objSearch>ObjectType}" state="None" />
-                          <ObjectIdentifier title="{objSearch>ObjectName}" titleActive="true" titlePress=".onObjNamePress" />
+                          <ObjectIdentifier title="{objSearch>ObjectName}" titleActive="true" titlePress=".onObjectIdentifierObjNameTitlePress" />
                           <Text text="{objSearch>PackageName}" />
                           <Text text="{objSearch>PersonResponsible}" />
                           <Text text="{path:'objSearch>ChangedOn', formatter:'.formatDate'}" />
-                          <Button icon="sap-icon://compare-2"
-                            tooltip="Open in Code Compare"
-                            type="Transparent"
-                            press=".onOpenCompare" />
+                          <HBox>
+                            <Button icon="sap-icon://compare-2"
+                              tooltip="Open in Code Compare"
+                              type="Transparent"
+                              press=".onButtonOpenComparePress" />
+                            <Button icon="sap-icon://detail-view"
+                              tooltip="View Source Code"
+                              type="Transparent"
+                              press=".onButtonViewSourcePress" />
+                          </HBox>
                         </cells>
                       </ColumnListItem>
                     </items>
@@ -241,7 +249,7 @@
                     <Label text="View code as server:" class="sapUiTinyMarginEnd" />
                     <SegmentedButton
                       selectedKey="{objSearch>/matrixServerType}"
-                      selectionChange=".onMatrixServerSwitch">
+                      selectionChange=".onSegmentedButtonMatrixServerSwitchSelectionChange">
                       <items>
                         <SegmentedButtonItem key="L" text="Local" />
                         <SegmentedButtonItem key="T" text="Target" />
@@ -250,7 +258,7 @@
                     <ToolbarSeparator />
                     <SegmentedButton
                       selectedKey="{objSearch>/matrixFilter}"
-                      selectionChange=".onMatrixFilter">
+                      selectionChange=".onSegmentedButtonMatrixFilterSelectionChange">
                       <items>
                         <SegmentedButtonItem key="" text="All" />
                         <SegmentedButtonItem key="BOTH" text="BOTH" />
@@ -258,12 +266,11 @@
                         <SegmentedButtonItem key="TARGET_ONLY" text="TARGET ONLY" />
                       </items>
                     </SegmentedButton>
-                    <Button icon="sap-icon://refresh" tooltip="Reload" press=".onSearchMatrix" type="Transparent" />
+                    <Button icon="sap-icon://refresh" tooltip="Reload" press=".onButtonSearchMatrixPress" type="Transparent" />
                   </Toolbar>
-                  <Table id="tblMatrix"
+                  <Table id="idMatrixTable"
                     busy="{objSearch>/busyMatrix}"
                     noDataText="{objSearch>/noDataText}"
-                    mode="None"
                     alternateRowColors="true"
                     sticky="ColumnHeaders">
                     <columns>
@@ -289,11 +296,11 @@
                               tooltip="Open in Code Compare"
                               type="Transparent"
                               visible="{= ${objSearch>ExistenceStatus} === 'BOTH' }"
-                              press=".onOpenCompare" />
+                              press=".onButtonOpenComparePress" />
                             <Button icon="sap-icon://detail-view"
                               tooltip="View Source Code"
                               type="Transparent"
-                              press=".onViewSource" />
+                              press=".onButtonViewSourcePress" />
                           </HBox>
                         </cells>
                       </ColumnListItem>
