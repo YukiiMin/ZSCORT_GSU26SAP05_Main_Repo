@@ -1,0 +1,218 @@
+,SCORT - SAP Cross-system Object Replication Toolkit,,,,,
+,,,,,,
+,Requirement: ,"Trên tài liệu, lý thuyết là zậy",,Note,,
+,REQ1,"1. Phân tích và phân loại các đối tượng repository SAP (bảng, Domain, Data Element, Function Module, Class, Report, Transaction) trong hệ thống nguồn; so sánh danh sách đối tượng giữa nguồn và đích qua RFC; hiển thị ma trận đồng bộ trong giao diện Fiori hoặc ALV.",,REQ1,,
+,REQ2,"2. Tạo package truyền vận tự động: từ danh sách đối tượng đã chọn, gọi CTS API hoặc Function Module quản lý transport (TRINT*, CTS_API*) để tạo transport request, gán đối tượng và giải phóng request; theo dõi trạng thái transport và hiển thị nhật ký kết quả.",,REQ2,,
+,REQ3,"3. Cung cấp trình so sánh code: đối với các đối tượng xuất hiện ở cả nguồn lẫn đích, hiển thị diff theo từng dòng (tương tự git diff); đánh dấu code thêm/xóa/giữ nguyên; hỗ trợ xem cạnh nhau cho các đối tượng dạng text như Report, Function Module và Class.",,REQ3,,
+,REQ Bonous,"★ AI Bonus: Nhúng AI sinh (SAP AI Core hoặc Azure OpenAI qua BTP Destination): trong quá trình so sánh đối tượng, AI đọc code nguồn và đích rồi tạo tóm tắt thay đổi bằng ngôn ngữ tự nhiên; đề xuất có nên transport hay không và nêu rõ rủi ro tiềm ẩn.",,Kiến Trúc dự án,Naming-Conventions,
+,,,,,,
+,,,,,,
+,Requirement: ,Thực tế triển khai,,,,
+,REQ1," - Phân tích & phân loại đối tượng: Cung cấp bộ tính năng ""SEARCH"" & ""FILTER"" các Repo Object hiện có trong SAP Server hiện tại S40 (Đọc Table chính thuộc SAP Native như Tadir....). Khi hiển thị Object thì phải để Server: L (local hay server hiện tại của chúng ta)
++ Search theo ObjectName (Hay gọi là ""SEARCH IN CUSTOM NAMESPACE"") (hỗ trợ Search-Help Wildcard để tìm ra object + ObjectType tương ứng).
+** Mode Search ""Only Object Name"" kèm Wildcard để search Range Object có cùng cơ chế tên đó (hiện thị đủ object name giống nhưng khác type luôn)
+*** Ví dụ: Input: { Object Name: ZSCORT* } (các input khác để trống) => Output: ALV web Fiori: hiển thị từng Object thoã mãn điều kiện ""Search"" theo từng dòng (mỗi Object là một dòng). ""OBJECT"" có thể trùng ""Object name"" nhưng khác Object type)
+Ví dụ: 1.| ZSCORT_CL_A | CLAS; 2.| ZSCORT_PRG_A | PROG; 3.| ZSCORT_I_A | BDEF; 4. | ZSCORT_I_A | (meta extension).
+** Filter hỗ trợ:
+*** Filter theo ""ObjectType"" (chọn checkbox các ObjectType muốn hiển thị)
+*** Filter theo ""Package (Devc)"" (Input Value range bằng PackageName + Wildcard muốn hiển thị)
+*** Filter theo ""Person Responsible"" (Input Value range bằng Person Responsible + Wildcard muốn hiển thị)
+** Mode Search ""Object Name + Type"": Có 2 cách triển khai
+*** Triển khai 1: Là chạy theo kiểu Search ""Only ObjectName"" (output number hit = mode search đầu tiên) nhưng output hiện ra cho User thì kèm thêm sẵn Filter (Type = Type người dùng nhập) cho người dùng (Recommended)
+*** Triển khai 2: Search đúng Object Name mà có Type theo chỉ định (output number hit < mode search đầu tiên do constraints search nhiều hơn) Bỏ filter theo Object type khi search kiểu này (Vì đã constraints Object type sẵn rồi) (Search đúng thứ, tối ưu hiệu xuất hơn, nhưng linh hoạt kém)
+
++ Search theo Package (hỗ trợ Search-Help Wildcard để tìm ra Package tương ứng).
+** Mode Search "" search chỉ định 1 Package theo PackageName"" - Chỉ nhập PackageName; Person Responsible để trống (hỗ trợ Search-Help Wildcard để tìm ra object + ObjectType tương ứng).
+*** Ví dụ: Input: { Object Name: ZSCORT_SAP05* } (các input khác để trống) => Output: web Fiori: hiển thị phân cấp: Person_Resposible>Package>Objects (toàn bộ object có trong package) thoã mãn điều kiện ""Search""
+** Filter hỗ trợ:
+*** Filter theo ""ObjectType"" (chọn checkbox các ObjectType muốn hiển thị)
+
+** Mode Search ""search Package theo Person Responsible (1 hoặc rage Person Responsible)""
+*** Input: Nhập Constrain PackageName để tăng ràng buộc search nếu cần + Rage Person Responsible hoặc chỉ định 1 Person Responsible
+=> Output: web Fiori: hiển thị phân cấp: Person_Resposible>Package>Objects (toàn bộ object có trong package) thoã mãn điều kiện ""Search""
+** Filter hỗ trợ:
+*** Filter theo ""ObjectType"" (chọn checkbox các ObjectType muốn hiển thị)
+*** Filter theo ""Package (Devc)"" (Input Value range bằng PackageName + Wildcard muốn hiển thị)
+*** Filter theo ""Person Responsible"" (Input Value range bằng Person Responsible + Wildcard muốn hiển thị) .
+
+- - Phân tích & phân loại đối tượng: Cung cấp bộ tính năng ""SEARCH"" & ""FILTER"" các Repo Object hiện có trong SAP Server hiện tại Target (Server giả lập bên trong S40 của chúng ta). Thông qua Custom Table. Cũng có các tính năng y chang bên Server gốc của ta. Nhưng logic query và triển khai thì đọc từ Custom Table của tôi trong S40. Gọi là Table Giả lập Server Target.
+
+-- Coi chi tiết src code - metadata từ Object đã chọn ở phần ""Search&Filter"" trên:
+Chuột phải vào Object, hoặc action line của object đó.
+** Mode coi metadata của object đã chọn: Nếu bật thông qua adt eclipse thì qua coi src code bên Eclipse
+** Mode coi Src code chi tiết của object đã chọn: Nếu bật thông qua adt eclipse thì qua coi src code bên Eclipse
+
+-- Search Object bất kỳ thông qua các tính năng search, xem object đó ở Server hiện tại (Local) và trong Server Target (Custom Table) theo những tiêu chí sau:
++ Object có cùng tồn tại ở 2 server không (hay chỉ tồn tại ở 1 server nào).
++ Cùng Object đó ở 2 Server có khác gì nhau không? (Check metadata và Src code của object thuộc 2 server (2 table khác nhau; 1 là native SAP, 2 là Custom Table của tôi).
+
+- Search TR request /Task theo Owner cho TR request đó hoặc theo name space SK40*.... gì gì
++ MODE: Search TR Request/Task:
+* Input: Request (name wildcard) + Owner + Date + Request Status
+* Output: Hiển thị Request dạng phân cấp: TR Request (TR cha) cấp 0 > các TR Task (TR Con) bên trong cấp 1 + các object đứng ngang cấp > Các object được gán bên trong các TR Task Cấp 2
++ MODE: Search Object in TR Request/Task:
+* Input: Request (name wildcard) + Owner + Date + Request Status + Choose Object_Name (Wild Card) + Object_type
+* Output: Hiển thị từng dòng Request tương ứng gán với object đang active mà thuộc TR đang quản lý hiện tại.",,,,
+,,,,,,
+,REQ2,"
+
+
+MAINFLOW 1: QUẢN LÝ & THỰC THI RELEASE (RELEASE MANAGEMENT)
+        Kiểm tra Đầu vào (Precheck-Realsead): Sau khi seach ở R1 thành công User chọn TR(có thể là TR or Task) chứa OBJ cần Realesed hoặc cần Aplly totarget.
+                Query E070:  kiểm tra mã TR nhập vào. Nếu là Task tìm Tr Cha   Sau đó Check trạng thái.:+ nếu TR Cha ở trạng thái ""R"" thì chuyển sang bước Apply to target. 
+                                                                                                        +Nếu TR cha ở trạng thái ""D"" thì chuyển sang bước tiếp theo là quay về màn hình có cây như se09 chọn Task con cần realead -> bấm nút ""Released"", update status task con.... tiếp tục thực hiện đến hết tất cả các task trong TR cha.Chọn Tr cha bấm nut ""released"" cập nhật Status TR cha ở trạng thái ""R"" . ->  chuyển sang bước Apply totarrget.
+                
+     chức năng Released sẽ gọi FM TR_RELEASE_REQUEST triển khai nó áp dụng cho cả TR và Task.
+
+MAINFLOW 2: KÍCH HOẠT & CHUYỂN TIẾP APPLY TO TARGET( ở đây là trạng thái TR cha đã đc Released)
+1.Điều kiện kích hoạt: Chỉ chạy khi Mainflow 1 hoàn tất thành công (E070-STATUS của TR Cha = 'R').
+2.Khai báo Data Model & Cấu trúc Dữ liệu
+        -Chuẩn hóa 2 Bảng Custom Target:
+                ZA_SCORT_T:Chứa Metadata của Object (SERVER_ID, OBJECT_TYPE, OBJECT_NAME, DEVCLASS, AUTHOR, CURRENT_VERSION, CHANGED_AT,...).  
+                ZA_SCORT_T_SRC: Chứa nội dung chi tiết từng dòng Source Code (OBJECT_TYPE, OBJECT_NAME, VERSION_NO, LINE_NO, SOURCE_LINE, SRC_HASH).  
+        -Dựng các ABAP Structures / Table Types đầu vào/đầu ra phục vụ API (Export/Import Parameters cho RFC hoặc Class Method).  
+***Kết quả sau B1: 
+        DB Header: ZA_SCORT_T  
+        DB Detail Source: ZA_SCORT_T_SRC  
+        Output Detail Structure: ZS_SCORT_OBJ_RESULT  
+        Output Table Type: ZT_SCORT_OBJ_RESULT  
+        Output Summary Structure: ZS_SCORT_APPLY_SUMMARY  
+
+
+BƯỚC 3: Xử lý Lấy Object & Xác định Version Snapshot
+        -Đọc danh sách các Object thuộc TR từ bảng E071 (WHERE TRKORR = input_trkorr). 
+        -Vòng lặp qua từng Object: 
+                Gọi FM tra cứu danh sách Version từ bảng VRSD
+                Lọc phiên bản VERSNO khớp với mã Trkorr đang xử lý (hoặc Task con thuộc TR đó)
+                Ngoại lệ: Nếu không tìm thấy VersionSnapshot $\rightarrow$ Ghi log lỗi VERSION_SNAPSHOT_NOT_FOUND, CONTINUE qua Object tiếp theo. 
+
+BƯỚC 4: Đọc Source Code, Metadata & Tính Hash
+        -Phân nhánh đọc Source theo ObjectType:
+                PROG / CLAS / INTF: Đọc tập hợp dòng source code tại VERSNO tương ứng. 
+                Đọc source CDS tại VERSNO tương ứng. 
+                Loại khác (TABL, DDIC,...): Bỏ qua đọc dòng code, gắn cờ METADATA_ONLY
+        -Lấy Metadata tại thời điểm Version đó được tạo (DevClass, Author, ChangedAt từ thông tin snapshot, không dùng ngày/người sửa hiện tại).
+        -Tính Hash (SRC_HASH): Ghép toàn bộ mảng SOURCE_LINE thành chuỗi và gọi FM/Class băm chuỗi (MD5 hoặc SHA256).
+BƯỚC 5: Xử lý Persistence Dữ liệu vào Custom Target (ZA_SCORT_T & ZA_SCORT_T_SRC)
+        -Query ZA_SCORT_T kiểm tra sự tồn tại của (SERVER_ID = 'TARGET', OBJECT_TYPE, OBJECT_NAME).  
+        -Trường hợp CHƯA CÓ:
+                Set VERSION_NO = '01'. 
+                 INSERT thông tin vào ZA_SCORT_T. 
+                 INSERT danh sách các dòng source + SRC_HASH vào ZA_SCORT_T_SRC.  
+        -Trường hợp ĐÃ CÓ:
+                Lấy CurrentVersion hiện tại trong ZA_SCORT_T, tính new_version = CurrentVersion + 1 (định dạng 02, 03,...).
+                INSERT dòng version mới vào ZA_SCORT_T_SRC (để giữ lịch sử version cũ)
+                UPDATE bảng ZA_SCORT_T với CurrentVersion = new_version, cập nhật ngày/người thay đổi tương ứng.
+
+",,"Đặt trường là SE09 vốn đã tồn tại chứ năng auto tạo TR cho Repo Object khi ta lần đầu khởi tạo Repo Object rồi. 
+=> Khi vào hệ thống của ta thì object nào cũng đã có một TR sẵn của nó rồi","nhưng thằng ZA_SCORT_T_SRC và ZA_SCORT_T  là giả lập một SErver khác chứ ko phải là nơi chứa snapshot, việc snapshot chỉ đang giả lập STMS trung chuyển Object trong TR được Release sang Server khác mà ? Vì ko làm tính năng xác thật trước khi được vào hệ thống Target nên tôi mới cho nó auto snapshoot, để giảm scope.",
+,,,,,,
+,,,,,,
+,REQ3,"# REQ3 — Đặc tả kỹ thuật (Fiori Code Compare Git Review, read-only) — bản paste Google Sheet
+
+Copy toàn bộ khối dưới đây vào ô REQ3 của sheet General (thay nội dung cũ).
+
+---
+
+- Requirement gốc: Cung cấp trình so sánh code — đối với các đối tượng xuất hiện ở cả nguồn lẫn đích, hiển thị diff theo từng dòng (tương tự git diff); đánh dấu code thêm/xóa/giữ nguyên; hỗ trợ xem cạnh nhau cho các đối tượng dạng text như Report, Function Module và Class.
+
+- Phạm vi REQ3: CHỈ ĐỌC (read-only). Không Merge, không ghi source, không activate object, không sinh version, không sửa dữ liệu ở bất kỳ phía nào.
+
+- Thời điểm chạy: SAU khi Requirement 2 đã Release Transport Request, và TRƯỚC khi Apply to Target. Đây là bước xem trước thay đổi, trả lời câu hỏi ""nếu Apply lần này thì code ở đích sẽ thay đổi những gì"". Phía đích lúc này là bản Snapshot của lần Apply TRƯỚC ĐÓ (nếu đã từng Apply), phía nguồn là Active Source đang chờ được Apply.
+
+Vị trí trong luồng tổng: REQ1 search object -> REQ2 Add object vào TR -> REQ2 Release TR -> REQ3 Compare (tùy chọn, không chặn) -> REQ2 Apply to Target.
+
+TH1 – Compare sau Release, trước Apply to Target (Luồng chính theo TR)
+
+B1: Requirement 2 thực hiện Release Transport Request.
+B2: Người dùng mở màn hình Compare từ REQ2 (truyền sẵn TR Number) hoặc mở Fiori App độc lập và nhập TR Number. Đây là bước tùy chọn — vẫn có thể Apply thẳng mà không Compare.
+B3: Hệ thống quét toàn bộ Repository Object trong TR (bảng E070/E071), tính toán nhanh trạng thái và hiển thị danh sách ở Cột Trái (Master).
+B4: Người dùng chọn một object ở Cột Trái -> Cột Phải (Detail) tự động giải nén và hiển thị diff từng dòng xem cạnh nhau (side-by-side).
+B5: Người dùng duyệt nhanh danh sách object để review. Không có hành động ghi nào phát sinh từ REQ3.
+
+Ràng buộc và Quy tắc xử lý Input:
+- Input duy nhất của luồng chính: Transport Request Number (Trkorr) nhận từ Requirement 2.
+- Ràng buộc trạng thái TR: TR phải ở trạng thái ĐÃ Release. Nếu TR chưa Release thì không mở được màn Compare. TR không có object nào thuộc nhóm text thì hiển thị empty state, không báo lỗi.
+- Thu thập Object: Thu thập object có PGMID = 'R3TR' từ bảng E071 của TR (bao gồm cả các Task con).
+- Supported Repository Object (Đối tượng dạng text):
+  + Program / Report (PROG)
+  + Function Module / Function Group (FUGR / FUNC)
+  + Class (CLAS)
+  + Interface (INTF - tùy chọn, dùng chung reader với Class)
+- Object ngoài phạm vi (CDS, DDLS, BDEF,...): Vẫn hiển thị trong danh sách ở Cột Trái nhưng gắn Badge ""NOT_SUPPORTED"" và không mở được Diff Viewer (không lặng lẽ ẩn đi).
+- Object bị xóa ở Nguồn: Đọc Active Source không ra thì gắn Badge ""DELETED_AT_SOURCE"", không mở Diff Viewer, không raise DUMP.
+- Version tự động xác định: Phía đích lấy CURRENT_VERSION trong ZA_SCORT_T, phía nguồn lấy Active Source (99998). Người dùng KHÔNG nhập version thủ công.
+- Compare không chặn Apply: Người dùng bỏ qua màn này bất kỳ lúc nào để Apply straight sang Target.
+
+TH1.A – Object đã từng Apply sang đích (Existence = BOTH)
+Phía đích có dữ liệu trong ZA_SCORT_T_SRC. Diff hiển thị đúng phần khác nhau giữa bản đang có ở đích và bản sắp Apply: ADDED là code mới thêm, REMOVED là code bị bỏ, UNCHANGED là code giữ nguyên.
+
+TH1.B – Object lần đầu Apply, đích chưa có gì (Existence = LOCAL_ONLY)
+Đây là trường hợp BÌNH THƯỜNG, không phải lỗi và KHÔNG chặn Compare. Hệ thống xử lý:
++ Cột đích (bên trái) hiển thị placeholder: ""Object chưa tồn tại ở đích (lần Apply đầu tiên)"".
++ Cột nguồn (bên phải) hiển thị toàn bộ dòng code với màu ADDED.
++ StatusCode = NEW_AT_TARGET, Summary ghi rõ ""Object chưa tồn tại ở đích — toàn bộ N dòng là code mới"".
++ Không cần tính hash và không cần chạy thuật toán LCS diff.
+
+TH2 – Compare Version History (Tùy chọn phụ, làm sau)
+Developer chọn một Version trước đó của cùng Repository Object để xem lịch sử thay đổi. Dùng Function Module chuẩn SAP (VRSD / SVRS_GET_VERSION).
+-> Input: Object Type, Object Name, Version Number (bỏ trống mặc định 99998 = Active).
+-> Output: Summary trạng thái + diff side-by-side.
+
+Phân biệt hai trường lưu trữ trong Custom Table (Bắt buộc cho REQ2 & REQ3):
+- SOURCE_HEX (RAWSTRING): source code đã nén bằng CL_ABAP_GZIP. Là phép biến đổi 2 chiều — giải nén ra nguyên văn source để so sánh diff từng dòng. Requirement 2 khi Apply BẮT BUỘC phải ghi SOURCE_HEX.
+- SRC_HASH (CHAR32/CHAR64): giá trị băm của source đã normalize (phép biến đổi 1 chiều). Chỉ dùng để so sánh nhanh hai bản có giống nhau không, KHÔNG dùng để dựng diff.
+
+Compare Processing Engine (ABAP RAP Custom Entity - IF_RAP_QUERY_PROVIDER):
+- Mức Master (Cột Trái - Load siêu nhẹ cho toàn bộ TR):
+  + Đọc Active Source ở Nguồn -> Normalize -> Tính Hash.
+  + So sánh với `SRC_HASH` đã lưu sẵn trong `ZA_SCORT_T_SRC` ở Đích. KHÔNG giải nén `SOURCE_HEX`, KHÔNG chạy LCS.
+  + Trả về ngay trạng thái tô màu Badge: IDENTICAL (giống nhau), DIFFERENT (khác nhau), NEW_AT_TARGET (chưa có ở đích).
+  + Quy tắc Normalize + Hash phải nằm trong Class dùng chung `ZCL_SCORT_HASH_UTL` cho cả REQ2 và REQ3 để đảm bảo Hash khớp nhau.
+- Mức Detail (Cột Phải - Chỉ chạy cho 1 Object được chọn):
+  + Phía Đích: SELECT SOURCE_HEX từ ZA_SCORT_T_SRC theo SERVER_ID + OBJECT + OBJ_NAME + VERSION_NO -> Giải nén bằng CL_ABAP_GZIP=>DECOMPRESS_BINARY -> RAW2STRING -> Split theo NEWLINE thành string_table (qua ZCL_SCORT_COMPRESSION_UTL).
+  + Phía Nguồn: READ REPORT (Program), FUNCTION_INCLUDE_INFO + READ REPORT (FM), SEO_CLASS_GET_SOURCE (Class).
+  + Nếu tìm thấy dòng ở đích nhưng giải nén thất bại (SOURCE_HEX rỗng/hỏng) => Báo lỗi ""Không đọc/giải nén được source ở đích"".
+  + Normalize source 2 bên -> Chạy CL_ABAP_DIFF (hoặc ma trận LCS) -> Sinh danh sách dòng kèm trạng thái ADDED, REMOVED, UNCHANGED.
+  + Kết quả Diff KHÔNG lưu xuống Database, tính toán realtime.
+
+Hiển thị UI/UX (Màn hình Fiori Git-Style / Flexible Column Layout):
+Ứng dụng Fiori thiết kế theo mô hình Flexible Column Layout (FCL - 2 Cột) độc lập:
++ Cột Trái (Master - BeginColumn):
+  - Dùng control sap.m.List / sap.m.Table.
+  - Hiển thị danh sách Object thu thập từ TR kèm sap.m.ObjectStatus (Badge màu):
+    * DIFFERENT (State = Error/Warning): Tô đỏ/cam — Code nguồn và đích có khác biệt.
+    * NEW_AT_TARGET (State = Success): Tô xanh lá — Object lần đầu Apply (TH1.B).
+    * IDENTICAL (State = None): Màu xám — Code hai bên giống hệt nhau.
+    * NOT_SUPPORTED / DELETED: Màu xanh dương / xám.
+  - Ô Tìm kiếm (SearchField) + Bộ lọc theo trạng thái thay đổi.
+  - On-Select Item: Tải dữ liệu Diff tương ứng sang Cột Phải.
++ Cột Phải (Detail - MidColumn):
+  - Dynamic Page Header: Tên Object, Object Type, Status Badge, nút mở SE80/ADT, nút Export text.
+  - Summary Bar: Số lượng dòng ADDED (+), REMOVED (-), UNCHANGED.
+  - Khu vực Side-by-Side Diff: Render hai cột code song song, hỗ trợ cuộn đồng bộ (Scroll Sync). Tô màu nền: ADDED (Xanh lá nhạt), REMOVED (Đỏ nhạt), UNCHANGED (Trắng/Xám).
+  - Trạng thái mặc định chưa chọn object: Hiển thị illustrated message ""Chọn một object ở danh sách bên trái để xem diff"".
+
+Ngoài phạm vi REQ3:
+- Merge Source Code, Manual Merge 3 cột, Confirm Merge, Activate Object, Ghi đè Source.
+- Generate / Delete Version, Select Active Version.
+- Chặn Apply to Target.
+- Bảng Draft, Merge Session và Lock Object.
+
+Thiết kế lưu trữ Backend (REQ3 chỉ ĐỌC):
+- Phía nguồn: Đọc trực tiếp Active Source runtime.
+- Phía đích: 
+  + ZA_SCORT_T: Catalog object (CLIENT, SERVER_ID, OBJECT, OBJ_NAME, CURRENT_VERSION).
+  + ZA_SCORT_T_SRC: Source nén GZIP theo version (CLIENT, SERVER_ID, OBJECT, OBJ_NAME, VERSION_NO, SOURCE_HEX, SRC_HASH).
+- Version DB chuẩn SAP (VRSD + SVRS_*): Chỉ đọc phục vụ TH2.
+
+Danh sách FM / Class SAP sử dụng:
+READ REPORT, FUNCTION_INCLUDE_INFO, RPY_FUNCTIONMODULE_READ, SEO_CLASS_GET_SOURCE, CL_ABAP_GZIP, CL_ABAP_CHAR_UTILITIES, CALCULATE_HASH_FOR_CHAR / CL_ABAP_MESSAGE_DIGEST, CL_ABAP_DIFF, IF_RAP_QUERY_PROVIDER, E070 / E071, TADIR, RS_TOOL_ACCESS.",,, ,
+,,,,,,
+,REQ Bonous,,,,,
+,,,,,,
+,,,,,,
+,,KIẾN TRÚC DỰ ÁN DỰ KIẾN,,,,
+,,,,,,
+,,,,3 Tier - SAP on-primise,,
+,,,,Data Modeling & Behavior,Busines Services Provisioning,Service Consumption

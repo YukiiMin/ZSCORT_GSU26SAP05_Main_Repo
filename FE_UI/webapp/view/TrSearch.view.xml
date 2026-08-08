@@ -1,0 +1,309 @@
+<mvc:View
+  controllerName="zscort.app.controller.TrSearch"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:f="sap.f"
+  xmlns:core="sap.ui.core"
+  xmlns:table="sap.ui.table"
+  height="100%">
+
+  <Page id="trSearchPage" showHeader="false" backgroundDesign="List">
+
+    <!-- ── Shell Navigation Bar ── -->
+    <customHeader>
+      <Bar>
+        <contentLeft>
+          <Title text="SCORT — SAP Cross-system Object Replication Toolkit" />
+        </contentLeft>
+        <contentMiddle>
+          <SegmentedButton
+            selectedKey="{appView>/currentModule}"
+            selectionChange=".onModuleSwitch">
+            <items>
+              <SegmentedButtonItem key="objSearch" text="Object Search" icon="sap-icon://search" />
+              <SegmentedButtonItem key="trSearch"  text="TR Search"     icon="sap-icon://org-chart" />
+              <SegmentedButtonItem key="compare"   text="Code Compare"  icon="sap-icon://compare-2" />
+            </items>
+          </SegmentedButton>
+        </contentMiddle>
+        <contentRight>
+          <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home" />
+        </contentRight>
+      </Bar>
+    </customHeader>
+
+    <content>
+      <VBox height="100%">
+
+        <!-- ── Filter Header ── -->
+        <Panel headerText="TR Search Filters" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
+          <content>
+            <HBox alignItems="End" wrap="Wrap" class="sapUiTinyMargin">
+
+              <!-- TR Number -->
+              <VBox class="sapUiTinyMarginEnd">
+                <Label text="Transport Request (Wildcard)" />
+                <Input id="inputTrkorr"
+                  width="14rem"
+                  value="{trSearch>/filterTrkorr}"
+                  placeholder="S40K*"
+                  submit=".onSearch" />
+              </VBox>
+
+              <!-- Owner -->
+              <VBox class="sapUiTinyMarginEnd">
+                <Label text="Owner / User" />
+                <Input id="inputOwner"
+                  width="10rem"
+                  value="{trSearch>/filterOwner}"
+                  placeholder="USERNAME"
+                  submit=".onSearch" />
+              </VBox>
+
+              <!-- Date From -->
+              <VBox class="sapUiTinyMarginEnd">
+                <Label text="Date From" />
+                <DatePicker
+                  id="dpDateFrom"
+                  value="{trSearch>/filterDateFrom}"
+                  valueFormat="yyyyMMdd"
+                  displayFormat="dd.MM.yyyy"
+                  width="10rem" />
+              </VBox>
+
+              <!-- Date To -->
+              <VBox class="sapUiTinyMarginEnd">
+                <Label text="Date To" />
+                <DatePicker
+                  id="dpDateTo"
+                  value="{trSearch>/filterDateTo}"
+                  valueFormat="yyyyMMdd"
+                  displayFormat="dd.MM.yyyy"
+                  width="10rem" />
+              </VBox>
+
+              <!-- TR Status -->
+              <VBox class="sapUiTinyMarginEnd">
+                <Label text="Status" />
+                <Select id="selStatus"
+                  width="10rem"
+                  selectedKey="{trSearch>/filterStatus}"
+                  forceSelection="false">
+                  <items>
+                    <core:Item key=""  text="All" />
+                    <core:Item key="D" text="D — Modifiable" />
+                    <core:Item key="R" text="R — Released" />
+                  </items>
+                </Select>
+              </VBox>
+
+              <VBox justifyContent="End">
+                <HBox>
+                  <Button text="Search" type="Emphasized" icon="sap-icon://search"
+                    press=".onSearch" class="sapUiTinyMarginEnd" />
+                  <Button text="Clear"  type="Transparent" press=".onClearFilter" />
+                </HBox>
+              </VBox>
+
+            </HBox>
+          </content>
+        </Panel>
+
+        <!-- ── Result Tabs: Tree / Flat List ── -->
+        <IconTabBar
+          id="tabBarTrMode"
+          selectedKey="{trSearch>/activeTab}"
+          select=".onTabSelect"
+          expandable="false"
+          height="100%">
+
+          <items>
+
+            <!-- TAB 1: TR Tree (sap.ui.table.TreeTable) -->
+            <IconTabFilter
+              key="tree"
+              text="TR Hierarchy Tree"
+              icon="sap-icon://tree">
+              <content>
+                <VBox height="100%">
+                  <Toolbar>
+                    <Title text="TR Request → Task → Objects (3 Levels)" />
+                    <ToolbarSpacer />
+                    <Button icon="sap-icon://collapse-all" tooltip="Collapse All"
+                      press=".onCollapseAll" type="Transparent" />
+                    <Button icon="sap-icon://expand-all" tooltip="Expand All"
+                      press=".onExpandAll" type="Transparent" />
+                    <Button icon="sap-icon://refresh" tooltip="Reload"
+                      press=".onSearch" type="Transparent" />
+                  </Toolbar>
+
+                  <!-- Native UI5 TreeTable for expand/collapse hierarchy -->
+                  <table:TreeTable
+                    id="trTreeTable"
+                    busy="{trSearch>/busyTree}"
+                    rowHeight="36"
+                    columnHeaderHeight="36"
+                    enableColumnReordering="true"
+                    selectionMode="Single"
+                    rowSelectionChange=".onTreeRowSelect"
+                    expandFirstLevel="true"
+                    useGroupMode="false"
+                    visibleRowCountMode="Auto"
+                    minAutoRowCount="5">
+
+                    <table:columns>
+                      <table:Column width="22rem" filterProperty="Trkorr">
+                        <Label text="TR / Task / Object" />
+                        <table:template>
+                          <HBox alignItems="Center">
+                            <core:Icon
+                              src="{path:'trTree>NodeType', formatter:'.formatNodeIcon'}"
+                              class="sapUiTinyMarginEnd"
+                              color="{path:'trTree>NodeType', formatter:'.formatNodeColor'}" />
+                            <ObjectIdentifier
+                              title="{trTree>Trkorr}"
+                              text="{trTree>ObjName}" />
+                          </HBox>
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column width="6rem" filterProperty="NodeType">
+                        <Label text="Type" />
+                        <table:template>
+                          <Text text="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjType} : ${trTree>NodeType} }" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column width="8rem" filterProperty="Owner">
+                        <Label text="Owner" />
+                        <table:template>
+                          <Text text="{trTree>Owner}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column width="7rem" filterProperty="As4date">
+                        <Label text="Date" />
+                        <table:template>
+                          <Text text="{path:'trTree>As4date', formatter:'.formatDate'}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column width="7rem" filterProperty="TrStatus">
+                        <Label text="Status" />
+                        <table:template>
+                          <ObjectStatus
+                            text="{trTree>TrStatus}"
+                            state="{path:'trTree>TrStatus', formatter:'.formatTrStatus'}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column width="12rem" filterProperty="Description">
+                        <Label text="Description" />
+                        <table:template>
+                          <Text text="{trTree>Description}" wrapping="false" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column width="5rem">
+                        <Label text="Actions" />
+                        <table:template>
+                          <Button
+                            icon="sap-icon://compare-2"
+                            tooltip="Open in Code Compare"
+                            type="Transparent"
+                            visible="{= ${trTree>NodeType} === 'OBJ' }"
+                            press=".onTreeObjCompare" />
+                        </table:template>
+                      </table:Column>
+                    </table:columns>
+
+                  </table:TreeTable>
+                </VBox>
+              </content>
+            </IconTabFilter>
+
+            <!-- TAB 2: TR Flat List (sap.m.Table) -->
+            <IconTabFilter
+              key="flat"
+              text="Object Flat List"
+              icon="sap-icon://table-view"
+              count="{trSearch>/countFlat}">
+              <content>
+                <VBox height="100%">
+                  <Toolbar>
+                    <Title text="Objects in TR / Task (Flat)" />
+                    <ToolbarSpacer />
+                    <!-- Additional Object Name filter for flat list -->
+                    <Label text="Object Name:" class="sapUiTinyMarginEnd" />
+                    <Input id="inputFlatObjName"
+                      width="12rem"
+                      value="{trSearch>/filterFlatObjName}"
+                      placeholder="Object name..."
+                      submit=".onSearchFlat"
+                      class="sapUiTinyMarginEnd" />
+                    <Select id="selFlatObjType"
+                      width="10rem"
+                      selectedKey="{trSearch>/filterFlatObjType}">
+                      <items>
+                        <core:Item key="" text="All Types" />
+                        <core:Item key="PROG" text="PROG" />
+                        <core:Item key="CLAS" text="CLAS" />
+                        <core:Item key="INTF" text="INTF" />
+                        <core:Item key="FUGR" text="FUGR" />
+                        <core:Item key="TABL" text="TABL" />
+                        <core:Item key="DDLS" text="DDLS" />
+                        <core:Item key="BDEF" text="BDEF" />
+                      </items>
+                    </Select>
+                    <Button icon="sap-icon://search" type="Transparent" press=".onSearchFlat" />
+                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onExportFlat" type="Transparent" />
+                  </Toolbar>
+
+                  <Table id="tblFlat"
+                    busy="{trSearch>/busyFlat}"
+                    noDataText="{trSearch>/noDataText}"
+                    mode="None"
+                    alternateRowColors="true"
+                    sticky="ColumnHeaders">
+                    <columns>
+                      <Column width="10rem"><Text text="TR Number" /></Column>
+                      <Column width="12rem"><Text text="Current Managing TR" /></Column>
+                      <Column width="6rem"><Text text="Object Type" /></Column>
+                      <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
+                      <Column width="8rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Owner" /></Column>
+                      <Column width="5rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Status" /></Column>
+                      <Column width="5rem"><Text text="Actions" /></Column>
+                    </columns>
+                    <items>
+                      <ColumnListItem type="Active">
+                        <cells>
+                          <Text text="{trSearch>Trkorr}" />
+                          <ObjectStatus
+                            text="{trSearch>CurrentManagingTr}"
+                            state="{= ${trSearch>CurrentManagingTr} !== ${trSearch>Trkorr} ? 'Warning' : 'None'}" />
+                          <ObjectStatus text="{trSearch>ObjectType}" state="None" />
+                          <ObjectIdentifier title="{trSearch>ObjectName}" />
+                          <Text text="{trSearch>Owner}" />
+                          <ObjectStatus
+                            text="{trSearch>TrStatus}"
+                            state="{path:'trSearch>TrStatus', formatter:'.formatTrStatus'}" />
+                          <Button icon="sap-icon://compare-2"
+                            tooltip="Open in Code Compare"
+                            type="Transparent"
+                            press=".onFlatObjCompare" />
+                        </cells>
+                      </ColumnListItem>
+                    </items>
+                  </Table>
+                </VBox>
+              </content>
+            </IconTabFilter>
+
+          </items>
+        </IconTabBar>
+
+      </VBox>
+    </content>
+  </Page>
+
+</mvc:View>

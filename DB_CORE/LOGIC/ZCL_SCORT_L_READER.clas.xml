@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <VSEOCLASS>
+   <CLSNAME>ZCL_SCORT_L_READER</CLSNAME>
+   <LANGU>E</LANGU>
+   <DESCRIPT>SCORT: Local Server Source Code Reader Helper</DESCRIPT>
+   <STATE>1</STATE>
+   <CLSCCINCL>X</CLSCCINCL>
+   <FIXPT>X</FIXPT>
+   <CLSFINAL>X</CLSFINAL>
+   <CLSABSTRCT> </CLSABSTRCT>
+   <CATEGORY>00</CATEGORY>
+   <EXPOSURE>2</EXPOSURE>
+   <VERSION>1</VERSION>
+  </VSEOCLASS>
+ </asx:values>
+</asx:abap>

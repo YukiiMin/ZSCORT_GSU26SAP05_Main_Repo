@@ -1,0 +1,21 @@
+@EndUserText.label : 'SCORT: Target Object Metadata (Simulated)'
+@AbapCatalog.enhancement.category : #NOT_EXTENSIBLE
+@AbapCatalog.tableCategory : #TRANSPARENT
+@AbapCatalog.deliveryClass : #A
+@AbapCatalog.dataMaintenance : #RESTRICTED
+define table za_scort_t {
+
+  key client       : abap.clnt not null;
+  key server_id    : abap.char(10) not null;
+  key object_type  : tadir-object not null;
+  key object_name  : tadir-obj_name not null;
+
+  devclass         : tadir-devclass;
+  author           : tadir-author;
+  current_version  : abap.numc(3);
+  created_at       : abap.dats;
+  created_by       : abap.char(12);
+  changed_at       : abap.dats;
+  changed_by       : abap.char(12);
+
+}

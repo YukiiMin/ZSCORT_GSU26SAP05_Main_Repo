@@ -1,0 +1,188 @@
+{
+  "_version": "1.42.0",
+  "sap.app": {
+    "id": "zscort.app",
+    "type": "application",
+    "i18n": "i18n/i18n.properties",
+    "title": "{{appTitle}}",
+    "description": "{{appDescription}}",
+    "applicationVersion": {
+      "version": "1.0.0"
+    },
+    "dataSources": {
+      "mainService": {
+        "uri": "/sap/opu/odata4/sap/zui_scort_compare_o4/srvd/sap/zsd_scort_compare/0001/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      },
+      "objService": {
+        "uri": "/sap/opu/odata4/sap/ui_scort_obj_search_o4/srvd/sap/sd_scort_obj_search/0001/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      },
+      "trService": {
+        "uri": "/sap/opu/odata4/sap/ui_scort_tr_search_o4/srvd/sap/sd_scort_tr_search/0001/",
+        "type": "OData",
+        "settings": {
+          "odataVersion": "4.0"
+        }
+      }
+    },
+    "sourceTemplate": {
+      "id": "scort.app",
+      "version": "1.0.0"
+    }
+  },
+  "sap.ui": {
+    "technology": "UI5",
+    "icons": {
+      "icon": "sap-icon://compare-2"
+    },
+    "deviceTypes": {
+      "desktop": true,
+      "tablet": true,
+      "phone": false
+    }
+  },
+  "sap.ui5": {
+    "flexEnabled": false,
+    "rootView": {
+      "viewName": "zscort.app.view.App",
+      "type": "XML",
+      "id": "app",
+      "async": true
+    },
+    "dependencies": {
+      "minUI5Version": "1.108.0",
+      "libs": {
+        "sap.m": {},
+        "sap.f": {},
+        "sap.ui.core": {},
+        "sap.ui.layout": {},
+        "sap.ui.comp": {},
+        "sap.ui.table": {},
+        "sap.tnt": {}
+      }
+    },
+    "contentDensities": {
+      "compact": true,
+      "cozy": true
+    },
+    "models": {
+      "i18n": {
+        "type": "sap.ui.model.resource.ResourceModel",
+        "settings": {
+          "bundleName": "zscort.app.i18n.i18n"
+        }
+      },
+      "": {
+        "dataSource": "mainService",
+        "preload": false,
+        "type": "sap.ui.model.odata.v4.ODataModel",
+        "settings": {
+          "synchronizationMode": "None",
+          "autoExpandSelect": true,
+          "earlyRequests": false
+        }
+      },
+      "objModel": {
+        "dataSource": "objService",
+        "preload": false,
+        "type": "sap.ui.model.odata.v4.ODataModel",
+        "settings": {
+          "synchronizationMode": "None",
+          "autoExpandSelect": true,
+          "earlyRequests": false
+        }
+      },
+      "trModel": {
+        "dataSource": "trService",
+        "preload": false,
+        "type": "sap.ui.model.odata.v4.ODataModel",
+        "settings": {
+          "synchronizationMode": "None",
+          "autoExpandSelect": true,
+          "earlyRequests": false
+        }
+      },
+      "appView": {
+        "type": "sap.ui.model.json.JSONModel",
+        "settings": {}
+      },
+      "detail": {
+        "type": "sap.ui.model.json.JSONModel",
+        "settings": {}
+      }
+    },
+    "routing": {
+      "config": {
+        "routerClass": "sap.f.routing.Router",
+        "viewType": "XML",
+        "viewPath": "zscort.app.view",
+        "controlId": "navContainer",
+        "controlAggregation": "pages",
+        "transition": "slide",
+        "async": true
+      },
+      "routes": [
+        {
+          "pattern": "",
+          "name": "home",
+          "target": ["objSearch"]
+        },
+        {
+          "pattern": "objSearch/:?query:",
+          "name": "objSearch",
+          "target": ["objSearch"]
+        },
+        {
+          "pattern": "trSearch/:?query:",
+          "name": "trSearch",
+          "target": ["trSearch"]
+        },
+        {
+          "pattern": "compare/:?query:",
+          "name": "compare",
+          "target": ["compare"]
+        },
+        {
+          "pattern": "compare/detail/{objectType}/{objectName}/:?query:",
+          "name": "compareDetail",
+          "target": ["compare"]
+        }
+      ],
+      "targets": {
+        "objSearch": {
+          "viewName": "ObjSearch",
+          "type": "View",
+          "id": "objSearchView"
+        },
+        "trSearch": {
+          "viewName": "TrSearch",
+          "type": "View",
+          "id": "trSearchView"
+        },
+        "compare": {
+          "viewName": "Compare",
+          "type": "View",
+          "id": "compareView"
+        }
+      }
+    },
+    "resources": {
+      "css": [
+        {
+          "uri": "css/style.css"
+        }
+      ]
+    }
+  },
+  "sap.fiori": {
+    "registrationIds": [],
+    "archeType": "transactional"
+  }
+}

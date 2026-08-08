@@ -1,0 +1,16 @@
+/*
+  Behavior Projection for ZCR_SCORT_OBJ_L
+  Projects ZIR_SCORT_OBJ_L BDEF to UI layer.
+  Read-only: user can only search and filter. No data modification allowed.
+*/
+projection;
+use draft;
+
+define behavior for ZCR_SCORT_OBJ_L
+{
+  use create( features : global );
+  use update( features : global );
+  use delete( features : global );
+
+  use readonly;
+}

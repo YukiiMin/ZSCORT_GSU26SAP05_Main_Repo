@@ -1,0 +1,11 @@
+/*
+  Behavior Projection for ZCR_SCORT_OBJ_T
+  Projects ZIR_SCORT_OBJ_T BDEF to UI layer.
+  Read-only: locks Target Custom Table data from UI-level modification.
+*/
+projection;
+
+define behavior for ZCR_SCORT_OBJ_T
+{
+  use readonly;
+}

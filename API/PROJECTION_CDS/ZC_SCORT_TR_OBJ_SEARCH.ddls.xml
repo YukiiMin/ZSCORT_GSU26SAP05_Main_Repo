@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DDDDLSRC>
+   <DDLNAME>ZC_SCORT_TR_OBJ_SEARCH</DDLNAME>
+   <DDLANGUAGE>E</DDLANGUAGE>
+   <DDTEXT>SCORT: Projection View - TR Object Search Flat List (Consumption)</DDTEXT>
+   <SOURCELEN>0</SOURCELEN>
+  </DDDDLSRC>
+ </asx:values>
+</asx:abap>

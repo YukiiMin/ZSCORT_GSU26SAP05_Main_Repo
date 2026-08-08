@@ -1,0 +1,11 @@
+/*
+  Behavior Projection for ZC_SCORT_TR_TREE
+  Projects ZCE_SCORT_TR_TREE BDEF to UI layer.
+  Read-only: Tree Table display only. No modification of TR/Task data.
+*/
+projection;
+
+define behavior for ZC_SCORT_TR_TREE
+{
+  use readonly;
+}

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <ASBDEFSRC>
+   <BDEFNAME>ZIR_SCORT_OBJ_T</BDEFNAME>
+   <DDLANGUAGE>E</DDLANGUAGE>
+   <DDTEXT>SCORT: Behavior Definition - Target Object Search (Read-Only)</DDTEXT>
+   <SOURCELEN>0</SOURCELEN>
+  </ASBDEFSRC>
+ </asx:values>
+</asx:abap>

@@ -1,0 +1,33 @@
+,,,
+,ĐỀ XUẤT NAMING CONVENTION — SAP RAP (3-Tier: Data Modeling & Behavior / Business Services Provisioning / Service Consumption),,
+,Áp dụng để rà soát & chuẩn hóa lại toàn bộ Business Object Registry hiện có (theo cấu trúc SAP RAP 3 tầng).,,
+,,,
+,Loại Object,Quy tắc đặt tên,Ví dụ minh họa
+,1. Data Modeling & Behavior (Core Data Services & Dictionary),,
+,Draft Table,Hậu tố _D,/FPT/MYTABLE_D hoặc ZMYTABLE_D
+,Root Entity View (CDS),Tiền tố ZIR_ hoặc /FPT/IR_,ZIR_SalesOrder
+,Normal/Child Entity View,Tiền tố ZI_ hoặc /FPT/I_,ZI_SalesOrderItem
+,Behavior Definition (BDEF),Trùng tên Root Entity của Business Object,/FPT/IR_SalesCredit
+,2. Business Object Projection & Service Provisioning,,
+,Root Projection View / Custom Entity,Tiền tố ZCR_ hoặc /FPT/CR_,Consumption View tầng ngoài cùng
+,Normal/Child Projection View,Tiền tố ZC_ hoặc /FPT/C_,Phóng chiếu từ Normal/Child Entity
+,Metadata Extension (MDE),Trùng tên CDS Entity liên kết,Thêm hậu tố số nếu 1 CDS có nhiều MDE
+,Service Definition,Tiền tố SD_,"Thêm hậu tố API/UI nếu không dùng chung, VD /FPT/SD_SalesCreditAPI"
+,Service Binding,UI_ (UI) / API_ (Web API) + hậu tố _O2/_O4,/FPT/UI_SalesRep_O2
+,3. ABAP Behavior Implementation (Xử lý Logic RAP),,
+,Behavior Pool (Global Class),Tiền tố BP_,/FPT/BP_SalesReport
+,Local Handler Class,Tiền tố LHC_,LHC_SALEPURCHASE_CREATE
+,Local Saver Class,Tiền tố LSC_,LSC_CUSTOMER_CUD
+,Message Wrapper-Class,ZCM_ (thay vì ZCX_/ZCL_),ZCM_FSO_INVMSG
+,4. ABAP Class Utilities & Helpers (OO chuẩn FPT),,
+,Global Class,"ZCL_<Tên Class>, danh từ số ít",ZCL_COMPANY_CODE
+,Global Interface,ZIF_<Tên Interface>,ZIF_STATUS_MANAGEMENT
+,Local Class / Interface,LCL_<Class> / LIF_<Interface>,Trong 1 program
+,Method thông thường,"Cụm động từ, tối đa 61 ký tự","CREATE_ORDER, GET_DATA"
+,Method truy xuất thuộc tính,GET_<thuộc tính> / SET_<thuộc tính>,
+,Method trả về Boolean,"IS_<tính từ>, không raise exception","IS_OPEN, IS_ACTIVE"
+,Method kiểm tra (Check),CHECK_<mục tiêu>,CHECK_AUTHORIZATION
+,Method xử lý sự kiện,ON_<sự kiện>,ON_BUTTON_PUSHED
+,Method chuyển đổi kiểu,AS_<kiểu dữ liệu mới>,AS_STRING
+,Parameter của Method,IM_* / EX_* / CH_* / RE_*,IMPORTING/EXPORTING/CHANGING/RETURNING
+,Tên sự kiện (Event),<Danh từ>_<Phân từ>,"BUTTON_PUSHED, COMPANY_CODE_CHANGED"

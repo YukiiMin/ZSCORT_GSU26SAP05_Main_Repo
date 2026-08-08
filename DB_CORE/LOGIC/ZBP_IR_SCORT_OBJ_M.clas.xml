@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <VSEOCLASS>
+   <CLSNAME>ZBP_IR_SCORT_OBJ_M</CLSNAME>
+   <LANGU>E</LANGU>
+   <DESCRIPT>SCORT: Behavior Pool for ZIR_SCORT_OBJ_M (checkDiff action)</DESCRIPT>
+   <STATE>1</STATE>
+   <CLSCCINCL>X</CLSCCINCL>
+   <FIXPT>X</FIXPT>
+   <CLSFINAL>X</CLSFINAL>
+   <CLSABSTRCT>X</CLSABSTRCT>
+   <CATEGORY>40</CATEGORY>
+   <EXPOSURE>2</EXPOSURE>
+   <VERSION>1</VERSION>
+  </VSEOCLASS>
+ </asx:values>
+</asx:abap>

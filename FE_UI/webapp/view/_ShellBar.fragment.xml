@@ -1,0 +1,38 @@
+<core:FragmentDefinition
+  xmlns="sap.f"
+  xmlns:core="sap.ui.core"
+  xmlns:m="sap.m">
+
+  <ShellBar
+    id="scortShellBar"
+    title="SCORT"
+    subtitle="SAP Cross-system Object Replication Toolkit"
+    primaryTitle="SCORT"
+    showMenuButton="true"
+    menuButtonPress=".onMenuPress"
+    homeIconPressed=".onHomePress">
+
+    <additionalContent>
+      <!-- Navigation Menu Items injected programmatically via controller -->
+      <m:OverflowToolbar design="Transparent" style="Clear">
+        <m:Button
+          id="btnNavObjSearch"
+          text="Object Search"
+          type="{= ${appView>/currentModule} === 'objSearch' ? 'Emphasized' : 'Transparent' }"
+          press=".onNavObjSearch" />
+        <m:Button
+          id="btnNavTrSearch"
+          text="TR Search"
+          type="{= ${appView>/currentModule} === 'trSearch' ? 'Emphasized' : 'Transparent' }"
+          press=".onNavTrSearch" />
+        <m:Button
+          id="btnNavCompare"
+          text="Code Compare"
+          type="{= ${appView>/currentModule} === 'compare' ? 'Emphasized' : 'Transparent' }"
+          press=".onNavCompare" />
+      </m:OverflowToolbar>
+    </additionalContent>
+
+  </ShellBar>
+
+</core:FragmentDefinition>

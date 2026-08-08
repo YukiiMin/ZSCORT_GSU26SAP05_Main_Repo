@@ -1,0 +1,7 @@
+<!-- DEPRECATED: Replaced by Compare.view.xml (consolidated Code Compare module with ShellBar navigation) -->
+<mvc:View
+  controllerName="zscort.app.controller.Compare"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc">
+  <Text text="Deprecated view. Please use Compare.view.xml" />
+</mvc:View>

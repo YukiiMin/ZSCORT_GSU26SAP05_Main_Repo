@@ -1,0 +1,24 @@
+/*
+  Behavior Definition for ZCE_SCORT_TR_TREE
+  Root Custom Entity: TR Request/Task/Object Hierarchy Tree
+  Mode: Read-Only (Custom Entity — query provider pattern)
+  No lock master for Custom Entity (not needed — virtual data)
+*/
+define behavior for ZCE_SCORT_TR_TREE
+{
+  /* Custom Entity — read-only, no standard CRUD */
+  field ( readonly )
+    NodeId,
+    ParentNodeId,
+    TreeLevel,
+    NodeType,
+    Trkorr,
+    ParentTrkorr,
+    Description,
+    Owner,
+    As4date,
+    TrStatus,
+    ObjName,
+    ObjType,
+    Pgmid;
+}

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DDDDLSRC>
+   <DDLNAME>ZIR_SCORT_OBJ_T</DDLNAME>
+   <DDLANGUAGE>E</DDLANGUAGE>
+   <DDTEXT>SCORT: Search &amp; Filter Objects in Target Server (Custom Table)</DDTEXT>
+   <SOURCELEN>0</SOURCELEN>
+   <AUTHCHECK>N</AUTHCHECK>
+  </DDDDLSRC>
+ </asx:values>
+</asx:abap>

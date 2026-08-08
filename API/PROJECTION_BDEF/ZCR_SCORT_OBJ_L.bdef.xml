@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <ASBDEFSRC>
+   <BDEFNAME>ZCR_SCORT_OBJ_L</BDEFNAME>
+   <DDLANGUAGE>E</DDLANGUAGE>
+   <DDTEXT>SCORT: Projection Behavior Definition - Local Object Search</DDTEXT>
+   <SOURCELEN>0</SOURCELEN>
+  </ASBDEFSRC>
+ </asx:values>
+</asx:abap>

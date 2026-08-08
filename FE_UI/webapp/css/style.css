@@ -1,0 +1,43 @@
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: var(--sapFontFamily, Arial, Helvetica, sans-serif);
+}
+
+/* Monaco Editor Container */
+.monacoHostBox {
+  height: calc(100vh - 12rem);
+  min-height: 320px;
+}
+
+.monacoHost {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  border-top: 1px solid var(--sapList_BorderColor, #d9d9d9);
+}
+
+/* TreeTable Custom Styles */
+.sapUiTableTreeIcon {
+  font-size: 0.875rem;
+}
+
+.sapUiTableTr {
+  transition: background-color 0.15s ease-in-out;
+}
+
+/* Status colors and badges */
+.scortBadgeSuccess {
+  color: var(--sapPositiveColor, #107e3e);
+  font-weight: bold;
+}
+
+.scortBadgeWarning {
+  color: var(--sapCriticalColor, #e9730c);
+  font-weight: bold;
+}
+
+.scortBadgeError {
+  color: var(--sapNegativeColor, #bb0000);
+  font-weight: bold;
+}

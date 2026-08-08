@@ -1,0 +1,16 @@
+/*
+  Behavior Projection for ZCR_SCORT_OBJ_M
+  Projects ZIR_SCORT_OBJ_M BDEF to UI layer.
+  Read-only base + exposes checkDiff action to Fiori Elements.
+  The 'use action checkDiff' causes Fiori Elements to auto-generate
+  a toolbar button "Check Diff" on the List Report.
+*/
+projection;
+
+define behavior for ZCR_SCORT_OBJ_M
+{
+  use readonly;
+
+  /* Expose custom instance action to UI */
+  use action checkDiff;
+}

@@ -1,0 +1,30 @@
+/*
+  Behavior Definition for ZIR_SCORT_OBJ_M
+  Root Entity: Compare Matrix (Local vs Target — Existence Status)
+  Mode: Read-Only + Custom Instance Action: checkDiff
+  Behavior Pool: ZBP_IR_SCORT_OBJ_M
+  Action checkDiff: calls CL_ABAP_DIFF to deep-compare source code between
+  Local (from TADIR/native APIs) and Target (from ZA_SCORT_T_SRC compressed).
+  Result is $self with additional diff metadata.
+*/
+managed implementation in class ZBP_IR_SCORT_OBJ_M unique;
+
+define behavior for ZIR_SCORT_OBJ_M
+{
+  /* Read-only base */
+  lock master;
+
+  field ( readonly )
+    Pgmid,
+    ObjectType,
+    ObjectName,
+    LocalPackage,
+    LocalAuthor,
+    TargetPackage,
+    TargetAuthor,
+    ExistenceStatus,
+    ServerType;
+
+  /* Custom Instance Action: trigger deep code comparison */
+  action ( features : instance ) checkDiff result [1] $self;
+}
