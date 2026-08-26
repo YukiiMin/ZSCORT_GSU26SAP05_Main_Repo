@@ -39,6 +39,7 @@ sap.ui.define([
 
       this.getOwnerComponent().getRouter()
         .getRoute("objSearch")
+        .attachPatternMatched(this._onRouteMatched, this);
       this._app().setProperty("/currentModule", "objSearch");
     },
 
@@ -87,19 +88,27 @@ sap.ui.define([
       var oM = this.getView().getModel("objSearch");
       var sObj = (oM.getProperty("/filterObjName") || "").trim();
       var sPkg = (oM.getProperty("/filterPackage") || "").trim();
-      var sOwn = (oM.getProperty("/filterOwner") || "").trim();
+      var sOwn = (oM.getProperty("/filterAuthor") || "").trim();
 
       if (!sObj && !sPkg && !sOwn) {
         MessageBox.warning("Vui lòng nhập ít nhất 1 điều kiện (Object Name, Package, hoặc Person Responsible) để giới hạn phạm vi tìm kiếm.");
         return;
       }
 
-      // New criteria apply to all tabs — drop stale caches and refresh Local + Target + Matrix
-      // so badge counts stay in sync (previously only the active tab was searched).
       this._invalidateAllTabs();
-      this._searchLocal();
-      this._searchTarget();
-      this.onButtonSearchMatrixPress();
+      oM.setProperty("/busyMatrix", true);
+
+      var pLocal = this._searchLocal();
+      var pTarget = this._searchTarget();
+      var that = this;
+
+      Promise.all([pLocal, pTarget]).then(function () {
+        that._searchMatrix();
+        oM.setProperty("/busyMatrix", false);
+      }).catch(function () {
+        that._searchMatrix();
+        oM.setProperty("/busyMatrix", false);
+      });
     },
 
     _invalidateAllTabs: function () {
@@ -107,6 +116,7 @@ sap.ui.define([
       this._bLocalLoaded  = false;
       this._bTargetLoaded = false;
       this._bMatrixLoaded = false;
+      this._aRawMatrixData = [];
       oM.setProperty("/localRows", []);
       oM.setProperty("/targetRows", []);
       oM.setProperty("/matrixRows", []);
@@ -266,8 +276,6 @@ sap.ui.define([
       var sPackage = (oM.getProperty("/filterPackage") || "").trim();
       var sAuthor = (oM.getProperty("/filterAuthor") || "").trim();
       var aTypes = oM.getProperty("/filterObjTypes") || [];
-      var sPkgField = sKind === "matrix" ? "LocalPackage" : "PackageName";
-      var sAuthorField = sKind === "matrix" ? "LocalAuthor" : "PersonResponsible";
       var bDefaultZ = !sObjName && !sPackage;
 
       return (aData || []).filter(function (o) {
@@ -277,8 +285,25 @@ sap.ui.define([
           return false;
         }
         if (aTypes.length && aTypes.indexOf(o.ObjectType) < 0) { return false; }
-        if (sPackage && !that._clientMatchWildcard(o[sPkgField], sPackage)) { return false; }
-        if (sAuthor && !that._clientMatchWildcard(o[sAuthorField], sAuthor)) { return false; }
+
+        if (sPackage) {
+          if (sKind === "matrix") {
+            var bPkgMatch = that._clientMatchWildcard(o.LocalPackage, sPackage) || that._clientMatchWildcard(o.TargetPackage, sPackage);
+            if (!bPkgMatch) { return false; }
+          } else {
+            if (!that._clientMatchWildcard(o.PackageName, sPackage)) { return false; }
+          }
+        }
+
+        if (sAuthor) {
+          if (sKind === "matrix") {
+            var bAuthorMatch = that._clientMatchWildcard(o.LocalAuthor, sAuthor) || that._clientMatchWildcard(o.TargetAuthor, sAuthor);
+            if (!bAuthorMatch) { return false; }
+          } else {
+            if (!that._clientMatchWildcard(o.PersonResponsible, sAuthor)) { return false; }
+          }
+        }
+
         return true;
       });
     },
@@ -318,14 +343,14 @@ sap.ui.define([
       var oOdm = this.getOwnerComponent().getModel("objModel");
       if (!oOdm) {
         this._loadLocalMock();
-        return;
+        return Promise.resolve();
       }
 
       oM.setProperty("/busyLocal", true);
       var sFilter = this._buildODataFilter("local");
       var that = this;
 
-      this._fetchEntitySet("LocalObjects", sFilter, 500).then(function (aData) {
+      return this._fetchEntitySet("LocalObjects", sFilter, 500).then(function (aData) {
         var aFiltered = that._applyClientFilters(aData, "local");
         that._setRows("localRows", aFiltered, "countLocal");
         oM.setProperty("/busyLocal", false);
@@ -333,28 +358,19 @@ sap.ui.define([
         if (!aFiltered.length) {
           MessageToast.show("No local objects matched the filter");
         }
+        return aFiltered;
       }).catch(function (oErr) {
         oM.setProperty("/busyLocal", false);
-        MessageBox.warning("OData error: " + (oErr.message || oErr) + "\n\nFalling back to mock data.", {
-          onClose: function () { that._loadLocalMock(); }
-        });
+        that._setRows("localRows", [], "countLocal");
+        MessageBox.error("OData Local Error: " + (oErr.message || oErr));
+        return [];
       });
     },
 
     _loadLocalMock: function () {
-      var oM = this.getView().getModel("objSearch");
-      var aMock = [
-        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_R_SRC",            PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" },
-        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_L_READER",         PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" },
-        { ObjectType: "CLAS", ObjectName: "ZCL_SCORT_COMPRESSION_UTL",  PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" },
-        { ObjectType: "DDLS", ObjectName: "ZIR_SCORT_OBJ_L",            PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" },
-        { ObjectType: "BDEF", ObjectName: "ZIR_SCORT_OBJ_L",            PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" },
-        { ObjectType: "TABL", ObjectName: "ZA_SCORT_T",                 PackageName: "ZSCORT_SAP05", PersonResponsible: "DEVELOPER", CreatedOn: "20260101" }
-      ];
-      var aFiltered = this._applyClientFilters(aMock, "local");
+      var aFiltered = this._applyClientFilters([], "local");
       this._setRows("localRows", aFiltered, "countLocal");
       this._bLocalLoaded = true;
-      MessageToast.show("Mock data loaded - connect OData for live results");
     },
 
     _searchTarget: function () {
@@ -362,14 +378,14 @@ sap.ui.define([
       var oOdm = this.getOwnerComponent().getModel("objModel");
       if (!oOdm) {
         this._loadTargetMock();
-        return;
+        return Promise.resolve();
       }
 
       oM.setProperty("/busyTarget", true);
       var sFilter = this._buildODataFilter("target");
       var that = this;
 
-      this._fetchEntitySet("TargetObjects", sFilter, 500).then(function (aData) {
+      return this._fetchEntitySet("TargetObjects", sFilter, 500).then(function (aData) {
         var aFiltered = that._applyClientFilters(aData, "target");
         that._setRows("targetRows", aFiltered, "countTarget");
         oM.setProperty("/busyTarget", false);
@@ -377,15 +393,12 @@ sap.ui.define([
         if (!aFiltered.length) {
           MessageToast.show("No target objects matched the filter");
         }
+        return aFiltered;
       }).catch(function (oErr) {
         oM.setProperty("/busyTarget", false);
-        var sMsg = String(oErr && (oErr.message || oErr) || "");
-        if (/\$kind|kind/i.test(sMsg)) {
-          MessageToast.show("Target metadata/key error ($kind). Using mock data.");
-        } else {
-          MessageToast.show("Target OData error — using mock. " + sMsg);
-        }
-        that._loadTargetMock();
+        that._setRows("targetRows", [], "countTarget");
+        MessageBox.error("OData Target Error: " + (oErr.message || oErr));
+        return [];
       });
     },
 
@@ -400,57 +413,101 @@ sap.ui.define([
       MessageToast.show("Mock Target data loaded");
     },
 
-    onButtonSearchMatrixPress: function () {
+    _searchMatrix: function () {
       var oM = this.getView().getModel("objSearch");
-      var oTable = this.getView().byId("idMatrixTable");
-      var oBinding = oTable.getBinding("items");
-      if (!oBinding) { return; }
+      var aLocal = oM.getProperty("/localRows") || [];
+      var aTarget = oM.getProperty("/targetRows") || [];
 
-      var sStatusFilter = oM.getProperty("/matrixFilter");
-      var sObjName = (oM.getProperty("/filterObjName") || "").trim();
-      var aTypes = oM.getProperty("/filterObjTypes") || [];
-      var sPackage = (oM.getProperty("/filterPackage") || "").trim();
+      var mLocal = {};
+      var aMatrix = [];
 
-      var aFilters = [];
+      aLocal.forEach(function (l) {
+        var sKey = (l.ObjectType || "").trim() + "_" + (l.ObjectName || "").trim();
+        mLocal[sKey] = l;
+      });
 
+      var mTarget = {};
+      aTarget.forEach(function (t) {
+        var sKey = (t.ObjectType || "").trim() + "_" + (t.ObjectName || "").trim();
+        mTarget[sKey] = t;
+      });
+
+      // 1. Process all local objects
+      aLocal.forEach(function (l) {
+        var sKey = (l.ObjectType || "").trim() + "_" + (l.ObjectName || "").trim();
+        var oTarget = mTarget[sKey];
+        if (oTarget) {
+          aMatrix.push({
+            ObjectType: l.ObjectType,
+            ObjectName: l.ObjectName,
+            ExistenceStatus: "BOTH",
+            LocalPackage: l.PackageName,
+            TargetPackage: oTarget.PackageName,
+            LocalAuthor: l.PersonResponsible,
+            TargetAuthor: oTarget.PersonResponsible
+          });
+        } else {
+          aMatrix.push({
+            ObjectType: l.ObjectType,
+            ObjectName: l.ObjectName,
+            ExistenceStatus: "LOCAL_ONLY",
+            LocalPackage: l.PackageName,
+            TargetPackage: "",
+            LocalAuthor: l.PersonResponsible,
+            TargetAuthor: ""
+          });
+        }
+      });
+
+      // 2. Add TARGET_ONLY objects
+      aTarget.forEach(function (t) {
+        var sKey = (t.ObjectType || "").trim() + "_" + (t.ObjectName || "").trim();
+        if (!mLocal[sKey]) {
+          aMatrix.push({
+            ObjectType: t.ObjectType,
+            ObjectName: t.ObjectName,
+            ExistenceStatus: "TARGET_ONLY",
+            LocalPackage: "",
+            TargetPackage: t.PackageName,
+            LocalAuthor: "",
+            TargetAuthor: t.PersonResponsible
+          });
+        }
+      });
+
+      this._aRawMatrixData = aMatrix;
+      this._filterAndDisplayMatrix();
+      this._bMatrixLoaded = true;
+    },
+
+    _filterAndDisplayMatrix: function () {
+      var oM = this.getView().getModel("objSearch");
+      var aRaw = this._aRawMatrixData || [];
+      var aFiltered = this._applyClientFilters(aRaw, "matrix");
+      var sStatusFilter = oM.getProperty("/matrixFilter") || "";
       if (sStatusFilter) {
-        aFilters.push(new sap.ui.model.Filter("ExistenceStatus", sap.ui.model.FilterOperator.EQ, sStatusFilter));
-      }
-
-      if (sObjName) {
-        var sVal = sObjName.toUpperCase().replace(/\*/g, "");
-        if (sVal) {
-          aFilters.push(new sap.ui.model.Filter("ObjectName", sap.ui.model.FilterOperator.Contains, sVal));
-        }
-      }
-
-      if (aTypes.length > 0) {
-        var aTypeFilters = aTypes.map(function(type) {
-          return new sap.ui.model.Filter("ObjectType", sap.ui.model.FilterOperator.EQ, type);
+        aFiltered = aFiltered.filter(function (o) {
+          return o.ExistenceStatus === sStatusFilter;
         });
-        aFilters.push(new sap.ui.model.Filter({ filters: aTypeFilters, and: false }));
       }
+      this._setRows("matrixRows", aFiltered, "countMatrix");
+    },
 
-      if (sPackage) {
-        var sPkgVal = sPackage.toUpperCase().replace(/\*/g, "");
-        if (sPkgVal) {
-          var oPkgLocal = new sap.ui.model.Filter("LocalPackage", sap.ui.model.FilterOperator.Contains, sPkgVal);
-          var oPkgTarget = new sap.ui.model.Filter("TargetPackage", sap.ui.model.FilterOperator.Contains, sPkgVal);
-          aFilters.push(new sap.ui.model.Filter({ filters: [oPkgLocal, oPkgTarget], and: false }));
-        }
+    onButtonSearchMatrixPress: function () {
+      if (!this._aRawMatrixData || !this._bMatrixLoaded) {
+        this._searchMatrix();
+      } else {
+        this._filterAndDisplayMatrix();
       }
-
-      oBinding.filter(aFilters);
-      MessageToast.show("Matrix updated via OData V4.");
     },
 
     onSegmentedButtonMatrixServerSwitchSelectionChange: function () {
       this._bMatrixLoaded = false;
-      this.onButtonSearchMatrixPress();
+      this._searchMatrix();
     },
 
     onSegmentedButtonMatrixFilterSelectionChange: function () {
-      this.onButtonSearchMatrixPress();
+      this._filterAndDisplayMatrix();
     },
 
     _loadMatrixMock: function () {
@@ -462,12 +519,8 @@ sap.ui.define([
         { ObjectType: "TABL", ObjectName: "ZA_SCORT_T",                ExistenceStatus: "LOCAL_ONLY",  LocalPackage: "ZSCORT_SAP05", TargetPackage: "", LocalAuthor: "DEVELOPER" },
         { ObjectType: "PROG", ObjectName: "ZOLD_PROG_AT_TARGET",       ExistenceStatus: "TARGET_ONLY", LocalPackage: "",             TargetPackage: "ZSCORT_TARGET", LocalAuthor: "" }
       ];
-      var sStatusFilter = oM.getProperty("/matrixFilter") || "";
-      var aFiltered = this._applyClientFilters(aMock, "matrix");
-      if (sStatusFilter) {
-        aFiltered = aFiltered.filter(function (o) { return o.ExistenceStatus === sStatusFilter; });
-      }
-      this._setRows("matrixRows", aFiltered, "countMatrix");
+      this._aRawMatrixData = aMock;
+      this._filterAndDisplayMatrix();
       this._bMatrixLoaded = true;
       MessageToast.show("Sample existence rows (offline)");
     },
@@ -511,14 +564,14 @@ sap.ui.define([
 
       var sServerType = oObj.ServerType || "L";
       var sPath = oCtx.getPath() || "";
-      if (sPath.indexOf("targetRows") > -1 || sPath.indexOf("TargetObjects") > -1) { sServerType = "T"; }
-      if (oObj.ExistenceStatus === "TARGET_ONLY") { sServerType = "T"; }
-      if (oObj.ExistenceStatus === "LOCAL_ONLY") { sServerType = "L"; }
-      if (oObj.ExistenceStatus === "BOTH") {
+      if (sPath.indexOf("targetRows") > -1 || sPath.indexOf("TargetObjects") > -1) { 
+        sServerType = "T"; 
+      } else if (sPath.indexOf("matrixRows") > -1) {
+        // Honor the user's "View code as server: Local | Target" segmented button in Existence tab
         sServerType = this.getView().getModel("objSearch").getProperty("/matrixServerType") || "L";
       }
 
-      this._openSourceDialog(oObj.ObjectType, oObj.ObjectName, sServerType);
+      this._openSourceDialog(oObj.ObjectType, oObj.ObjectName, sServerType, oObj);
     },
 
     onButtonExportLocalPress: function () {

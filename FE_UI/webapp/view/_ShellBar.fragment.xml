@@ -25,11 +25,6 @@
           text="TR Search"
           type="{= ${appView>/currentModule} === 'trSearch' ? 'Emphasized' : 'Transparent' }"
           press=".onNavTrSearch" />
-        <m:Button
-          id="btnNavCompare"
-          text="Code Compare"
-          type="{= ${appView>/currentModule} === 'compare' ? 'Emphasized' : 'Transparent' }"
-          press=".onNavCompare" />
       </m:OverflowToolbar>
     </additionalContent>
 

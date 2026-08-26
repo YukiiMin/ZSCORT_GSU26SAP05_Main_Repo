@@ -25,4 +25,7 @@ server:
         # Host SAP — chỉ proxy /sap/** (OData), không proxy UI5 CDN
         baseUri: https://s40lp1.ucc.cit.tum.de/sap
         strictSSL: false
-        limit: false
+        username: "DEV-032"
+        password: "Minh123456"
+        httpHeaders:
+          sap-client: "324"

@@ -28,7 +28,6 @@
             <items>
               <SegmentedButtonItem key="objSearch" text="Object Search" icon="sap-icon://search" />
               <SegmentedButtonItem key="trSearch"  text="TR Search"     icon="sap-icon://org-chart" />
-              <SegmentedButtonItem key="compare"   text="Code Compare"  icon="sap-icon://compare-2" />
             </items>
           </SegmentedButton>
         </contentMiddle>
@@ -172,7 +171,7 @@
                               src="{path:'trTree>NodeType', formatter:'.formatNodeIcon'}"
                               class="sapUiTinyMarginEnd"
                               color="{path:'trTree>NodeType', formatter:'.formatNodeColor'}" />
-                            <!-- Show tick if Released, else nothing (or edit icon if you prefer) -->
+                            <!-- Show tick if Released, else nothing -->
                             <core:Icon 
                               src="sap-icon://sys-enter-2" 
                               color="Positive" 
@@ -200,8 +199,6 @@
                         </table:template>
                       </table:Column>
 
-                      <!-- Removed Date and Status columns to save space -->
-
                       <table:Column width="auto" filterProperty="Description">
                         <Label text="{= ${ddic>/TrTree/Description} || 'Description' }" />
                         <table:template>
@@ -209,10 +206,18 @@
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="11rem">
+                      <table:Column width="14rem">
                         <Label text="Actions" />
                         <table:template>
                           <HBox>
+                            <!-- TR Details button (Always available for TR / Task) -->
+                            <Button
+                              icon="sap-icon://hint"
+                              tooltip="View TR Details &amp; Objects"
+                              type="Transparent"
+                              visible="{= ${trTree>NodeType} === 'TR' || ${trTree>NodeType} === 'TASK' }"
+                              press=".onTreeOpenDetail" />
+                            <!-- Release button for Unreleased TR/Task -->
                             <Button
                               text="Release"
                               icon="sap-icon://shipping-status"
@@ -220,18 +225,29 @@
                               type="Emphasized"
                               visible="{= (${trTree>NodeType} === 'TR' || ${trTree>NodeType} === 'TASK') &amp;&amp; ${trTree>TrStatus} !== 'R' }"
                               press=".onTreeReleasePress" />
+                            <!-- Apply button for Released TR -->
                             <Button
-                              icon="sap-icon://detail-view"
-                              tooltip="Open TR Detail / Apply"
-                              type="Transparent"
-                              visible="{= ${trTree>NodeType} === 'TR' || ${trTree>NodeType} === 'TASK' }"
+                              text="Apply"
+                              icon="sap-icon://upload-to-cloud"
+                              tooltip="Apply Released TR to Target"
+                              type="Accept"
+                              visible="{= ${trTree>NodeType} === 'TR' &amp;&amp; ${trTree>TrStatus} === 'R' }"
                               press=".onTreeOpenDetail" />
+                            <!-- Compare Code button for Object node -->
                             <Button
+                              text="Compare"
                               icon="sap-icon://compare-2"
-                              tooltip="Open in Code Compare"
-                              type="Transparent"
+                              tooltip="Compare Object Source Code"
+                              type="Default"
                               visible="{= ${trTree>NodeType} === 'OBJ' }"
                               press=".onTreeObjCompare" />
+                            <!-- View Source / Metadata for Object node -->
+                            <Button
+                              icon="sap-icon://document-text"
+                              tooltip="View Source &amp; Metadata"
+                              type="Transparent"
+                              visible="{= ${trTree>NodeType} === 'OBJ' }"
+                              press=".onTreeObjViewSource" />
                           </HBox>
                         </table:template>
                       </table:Column>
@@ -293,7 +309,7 @@
                       <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
                       <Column width="8rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Owner" /></Column>
                       <Column width="5rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Status" /></Column>
-                      <Column width="5rem"><Text text="Actions" /></Column>
+                      <Column width="7rem"><Text text="Actions" /></Column>
                     </columns>
                     <items>
                       <ColumnListItem type="Active">
@@ -317,6 +333,10 @@
                               tooltip="Open in Code Compare"
                               type="Transparent"
                               press=".onFlatObjCompare" />
+                            <Button icon="sap-icon://document-text"
+                              tooltip="View Source &amp; Metadata"
+                              type="Transparent"
+                              press=".onFlatObjViewSource" />
                           </HBox>
                         </cells>
                       </ColumnListItem>

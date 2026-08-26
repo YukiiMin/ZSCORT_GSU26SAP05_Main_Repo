@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Monaco Diff Editor</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #1e1e1e; /* Monaco vs-dark background */
+        }
+        #container {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+
+    <!-- Load Monaco via AMD loader -->
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs/loader.js"></script>
+    <script>
+        require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs' }});
+
+        var diffEditor = null;
+        var originalModel = null;
+        var modifiedModel = null;
+        var diffNavigator = null;
+
+        require(['vs/editor/editor.main'], function() {
+            var container = document.getElementById('container');
+            
+            diffEditor = monaco.editor.createDiffEditor(container, {
+                readOnly: true,
+                renderSideBySide: true, // Parallel by default
+                renderSideBySideInlineBreakpoint: 0, // Force parallel even on narrow screens
+                theme: 'vs-dark', // Dark theme by default
+                minimap: { enabled: true },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                ignoreTrimWhitespace: false
+            });
+
+            // Notify parent that Monaco is ready
+            window.parent.postMessage({ type: 'MONACO_READY' }, '*');
+        });
+
+        // Listen for messages from SAPUI5
+        window.addEventListener('message', function(event) {
+            var data = event.data;
+            if (!data) return;
+
+            if (data.type === 'SET_DIFF') {
+                if (originalModel) originalModel.dispose();
+                if (modifiedModel) modifiedModel.dispose();
+
+                originalModel = monaco.editor.createModel(data.original || '', data.language || 'abap');
+                modifiedModel = monaco.editor.createModel(data.modified || '', data.language || 'abap');
+
+                diffEditor.setModel({
+                    original: originalModel,
+                    modified: modifiedModel
+                });
+
+                if (diffNavigator) {
+                    diffNavigator.dispose();
+                }
+                diffNavigator = monaco.editor.createDiffNavigator(diffEditor, {
+                    followsCaret: true,
+                    ignoreCharChanges: true
+                });
+            }
+            else if (data.type === 'SET_SIDE_BY_SIDE') {
+                diffEditor.updateOptions({ renderSideBySide: data.renderSideBySide });
+            }
+            else if (data.type === 'NEXT_DIFF') {
+                if (diffNavigator) diffNavigator.next();
+            }
+            else if (data.type === 'PREV_DIFF') {
+                if (diffNavigator) diffNavigator.previous();
+            }
+        });
+    </script>
+</body>
+</html>

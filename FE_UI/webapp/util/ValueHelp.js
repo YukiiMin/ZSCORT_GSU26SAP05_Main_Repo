@@ -60,7 +60,7 @@ sap.ui.define([
       return "";
     }
     return aFilters.map(function (oF) {
-      var sPath = oF.sPath || oF.getPath && oF.getPath();
+      var sPath = oF.sPath || (oF.getPath && oF.getPath());
       var sOp = oF.sOperator || (oF.getOperator && oF.getOperator());
       var vVal = oF.oValue1 !== undefined ? oF.oValue1 : (oF.getValue1 && oF.getValue1());
       if (!sPath) { return ""; }
@@ -88,7 +88,16 @@ sap.ui.define([
       headers: { Accept: "application/json" }
     }).then(function (oRes) {
       if (!oRes.ok) {
-        throw new Error("HTTP " + oRes.status);
+        return oRes.text().then(function (sBody) {
+          var sMsg = "HTTP " + oRes.status;
+          try {
+            var oJson = JSON.parse(sBody);
+            if (oJson && oJson.error && oJson.error.message) {
+              sMsg = sMsg + ": " + oJson.error.message;
+            }
+          } catch (e) { /* ignore */ }
+          throw new Error(sMsg);
+        });
       }
       return oRes.json();
     }).then(function (oJson) {
@@ -105,7 +114,18 @@ sap.ui.define([
         credentials: "same-origin",
         headers: { Accept: "application/json" }
       }).then(function (oRes) {
-        if (!oRes.ok) { throw new Error("HTTP " + oRes.status); }
+        if (!oRes.ok) {
+          return oRes.text().then(function (sBody) {
+            var sMsg = "HTTP " + oRes.status;
+            try {
+              var oJson = JSON.parse(sBody);
+              if (oJson && oJson.error && oJson.error.message) {
+                sMsg = sMsg + ": " + oJson.error.message;
+              }
+            } catch (e) { /* ignore */ }
+            throw new Error(sMsg);
+          });
+        }
         return oRes.json();
       }).then(function (oJson) {
         if (!oJson) { return aAllData; }

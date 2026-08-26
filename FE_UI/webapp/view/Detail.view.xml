@@ -10,14 +10,15 @@
         <contentLeft>
           <Button
             icon="sap-icon://nav-back"
-            text="TR List"
+            text="Back to TR Search"
             press=".onButtonNavBackPress"
             type="Transparent"
-            tooltip="Back to Transport Request list" />
+            tooltip="Back to TR Search" />
           <Title text="TR Objects: {detail>/trkorr}" class="sapUiTinyMarginBegin" />
         </contentLeft>
         <contentRight>
-          <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Emphasized" tooltip="Apply to Target after compare (Released TR)" />
+          <Button text="Release TR" press=".onReleaseTrInDetail" type="Emphasized" icon="sap-icon://shipping-status" visible="{detail>/isUnreleased}" tooltip="Release TR to enable compare" />
+          <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Accept" tooltip="Apply to Target after compare (Released TR)" visible="{= !${detail>/isUnreleased} }" />
           <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
           <Button
             icon="sap-icon://home"
@@ -60,6 +61,27 @@
               <Label text="{= ${ddic>/TrCmp/ObjectName} || 'Object Name' }" />
               <table:template>
                 <ObjectIdentifier title="{detail>ObjectName}" />
+              </table:template>
+            </table:Column>
+
+            <table:Column width="10rem">
+              <Label text="Package" />
+              <table:template>
+                <Text text="{= ${detail>PackageName} || ${detail>TadirDevclass} || '' }" />
+              </table:template>
+            </table:Column>
+
+            <table:Column width="8rem">
+              <Label text="Author" />
+              <table:template>
+                <Text text="{= ${detail>Author} || ${detail>PersonResponsible} || ${detail>Owner} || '' }" />
+              </table:template>
+            </table:Column>
+
+            <table:Column width="8rem">
+              <Label text="Date" />
+              <table:template>
+                <Text text="{path:'detail>Datum', formatter:'.formatDate'} {= ${detail>Datum} ? '' : (${detail>As4date} ? ${path:'detail>As4date', formatter:'.formatDate'} : '') }" />
               </table:template>
             </table:Column>
 

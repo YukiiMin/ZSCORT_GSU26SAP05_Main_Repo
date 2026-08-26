@@ -81,12 +81,7 @@ sap.ui.define([
         : sServerId;
       this.getOwnerComponent().getRouter().navTo("objCompare", {
         objectType: sObjectType,
-        objectName: encodeURIComponent(sObjectName),
-        query: {
-          serverId: sSrv,
-          status: sCompareStatus || "BOTH",
-          mode: oApp.getProperty("/compareMode") || "L_VS_T"
-        }
+        objectName: encodeURIComponent(sObjectName)
       });
     },
 
@@ -109,6 +104,7 @@ sap.ui.define([
       setProp("viewSourceMessage", "Loading...");
       setProp("viewSourceHash", "");
       setProp("viewSourceCode", "");
+      setProp("viewSourceMetaData", arguments[3] || {}); // Store metadata passed by callers
       this._pendingSourceCode = null;
 
       if (!this._oSourceDialog) {
@@ -148,6 +144,23 @@ sap.ui.define([
         return;
       }
 
+      // Check if viewing Target for a LOCAL_ONLY object
+      var oMetaData = oM.getProperty("/viewSourceMetaData") || {};
+      if (sServerType === "T" && oMetaData.ExistenceStatus === "LOCAL_ONLY") {
+        setProp("viewSourceMessage", "Not available in Target (LOCAL_ONLY)");
+        setProp("viewSourceHash", "");
+        that._pendingSourceCode = "* ==========================================================================\n* NOT AVAILABLE ON TARGET SERVER\n* ==========================================================================\n*\n* Object: " + sObjType + " " + sObjName + "\n* Status: LOCAL_ONLY\n*\n* This object has NOT been released or applied to the Target repository yet.\n* Please release the associated Transport Request to create a snapshot on Target.\n* ==========================================================================";
+        that._renderCodeHost(that._pendingSourceCode);
+        return;
+      }
+      if (sServerType === "L" && oMetaData.ExistenceStatus === "TARGET_ONLY") {
+        setProp("viewSourceMessage", "Not available in Local (TARGET_ONLY)");
+        setProp("viewSourceHash", "");
+        that._pendingSourceCode = "* ==========================================================================\n* NOT AVAILABLE ON LOCAL SERVER\n* ==========================================================================\n*\n* Object: " + sObjType + " " + sObjName + "\n* Status: TARGET_ONLY\n*\n* This object only exists in the Target repository snapshot and is not in TADIR.\n* ==========================================================================";
+        that._renderCodeHost(that._pendingSourceCode);
+        return;
+      }
+
       // CDS key order: ServerType, ObjectType, ObjectName
       var sPath = "/SourceCodeView(ServerType='" + sServerType +
         "',ObjectType='" + sObjType +
@@ -165,11 +178,39 @@ sap.ui.define([
         that._pendingSourceCode = "/* Error loading source */";
         that._renderCodeHost(that._pendingSourceCode);
       });
+
+      // Fetch metadata if it's missing (e.g. opened from TrSearch where we don't have Package/Author)
+      var oMetaData = oM.getProperty("/viewSourceMetaData") || {};
+      if (!oMetaData.PackageName && !oMetaData.TadirDevclass) {
+        var sEntity = sServerType === "T" ? "TargetObjects" : "LocalObjects";
+        var oListBinding = oOdm.bindList("/" + sEntity, null, null, null, {
+          "$filter": "ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "'"
+        });
+        oListBinding.requestContexts(0, 1).then(function (aContexts) {
+          if (aContexts && aContexts.length > 0) {
+            setProp("viewSourceMetaData", aContexts[0].getObject());
+          }
+        }).catch(function (oErr) {
+          // ignore error
+        });
+      }
     },
 
     onDialogViewSourceAfterOpen: function () {
       if (this._pendingSourceCode !== null && this._pendingSourceCode !== undefined) {
         this._renderCodeHost(this._pendingSourceCode);
+      }
+    },
+
+    onDialogViewSourceTabSelect: function (oEvent) {
+      var sKey = oEvent.getParameter("key");
+      var that = this;
+      if (sKey === "source") {
+        setTimeout(function () {
+          if (that._pendingSourceCode !== null && that._pendingSourceCode !== undefined) {
+            that._renderCodeHost(that._pendingSourceCode);
+          }
+        }, 50);
       }
     },
 
@@ -202,16 +243,10 @@ sap.ui.define([
         }
         if (!that._oCodeHost) {
           that._oCodeHost = new CodeHost(el);
-        } else if (that._oCodeHost._el !== el) {
-          that._oCodeHost.dispose();
-          that._oCodeHost = new CodeHost(el);
+        } else if (!that._oCodeHost.isAttached() || that._oCodeHost._el !== el) {
+          that._oCodeHost.attachTo(el);
         }
         that._oCodeHost.setValue(sCode || "", "abap");
-        if (that._oCodeHost.layout) {
-          that._oCodeHost.layout();
-        } else if (that._oCodeHost._editor && that._oCodeHost._editor.layout) {
-          that._oCodeHost._editor.layout();
-        }
       }
 
       setTimeout(tryRender, 0);

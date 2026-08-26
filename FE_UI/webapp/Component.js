@@ -92,7 +92,6 @@ sap.ui.define([
       function startRouter() {
         try {
           oRouter.initialize();
-          oRouter.navTo("objSearch", {}, true);
         } catch (oErr) {
           Log.error("Router initialize failed", oErr, "zscort.app.Component");
         }

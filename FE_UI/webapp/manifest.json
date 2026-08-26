@@ -135,31 +135,31 @@
         {
           "pattern": "",
           "name": "home",
-          "target": ["master"],
+          "target": ["trSearch"],
           "layout": "OneColumn"
         },
         {
           "pattern": "master",
           "name": "master",
-          "target": ["master"],
+          "target": ["trSearch"],
           "layout": "OneColumn"
         },
         {
           "pattern": "detail/{trkorr}",
           "name": "detail",
-          "target": ["master", "detail"],
+          "target": ["trSearch", "detail"],
           "layout": "TwoColumnsMidExpanded"
         },
         {
           "pattern": "compare/{objectType}/{objectName}",
           "name": "compare",
-          "target": ["compare"],
+          "target": ["trSearch", "detail", "compare"],
           "layout": "ThreeColumnsEndExpanded"
         },
         {
           "pattern": "objCompare/{objectType}/{objectName}",
           "name": "objCompare",
-          "target": ["compareMid"],
+          "target": ["objSearch", "compareMid"],
           "layout": "TwoColumnsMidExpanded"
         },
         {

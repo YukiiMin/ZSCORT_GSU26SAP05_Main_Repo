@@ -4,6 +4,14 @@ dist/
 *.log
 .agent_scratchpad.md
 *.zip
+archive.zip
 *.rar
 req3_prod/
 
+*.csv
+*.pdf
+*.xlsx
+FLPD_Configuration.md
+Presentation_Outline.md
+agentic-awesome-skills/
+.cursor/

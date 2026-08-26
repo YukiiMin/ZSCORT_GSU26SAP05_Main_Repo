@@ -52,7 +52,13 @@ Chuột phải vào Object, hoặc action line của object đó.
 * Output: Hiển thị Request dạng phân cấp: TR Request (TR cha) cấp 0 > các TR Task (TR Con) bên trong cấp 1 + các object đứng ngang cấp > Các object được gán bên trong các TR Task Cấp 2
 + MODE: Search Object in TR Request/Task:
 * Input: Request (name wildcard) + Owner + Date + Request Status + Choose Object_Name (Wild Card) + Object_type
-* Output: Hiển thị từng dòng Request tương ứng gán với object đang active mà thuộc TR đang quản lý hiện tại.",,,,
+* Output: Hiển thị từng dòng Request tương ứng gán với object đang active mà thuộc TR đang quản lý hiện tại.
+*** THỰC TẾ TRIỂN KHAI GIAO DIỆN (UI/UX) & PERFORMANCE ***
+- Validation (Ràng buộc): Bắt buộc nhập ít nhất 1 tham số tìm kiếm (Ví dụ: Package, Owner, Object Name bên ObjSearch hoặc TR/Owner bên TR Search) để ngăn chặn Full Table Scan làm treo hệ thống.
+- Bảng hiển thị (Table): Đổi từ sap.m.Table sang sap.ui.table.Table (Grid Table) để kéo thả độ rộng cột. Bật Grouping mặc định để gom nhóm dữ liệu theo phân cấp.
+- Tối ưu Layout Fiori: Áp dụng Page enableScrolling=""false"" và VBox fitContainer=""true"" để bảng lấp đầy 100% màn hình, triệt tiêu khoảng trắng thừa.
+- Xử lý Big Data (TreeTable): Đã triển khai thuật toán đệ quy (recursive fetch qua @odata.nextLink) trong ValueHelp.js để vượt qua giới hạn max 500 records của SAP Gateway, đảm bảo TreeTable vẽ đủ 100% phân cấp TR.
+- Định dạng OData V4: Chuẩn hóa hiển thị Date (YYYY-MM-DD) bằng sap.ui.core.format.DateFormat.",,,,
 ,,,,,,
 ,REQ2,"
 
@@ -68,12 +74,12 @@ MAINFLOW 2: KÍCH HOẠT & CHUYỂN TIẾP APPLY TO TARGET( ở đây là trạn
 1.Điều kiện kích hoạt: Chỉ chạy khi Mainflow 1 hoàn tất thành công (E070-STATUS của TR Cha = 'R').
 2.Khai báo Data Model & Cấu trúc Dữ liệu
         -Chuẩn hóa 2 Bảng Custom Target:
-                ZA_SCORT_T:Chứa Metadata của Object (SERVER_ID, OBJECT_TYPE, OBJECT_NAME, DEVCLASS, AUTHOR, CURRENT_VERSION, CHANGED_AT,...).  
-                ZA_SCORT_T_SRC: Chứa nội dung chi tiết từng dòng Source Code (OBJECT_TYPE, OBJECT_NAME, VERSION_NO, LINE_NO, SOURCE_LINE, SRC_HASH).  
+                ZASCORT_T:Chứa Metadata của Object (SERVER_ID, OBJECT_TYPE, OBJECT_NAME, DEVCLASS, AUTHOR, CURRENT_VERSION, CHANGED_AT,...).  
+                ZASCORT_T_SRC: Chứa nội dung chi tiết từng dòng Source Code (OBJECT_TYPE, OBJECT_NAME, VERSION_NO, LINE_NO, SOURCE_LINE, SRC_HASH).  
         -Dựng các ABAP Structures / Table Types đầu vào/đầu ra phục vụ API (Export/Import Parameters cho RFC hoặc Class Method).  
 ***Kết quả sau B1: 
-        DB Header: ZA_SCORT_T  
-        DB Detail Source: ZA_SCORT_T_SRC  
+        DB Header: ZASCORT_T  
+        DB Detail Source: ZASCORT_T_SRC  
         Output Detail Structure: ZS_SCORT_OBJ_RESULT  
         Output Table Type: ZT_SCORT_OBJ_RESULT  
         Output Summary Structure: ZS_SCORT_APPLY_SUMMARY  
@@ -93,19 +99,19 @@ BƯỚC 4: Đọc Source Code, Metadata & Tính Hash
                 Loại khác (TABL, DDIC,...): Bỏ qua đọc dòng code, gắn cờ METADATA_ONLY
         -Lấy Metadata tại thời điểm Version đó được tạo (DevClass, Author, ChangedAt từ thông tin snapshot, không dùng ngày/người sửa hiện tại).
         -Tính Hash (SRC_HASH): Ghép toàn bộ mảng SOURCE_LINE thành chuỗi và gọi FM/Class băm chuỗi (MD5 hoặc SHA256).
-BƯỚC 5: Xử lý Persistence Dữ liệu vào Custom Target (ZA_SCORT_T & ZA_SCORT_T_SRC)
-        -Query ZA_SCORT_T kiểm tra sự tồn tại của (SERVER_ID = 'TARGET', OBJECT_TYPE, OBJECT_NAME).  
+BƯỚC 5: Xử lý Persistence Dữ liệu vào Custom Target (ZASCORT_T & ZASCORT_T_SRC)
+        -Query ZASCORT_T kiểm tra sự tồn tại của (SERVER_ID = 'TARGET', OBJECT_TYPE, OBJECT_NAME).  
         -Trường hợp CHƯA CÓ:
                 Set VERSION_NO = '01'. 
-                 INSERT thông tin vào ZA_SCORT_T. 
-                 INSERT danh sách các dòng source + SRC_HASH vào ZA_SCORT_T_SRC.  
+                 INSERT thông tin vào ZASCORT_T. 
+                 INSERT danh sách các dòng source + SRC_HASH vào ZASCORT_T_SRC.  
         -Trường hợp ĐÃ CÓ:
-                Lấy CurrentVersion hiện tại trong ZA_SCORT_T, tính new_version = CurrentVersion + 1 (định dạng 02, 03,...).
-                INSERT dòng version mới vào ZA_SCORT_T_SRC (để giữ lịch sử version cũ)
-                UPDATE bảng ZA_SCORT_T với CurrentVersion = new_version, cập nhật ngày/người thay đổi tương ứng.
+                Lấy CurrentVersion hiện tại trong ZASCORT_T, tính new_version = CurrentVersion + 1 (định dạng 02, 03,...).
+                INSERT dòng version mới vào ZASCORT_T_SRC (để giữ lịch sử version cũ)
+                UPDATE bảng ZASCORT_T với CurrentVersion = new_version, cập nhật ngày/người thay đổi tương ứng.
 
 ",,"Đặt trường là SE09 vốn đã tồn tại chứ năng auto tạo TR cho Repo Object khi ta lần đầu khởi tạo Repo Object rồi. 
-=> Khi vào hệ thống của ta thì object nào cũng đã có một TR sẵn của nó rồi","nhưng thằng ZA_SCORT_T_SRC và ZA_SCORT_T  là giả lập một SErver khác chứ ko phải là nơi chứa snapshot, việc snapshot chỉ đang giả lập STMS trung chuyển Object trong TR được Release sang Server khác mà ? Vì ko làm tính năng xác thật trước khi được vào hệ thống Target nên tôi mới cho nó auto snapshoot, để giảm scope.",
+=> Khi vào hệ thống của ta thì object nào cũng đã có một TR sẵn của nó rồi","nhưng thằng ZASCORT_T_SRC và ZASCORT_T  là giả lập một SErver khác chứ ko phải là nơi chứa snapshot, việc snapshot chỉ đang giả lập STMS trung chuyển Object trong TR được Release sang Server khác mà ? Vì ko làm tính năng xác thật trước khi được vào hệ thống Target nên tôi mới cho nó auto snapshoot, để giảm scope.",
 ,,,,,,
 ,,,,,,
 ,REQ3,"# REQ3 — Đặc tả kỹ thuật (Fiori Code Compare Git Review, read-only) — bản paste Google Sheet
@@ -141,11 +147,11 @@ Ràng buộc và Quy tắc xử lý Input:
   + Interface (INTF - tùy chọn, dùng chung reader với Class)
 - Object ngoài phạm vi (CDS, DDLS, BDEF,...): Vẫn hiển thị trong danh sách ở Cột Trái nhưng gắn Badge ""NOT_SUPPORTED"" và không mở được Diff Viewer (không lặng lẽ ẩn đi).
 - Object bị xóa ở Nguồn: Đọc Active Source không ra thì gắn Badge ""DELETED_AT_SOURCE"", không mở Diff Viewer, không raise DUMP.
-- Version tự động xác định: Phía đích lấy CURRENT_VERSION trong ZA_SCORT_T, phía nguồn lấy Active Source (99998). Người dùng KHÔNG nhập version thủ công.
+- Version tự động xác định: Phía đích lấy CURRENT_VERSION trong ZASCORT_T, phía nguồn lấy Active Source (99998). Người dùng KHÔNG nhập version thủ công.
 - Compare không chặn Apply: Người dùng bỏ qua màn này bất kỳ lúc nào để Apply straight sang Target.
 
 TH1.A – Object đã từng Apply sang đích (Existence = BOTH)
-Phía đích có dữ liệu trong ZA_SCORT_T_SRC. Diff hiển thị đúng phần khác nhau giữa bản đang có ở đích và bản sắp Apply: ADDED là code mới thêm, REMOVED là code bị bỏ, UNCHANGED là code giữ nguyên.
+Phía đích có dữ liệu trong ZASCORT_T_SRC. Diff hiển thị đúng phần khác nhau giữa bản đang có ở đích và bản sắp Apply: ADDED là code mới thêm, REMOVED là code bị bỏ, UNCHANGED là code giữ nguyên.
 
 TH1.B – Object lần đầu Apply, đích chưa có gì (Existence = LOCAL_ONLY)
 Đây là trường hợp BÌNH THƯỜNG, không phải lỗi và KHÔNG chặn Compare. Hệ thống xử lý:
@@ -166,11 +172,11 @@ Phân biệt hai trường lưu trữ trong Custom Table (Bắt buộc cho REQ2 
 Compare Processing Engine (ABAP RAP Custom Entity - IF_RAP_QUERY_PROVIDER):
 - Mức Master (Cột Trái - Load siêu nhẹ cho toàn bộ TR):
   + Đọc Active Source ở Nguồn -> Normalize -> Tính Hash.
-  + So sánh với `SRC_HASH` đã lưu sẵn trong `ZA_SCORT_T_SRC` ở Đích. KHÔNG giải nén `SOURCE_HEX`, KHÔNG chạy LCS.
+  + So sánh với `SRC_HASH` đã lưu sẵn trong `ZASCORT_T_SRC` ở Đích. KHÔNG giải nén `SOURCE_HEX`, KHÔNG chạy LCS.
   + Trả về ngay trạng thái tô màu Badge: IDENTICAL (giống nhau), DIFFERENT (khác nhau), NEW_AT_TARGET (chưa có ở đích).
   + Quy tắc Normalize + Hash phải nằm trong Class dùng chung `ZCL_SCORT_HASH_UTL` cho cả REQ2 và REQ3 để đảm bảo Hash khớp nhau.
 - Mức Detail (Cột Phải - Chỉ chạy cho 1 Object được chọn):
-  + Phía Đích: SELECT SOURCE_HEX từ ZA_SCORT_T_SRC theo SERVER_ID + OBJECT + OBJ_NAME + VERSION_NO -> Giải nén bằng CL_ABAP_GZIP=>DECOMPRESS_BINARY -> RAW2STRING -> Split theo NEWLINE thành string_table (qua ZCL_SCORT_COMPRESSION_UTL).
+  + Phía Đích: SELECT SOURCE_HEX từ ZASCORT_T_SRC theo SERVER_ID + OBJECT + OBJ_NAME + VERSION_NO -> Giải nén bằng CL_ABAP_GZIP=>DECOMPRESS_BINARY -> RAW2STRING -> Split theo NEWLINE thành string_table (qua ZCL_SCORT_COMPRESSION_UTL).
   + Phía Nguồn: READ REPORT (Program), FUNCTION_INCLUDE_INFO + READ REPORT (FM), SEO_CLASS_GET_SOURCE (Class).
   + Nếu tìm thấy dòng ở đích nhưng giải nén thất bại (SOURCE_HEX rỗng/hỏng) => Báo lỗi ""Không đọc/giải nén được source ở đích"".
   + Normalize source 2 bên -> Chạy CL_ABAP_DIFF (hoặc ma trận LCS) -> Sinh danh sách dòng kèm trạng thái ADDED, REMOVED, UNCHANGED.
@@ -202,8 +208,8 @@ Ngoài phạm vi REQ3:
 Thiết kế lưu trữ Backend (REQ3 chỉ ĐỌC):
 - Phía nguồn: Đọc trực tiếp Active Source runtime.
 - Phía đích: 
-  + ZA_SCORT_T: Catalog object (CLIENT, SERVER_ID, OBJECT, OBJ_NAME, CURRENT_VERSION).
-  + ZA_SCORT_T_SRC: Source nén GZIP theo version (CLIENT, SERVER_ID, OBJECT, OBJ_NAME, VERSION_NO, SOURCE_HEX, SRC_HASH).
+  + ZASCORT_T: Catalog object (CLIENT, SERVER_ID, OBJECT, OBJ_NAME, CURRENT_VERSION).
+  + ZASCORT_T_SRC: Source nén GZIP theo version (CLIENT, SERVER_ID, OBJECT, OBJ_NAME, VERSION_NO, SOURCE_HEX, SRC_HASH).
 - Version DB chuẩn SAP (VRSD + SVRS_*): Chỉ đọc phục vụ TH2.
 
 Danh sách FM / Class SAP sử dụng:

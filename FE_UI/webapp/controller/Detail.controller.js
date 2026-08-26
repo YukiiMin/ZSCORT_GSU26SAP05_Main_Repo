@@ -92,13 +92,38 @@ sap.ui.define([
           return r.CompareStatus === "NOT_SUPPORTED" && !(r.ObjectName || r.ObjectType);
         });
         if (oTrBlocked) {
-          oM.setProperty("/objects", []);
-          oM.setProperty("/busy", false);
-          oM.setProperty("/message", oTrBlocked.Message ||
-            "TR chưa Released — không mở Compare. Release trước rồi so sánh.");
-          MessageToast.show(oM.getProperty("/message"));
+          oM.setProperty("/isUnreleased", true);
+          oM.setProperty(
+            '/message',
+            oTrBlocked.Message ||
+              'TR chưa Released — không mở Compare. Release trước rồi so sánh.'
+          )
+
+          // Fallback: Fetch objects from TrObjectSearch for display when TR is unreleased
+          var sObjUrl = that.getOwnerComponent().getManifestEntry("sap.app").dataSources.trService.uri.replace(/\/?$/, "/") +
+            "TrObjectSearch?$filter=" + encodeURIComponent("Trkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "'");
+          ValueHelp.fetchJson(sObjUrl, 10000).then(function (aObjs) {
+            aObjs = aObjs || [];
+            var aFormatted = aObjs.map(function(o) {
+              return Object.assign({}, o, {
+                ObjectType: o.ObjectType || o.ObjType,
+                ObjectName: o.ObjectName || o.ObjName,
+                PackageName: o.PackageName || o.Devclass || o.TadirDevclass || o.Package || "",
+                Author: o.PersonResponsible || o.Author || o.Owner || o.As4user || "",
+                Datum: o.CreatedOn || o.As4date || o.Datum || "",
+                CompareStatus: "NOT_SUPPORTED",
+                Message: "TR Modifiable (Unreleased)"
+              });
+            });
+            oM.setProperty("/objects", aFormatted);
+            oM.setProperty("/busy", false);
+          }).catch(function () {
+            oM.setProperty("/objects", []);
+            oM.setProperty("/busy", false);
+          });
           return;
         }
+        oM.setProperty("/isUnreleased", false);
         oM.setProperty("/objects", aData);
         oM.setProperty("/busy", false);
         if (!aData.length) {
@@ -134,16 +159,25 @@ sap.ui.define([
       return oOdm.bindContext(sPath).execute();
     },
 
-    onReleaseButtonPress: function () {
+    onReleaseTrInDetail: function () {
       var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
       if (!sTrkorr) { return; }
       var that = this;
+      var oM = this.getView().getModel("detail");
+      oM.setProperty("/busy", true);
+      MessageToast.show("Releasing TR " + sTrkorr + "…");
       this._invokeTrTreeAction("ReleaseRequest", sTrkorr).then(function () {
-        MessageToast.show("Release OK: " + sTrkorr);
-        that.onButtonRefreshPress();
+        oM.setProperty("/busy", false);
+        MessageToast.show("Released OK: " + sTrkorr);
+        that._loadObjects(sTrkorr);
       }).catch(function (oError) {
+        oM.setProperty("/busy", false);
         MessageBox.error("Release failed: " + (oError.message || oError));
       });
+    },
+
+    onReleaseButtonPress: function () {
+      this.onReleaseTrInDetail();
     },
 
     onApplyToTargetButtonPress: function () {
@@ -171,8 +205,8 @@ sap.ui.define([
     },
 
     onButtonNavBackPress: function () {
-      this._app().setProperty("/layout", LayoutType.OneColumn);
-      this.getOwnerComponent().getRouter().navTo("master", {}, undefined, true);
+      this._app().setProperty("/layout", sap.f.LayoutType.OneColumn);
+      this.getOwnerComponent().getRouter().navTo("trSearch");
     },
 
     onButtonCloseDetailPress: function () {
@@ -193,11 +227,7 @@ sap.ui.define([
 
       this.getOwnerComponent().getRouter().navTo("compare", {
         objectType: sObjectType,
-        objectName: encodeURIComponent(sObjectName),
-        query: {
-          serverId: oApp.getProperty("/serverId") || "TGT",
-          mode: oApp.getProperty("/compareMode") || "L_VS_T"
-        }
+        objectName: encodeURIComponent(sObjectName)
       });
     },
 
@@ -206,7 +236,7 @@ sap.ui.define([
       if (!oCtx) { return; }
       var sObjectType = oCtx.getProperty("ObjectType");
       var sObjectName = oCtx.getProperty("ObjectName");
-      this._openSourceDialog(sObjectType, sObjectName, "L");
+      this._openSourceDialog(sObjectType, sObjectName, "L", oCtx.getObject());
     },
 
     onTableObjectRowSelectionChange: function () { /* reserved */ },

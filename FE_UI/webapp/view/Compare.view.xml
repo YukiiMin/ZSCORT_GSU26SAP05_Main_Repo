@@ -4,162 +4,153 @@
   xmlns:mvc="sap.ui.core.mvc"
   xmlns:f="sap.f"
   xmlns:core="sap.ui.core"
+  xmlns:table="sap.ui.table"
+  xmlns:layout="sap.ui.layout"
   height="100%">
 
-  <Page id="idMonacoPage" showHeader="false" class="sapUiNoContentPadding">
-    <content>
-      <f:DynamicPage id="idDetailDynamicPage" toggleHeaderOnTitleClick="false" class="sapUiNoContentPadding">
-        <f:title>
-          <f:DynamicPageTitle>
-            <f:heading>
-              <Title text="{detail>/ObjectType} {detail>/ObjectName}" />
-            </f:heading>
-            <f:navigationActions>
-              <Button icon="sap-icon://full-screen" type="Transparent" press=".onButtonFullScreenPress" />
-              <Button icon="sap-icon://decline" type="Transparent" press=".onButtonCloseComparePress" />
-            </f:navigationActions>
-            <f:snappedContent>
-              <ObjectStatus
-                text="{detail>/StatusCode}"
-                state="{
-                  path: 'detail>/StatusCode',
-                  formatter: '.formatStatusState'
-                }" />
-            </f:snappedContent>
-          </f:DynamicPageTitle>
-        </f:title>
-        <f:header>
-          <f:DynamicPageHeader>
-            <FlexBox wrap="Wrap" alignItems="Center" class="sapUiTinyMarginBottom">
-              <ObjectStatus
-                class="sapUiSmallMarginEnd"
-                title="{i18n>status}"
-                text="{detail>/StatusCode}"
-                state="{
-                  path: 'detail>/StatusCode',
-                  formatter: '.formatStatusState'
-                }" />
-              <ObjectAttribute title="{i18n>mode}"        text="{detail>/CompareMode}"  class="sapUiSmallMarginEnd" />
-              <ObjectAttribute title="{i18n>versionNo}"   text="{detail>/VersionNo}"    class="sapUiSmallMarginEnd" />
-              <ObjectAttribute title="{i18n>sourceLines}" text="{detail>/SourceLines}"  class="sapUiSmallMarginEnd" />
-              <ObjectAttribute title="{i18n>targetLines}" text="{detail>/TargetLines}"  class="sapUiSmallMarginEnd" />
-              <Text text="{detail>/Message}" />
-            </FlexBox>
+  <f:DynamicPage id="idDetailDynamicPage" toggleHeaderOnTitleClick="false" class="sapUiNoContentPadding">
+    <f:title>
+      <f:DynamicPageTitle>
+        <f:heading>
+          <Title text="{detail>/ObjectType} {detail>/ObjectName}" />
+        </f:heading>
+        <f:navigationActions>
+          <Button icon="sap-icon://full-screen" type="Transparent" press=".onButtonFullScreenPress" tooltip="Toggle Full Screen" />
+          <Button icon="sap-icon://decline" type="Transparent" press=".onButtonCloseComparePress" tooltip="Close" />
+        </f:navigationActions>
+      </f:DynamicPageTitle>
+    </f:title>
 
-            <!-- Compare mode (same UX as zscort_compare Master) -->
-            <HBox alignItems="Center" class="sapUiTinyMarginBottom" wrap="Wrap">
-              <Label text="{i18n>compareMode}" class="sapUiTinyMarginEnd" />
-              <SegmentedButton
-                selectedKey="{appView>/compareMode}"
-                selectionChange=".onModeChange"
-                class="sapUiTinyMarginEnd">
-                <items>
-                  <SegmentedButtonItem key="L_VS_T" text="{i18n>modeLvsT}" />
-                  <SegmentedButtonItem key="VER_VS_VER" text="{i18n>modeVerVsVer}" />
-                </items>
-              </SegmentedButton>
-              <Input
-                width="12rem"
-                value="{appView>/compareMode}"
-                showValueHelp="true"
-                valueHelpOnly="true"
-                valueHelpRequest=".onVHCompareMode"
-                placeholder="{i18n>vhCompareMode}" />
-            </HBox>
+    <f:content>
+      <IconTabBar id="idCompareIconTabBar" class="sapUiNoContentPadding" stretchContentHeight="true" select=".onTabSelect">
+        <items>
+          <!-- TAB 1: Git Review (Local vs Target) -->
+          <IconTabFilter key="gitReview" text="Git Review (Local vs Target)" icon="sap-icon://compare-2">
+            <layout:Splitter orientation="Vertical" width="100%" height="100%">
+              <VBox height="auto">
+                <layoutData>
+                  <layout:SplitterLayoutData size="auto" />
+                </layoutData>
+                <OverflowToolbar id="idGitReviewToolbar">
+                  <ObjectStatus text="Local (Active)" state="Indication05" class="sapUiTinyMarginEnd" />
+                  <Title text=" vs " />
+                  <ObjectStatus text="Target (Snapshot)" state="Indication04" class="sapUiTinyMarginBegin" />
+                  <ToolbarSpacer />
+                  <Button icon="sap-icon://navigation-up-arrow" text="Prev Diff" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="Previous Difference" />
+                  <Button icon="sap-icon://navigation-down-arrow" text="Next Diff" type="Transparent" press=".onMonacoNextDiffGit" tooltip="Next Difference" />
+                  <ToolbarSeparator />
+                  <Button icon="sap-icon://header" text="Single-Column" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="Toggle Inline / Side-by-side" />
+                </OverflowToolbar>
+              </VBox>
+              <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding">
+                <layoutData>
+                  <layout:SplitterLayoutData size="auto" />
+                </layoutData>
+                <!-- Monaco Git Diff Injected Here -->
+              </VBox>
+            </layout:Splitter>
+          </IconTabFilter>
 
-            <!-- L_VS_T: pick Target REPO version -->
-            <HBox alignItems="Center" visible="{= ${appView>/compareMode} === 'L_VS_T' }" class="sapUiTinyMarginBottom" wrap="Wrap">
-              <Label text="{i18n>pickTargetRepoVersion}" class="sapUiTinyMarginEnd" />
-              <Select
-                width="16rem"
-                items="{path: 'appView>/targetVersions', templateShareable: false}"
-                selectedKey="{appView>/versionNo}"
-                change=".onVersionChange"
-                forceSelection="false"
-                class="sapUiTinyMarginEnd">
-                <core:Item key="{appView>VersionNo}" text="{appView>VersionLabel}" />
-              </Select>
-              <Button
-                icon="sap-icon://value-help"
-                type="Transparent"
-                tooltip="{i18n>vhTargetVersionTitle}"
-                press=".onVHTargetVersion"
-                class="sapUiTinyMarginEnd" />
-              <Button text="{i18n>reloadDiff}" press=".onReloadDiff" />
-            </HBox>
+          <!-- TAB 2: Version Management (ADT Style) -->
+          <IconTabFilter key="versionMgmt" text="Version History (ADT Style)" icon="sap-icon://history">
+            <layout:Splitter orientation="Vertical" width="100%" height="100%">
+              <!-- Top Pane: Version Table -->
+              <VBox height="100%">
+                <layoutData>
+                  <layout:SplitterLayoutData size="40%" />
+                </layoutData>
+                <table:Table
+                  id="idVersionsTable"
+                  selectionMode="MultiToggle"
+                  rowSelectionChange=".onVersionSelectionChange"
+                  visibleRowCountMode="Auto"
+                  busy="{detail>/busyVersions}"
+                  rows="{path: 'detail>/versions'}">
+                  <table:extension>
+                    <OverflowToolbar>
+                      <Title text="Select 2 Versions to Compare" />
+                      <ToolbarSpacer />
+                      <Button icon="sap-icon://refresh" text="Refresh" press=".onReloadVersions" type="Transparent" />
+                      <Button id="btnCompare" icon="sap-icon://compare-2" text="Compare Selected" type="Emphasized" press=".onComparePress" enabled="false" />
+                    </OverflowToolbar>
+                  </table:extension>
+                  <table:columns>
+                    <table:Column width="4rem" hAlign="Center">
+                      <Label text="Status" />
+                      <table:template>
+                        <core:Icon
+                          src="{= ${detail>VersionNo} === '99998' ? 'sap-icon://sys-enter-2' : 'sap-icon://sys-help-2' }"
+                          color="{= ${detail>VersionNo} === '99998' ? 'Positive' : 'Critical' }" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="6rem">
+                      <Label text="Server" />
+                      <table:template>
+                        <ObjectStatus text="{= ${detail>ServerType} === 'L' ? 'Local' : 'Target' }" state="{= ${detail>ServerType} === 'L' ? 'Information' : 'Warning' }" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="6rem">
+                      <Label text="Version" />
+                      <table:template>
+                        <Text text="{path: 'detail>VersionNo', formatter: '.formatVersionNo'}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="8rem">
+                      <Label text="Author" />
+                      <table:template>
+                        <Text text="{detail>Author}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="10rem">
+                      <Label text="Date / Time" />
+                      <table:template>
+                        <Text text="{path: 'detail>Datum', formatter: '.formatDate'} {detail>Uzeit}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="10rem">
+                      <Label text="Request" />
+                      <table:template>
+                        <Text text="{detail>Korrnum}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="auto">
+                      <Label text="Message / Request Text" />
+                      <table:template>
+                        <Text text="{detail>Message}" wrapping="false" />
+                      </table:template>
+                    </table:Column>
+                  </table:columns>
+                </table:Table>
+              </VBox>
 
-            <!-- VER_VS_VER: Local VRSD vs Local VRSD -->
-            <HBox alignItems="Center" visible="{= ${appView>/compareMode} === 'VER_VS_VER' || ${appView>/compareMode} === 'ACTIVE_VS_VER' }" class="sapUiTinyMarginBottom" wrap="Wrap">
-              <Label text="{i18n>pickVersionLeft}" class="sapUiTinyMarginEnd" />
-              <Select
-                width="14rem"
-                items="{path: 'appView>/versions', templateShareable: false}"
-                selectedKey="{appView>/versionNo}"
-                change=".onVersionChange"
-                forceSelection="false"
-                class="sapUiTinyMarginEnd">
-                <core:Item key="{appView>VersionNo}" text="{appView>VersionLabel}" />
-              </Select>
-              <Button
-                icon="sap-icon://value-help"
-                type="Transparent"
-                tooltip="{i18n>vhVersionTitle}"
-                press=".onVHVersionLeft"
-                class="sapUiTinyMarginEnd" />
-              <Label text="{i18n>pickVersionRight}" class="sapUiTinyMarginEnd" />
-              <Select
-                width="14rem"
-                items="{path: 'appView>/versions', templateShareable: false}"
-                selectedKey="{appView>/versionNoRight}"
-                change=".onVersionRightChange"
-                forceSelection="false"
-                class="sapUiTinyMarginEnd">
-                <core:Item key="{appView>VersionNo}" text="{appView>VersionLabel}" />
-              </Select>
-              <Button
-                icon="sap-icon://value-help"
-                type="Transparent"
-                tooltip="{i18n>vhVersionTitle}"
-                press=".onVHVersionRight"
-                class="sapUiTinyMarginEnd" />
-              <Button text="{i18n>reloadDiff}" press=".onReloadDiff" />
-            </HBox>
+              <!-- Bottom Pane: Monaco Editor for Version History -->
+              <VBox height="100%" visible="{detail>/showEditor}" fitContainer="true" class="sapUiNoContentPadding">
+                <layoutData>
+                  <layout:SplitterLayoutData size="60%" />
+                </layoutData>
+                <OverflowToolbar id="idEditorToolbar" visible="{detail>/showEditor}">
+                  <ObjectStatus text="Left: {detail>/leftTitle}" state="Indication05" class="sapUiTinyMarginEnd" />
+                  <Title text=" vs " />
+                  <ObjectStatus text="Right: {detail>/rightTitle}" state="Indication04" class="sapUiTinyMarginBegin" />
+                  <ToolbarSpacer />
+                  <Button icon="sap-icon://navigation-up-arrow" text="Prev Diff" type="Transparent" press=".onMonacoPrevDiffVers" tooltip="Previous Difference" />
+                  <Button icon="sap-icon://navigation-down-arrow" text="Next Diff" type="Transparent" press=".onMonacoNextDiffVers" tooltip="Next Difference" />
+                  <ToolbarSeparator />
+                  <Button icon="sap-icon://header" text="Single-Column" type="Transparent" press=".onMonacoToggleSideBySideVers" tooltip="Toggle Inline / Side-by-side" />
+                </OverflowToolbar>
 
-            <MessageStrip
-              text="{i18n>newAtTargetHint}"
-              type="Success"
-              showIcon="true"
-              visible="{= ${detail>/StatusCode} === 'NEW_AT_TARGET' }"
-              class="sapUiTinyMarginTop" />
-            <MessageStrip
-              text="{i18n>lVsTHint}"
-              type="Information"
-              showIcon="true"
-              visible="{= ${detail>/CompareMode} === 'L_VS_T' }"
-              class="sapUiTinyMarginTop" />
-            <MessageStrip
-              text="{i18n>th2Hint}"
-              type="Information"
-              showIcon="true"
-              visible="{= ${detail>/CompareMode} === 'VER_VS_VER' }"
-              class="sapUiTinyMarginTop" />
-          </f:DynamicPageHeader>
-        </f:header>
-        <f:content>
-          <VBox height="100%" class="monacoHostBox">
-            <IllustratedMessage
-              id="idEmptyDetailIllustratedMessage"
-              visible="{= !${detail>/ObjectName} }"
-              title="{i18n>selectObject}"
-              description="{i18n>selectObjectDesc}" />
-            <core:HTML
-              id="monacoHost"
-              preferDOM="true"
-              content="&lt;div class='monacoHost' style='width:100%;height:100%;min-height:320px;'&gt;&lt;/div&gt;" />
-          </VBox>
-        </f:content>
-      </f:DynamicPage>
-    </content>
-  </Page>
+                <VBox id="monacoVersContainer" width="100%" height="100%" visible="{detail>/showEditor}">
+                  <layoutData>
+                    <FlexItemData growFactor="1" />
+                  </layoutData>
+                  <!-- Monaco Version Diff Injected Here -->
+                </VBox>
+              </VBox>
+            </layout:Splitter>
+          </IconTabFilter>
+        </items>
+      </IconTabBar>
+    </f:content>
+  </f:DynamicPage>
 
 </mvc:View>

@@ -20,7 +20,6 @@
             <items>
               <SegmentedButtonItem key="objSearch" text="Object Search" icon="sap-icon://search" />
               <SegmentedButtonItem key="trSearch"  text="TR Search"     icon="sap-icon://org-chart" />
-              <SegmentedButtonItem key="compare"   text="Code Compare"  icon="sap-icon://compare-2" />
             </items>
           </SegmentedButton>
         </contentMiddle>
@@ -336,12 +335,7 @@
                     showColumnVisibilityMenu="true"
                     visibleRowCountMode="Auto"
                     minAutoRowCount="5"
-                    rows="{
-                      path: 'objModel>/CompareMatrix',
-                      parameters: {
-                        $count: true
-                      }
-                    }">
+                    rows="{path: 'objSearch>/matrixRows'}">
                     <table:layoutData>
                       <FlexItemData growFactor="1" />
                     </table:layoutData>
@@ -349,33 +343,45 @@
                       <table:Column width="6rem" filterProperty="ObjectType" sortProperty="ObjectType">
                         <Label text="{= ${ddic>/CompareMatrix/ObjectType} || 'Type' }" />
                         <table:template>
-                          <ObjectStatus text="{objModel>ObjectType}" state="None" />
+                          <ObjectStatus text="{objSearch>ObjectType}" state="None" />
                         </table:template>
                       </table:Column>
                       <table:Column width="20rem" filterProperty="ObjectName" sortProperty="ObjectName">
                         <Label text="{= ${ddic>/CompareMatrix/ObjectName} || 'Object Name' }" />
                         <table:template>
-                          <ObjectIdentifier title="{objModel>ObjectName}" />
+                          <ObjectIdentifier title="{objSearch>ObjectName}" />
                         </table:template>
                       </table:Column>
                       <table:Column width="8rem" filterProperty="ExistenceStatus" sortProperty="ExistenceStatus">
                         <Label text="{= ${ddic>/CompareMatrix/ExistenceStatus} || 'Status' }" />
                         <table:template>
                           <ObjectStatus
-                            text="{objModel>ExistenceStatus}"
-                            state="{path:'objModel>ExistenceStatus', formatter:'.formatExistenceState'}" />
+                            text="{objSearch>ExistenceStatus}"
+                            state="{path:'objSearch>ExistenceStatus', formatter:'.formatExistenceState'}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="15rem" filterProperty="LocalPackage" sortProperty="LocalPackage">
+                      <table:Column width="11rem" filterProperty="LocalPackage" sortProperty="LocalPackage">
                         <Label text="{= ${ddic>/CompareMatrix/LocalPackage} || 'Local Package' }" />
                         <table:template>
-                          <Text text="{objModel>LocalPackage}" />
+                          <Text text="{objSearch>LocalPackage}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="15rem" filterProperty="TargetPackage" sortProperty="TargetPackage">
+                      <table:Column width="11rem" filterProperty="TargetPackage" sortProperty="TargetPackage">
                         <Label text="{= ${ddic>/CompareMatrix/TargetPackage} || 'Target Package' }" />
                         <table:template>
-                          <Text text="{objModel>TargetPackage}" />
+                          <Text text="{objSearch>TargetPackage}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="8.5rem" filterProperty="LocalAuthor" sortProperty="LocalAuthor">
+                        <Label text="Local Resp." />
+                        <table:template>
+                          <Text text="{objSearch>LocalAuthor}" />
+                        </table:template>
+                      </table:Column>
+                      <table:Column width="8.5rem" filterProperty="TargetAuthor" sortProperty="TargetAuthor">
+                        <Label text="Target Resp." />
+                        <table:template>
+                          <Text text="{objSearch>TargetAuthor}" />
                         </table:template>
                       </table:Column>
                       <table:Column width="6rem">
@@ -385,7 +391,7 @@
                             <Button icon="sap-icon://compare-2"
                               tooltip="Open in Code Compare"
                               type="Transparent"
-                              visible="{= ${objModel>ExistenceStatus} === 'BOTH' }"
+                              visible="{= ${objSearch>ExistenceStatus} === 'BOTH' }"
                               press=".onButtonOpenComparePress" />
                             <Button icon="sap-icon://detail-view"
                               tooltip="View Source Code"

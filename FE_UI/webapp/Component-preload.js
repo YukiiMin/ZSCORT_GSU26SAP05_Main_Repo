@@ -1,2 +1,10 @@
-//@ui5-bundle zscort/app/Component-preload.js
-sap.ui.require.preload({});
+sap.ui.define([
+	"sap/ui/base/ManagedObject"
+], function(
+	ManagedObject
+) {
+	"use strict";
+
+	return ManagedObject.extend("zscort.app.Component-preload", {
+	});
+});

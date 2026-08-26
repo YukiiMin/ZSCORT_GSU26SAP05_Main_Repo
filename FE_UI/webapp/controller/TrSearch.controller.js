@@ -203,9 +203,7 @@ sap.ui.define([
       }
       function fail(oErr) {
         oM.setProperty("/busyTree", false);
-        MessageBox.warning("TR Tree error: " + (oErr.message || oErr), {
-          onClose: function () { that._loadTreeMock(); }
-        });
+        MessageBox.error("TR Tree OData Error: " + (oErr.message || oErr));
       }
 
       ValueHelp.fetchAllJson(sUrlFiltered, 60000).then(finish).catch(function () {
@@ -298,6 +296,15 @@ sap.ui.define([
       var oNode = oCtx.getObject();
       if (oNode.NodeType === "OBJ" && oNode.ObjName && oNode.ObjType) {
         this.navToCompare(oNode.ObjType, oNode.ObjName, "L", "BOTH");
+      }
+    },
+
+    onTreeObjViewSource: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("trTree");
+      if (!oCtx) { return; }
+      var oNode = oCtx.getObject();
+      if (oNode.NodeType === "OBJ" && oNode.ObjName && oNode.ObjType) {
+        this._openSourceDialog(oNode.ObjType, oNode.ObjName, "L", oNode);
       }
     },
 
@@ -447,6 +454,13 @@ sap.ui.define([
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
+    },
+
+    onFlatObjViewSource: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("trSearch");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      this._openSourceDialog(oObj.ObjectType, oObj.ObjectName, "L", oObj);
     },
 
     onFlatOpenDetail: function (oEvent) {

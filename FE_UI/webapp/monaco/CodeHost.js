@@ -2,86 +2,112 @@ sap.ui.define([], function () {
   "use strict";
 
   /**
-   * CodeHost — wraps monaco.editor.create
+   * CodeHost — Iframe-based wrapper for Monaco Editor
    * Single file viewer for ABAP source code.
    */
   function CodeHost(oDomElement) {
     this._el = oDomElement;
-    this._editor = null;
-    this._model = null;
-    this._ready = this._loadMonaco();
+    this._iframe = null;
+    this._readyResolver = null;
+    this._isReady = false;
+    this._pendingCode = null;
+    this._lastCode = "";
+    this._lastLang = "abap";
+
+    this._readyPromise = new Promise(function(resolve) {
+        this._readyResolver = resolve;
+    }.bind(this));
+
+    this._initIframe();
   }
 
-  CodeHost.prototype._loadMonaco = function () {
+  CodeHost.prototype._initIframe = function () {
     var that = this;
-    if (window.monaco && window.monaco.editor) {
-      return Promise.resolve(window.monaco);
+    if (!this._el) { return; }
+    this._el.innerHTML = "";
+    this._el.style.width = "100%";
+    this._el.style.height = "100%";
+
+    this._iframe = document.createElement("iframe");
+    var sIframeUrl = sap.ui.require.toUrl("zscort/app/monaco/monaco_code.html");
+    
+    this._iframe.src = sIframeUrl;
+    this._iframe.style.width = "100%";
+    this._iframe.style.height = "100%";
+    this._iframe.style.border = "none";
+    this._iframe.style.display = "block";
+
+    this._messageListener = function(event) {
+        if (event.data && event.data.type === "MONACO_READY") {
+            that._isReady = true;
+            if (typeof that._readyResolver === "function") {
+                that._readyResolver();
+            }
+            if (that._pendingCode) {
+                that._postMessage(that._pendingCode);
+                that._pendingCode = null;
+            } else if (that._lastCode !== null && that._lastCode !== undefined) {
+                that.setValue(that._lastCode, that._lastLang);
+            }
+        }
+    };
+    window.addEventListener("message", this._messageListener);
+
+    this._el.appendChild(this._iframe);
+  };
+
+  CodeHost.prototype.isAttached = function () {
+    return !!(this._iframe && this._el && this._iframe.parentNode === this._el && document.body.contains(this._iframe));
+  };
+
+  CodeHost.prototype.attachTo = function (oNewDomElement) {
+    this._el = oNewDomElement;
+    if (this._messageListener) {
+      window.removeEventListener("message", this._messageListener);
+      this._messageListener = null;
     }
-    return new Promise(function (resolve, reject) {
-      if (window.__monacoLoading) {
-        window.__monacoLoading.then(resolve).catch(reject);
-        return;
+    this._isReady = false;
+    this._readyPromise = new Promise(function(resolve) {
+        this._readyResolver = resolve;
+    }.bind(this));
+    this._initIframe();
+  };
+
+  CodeHost.prototype._postMessage = function(oMsg) {
+      if (this._iframe && this._iframe.contentWindow) {
+          this._iframe.contentWindow.postMessage(oMsg, "*");
       }
-      window.__monacoLoading = new Promise(function (res, rej) {
-        var sBase = "https://cdn.jsdelivr.net/npm/monaco-editor@0.52.0/min/vs";
-        var oScript = document.createElement("script");
-        oScript.src = sBase + "/loader.js";
-        oScript.onload = function () {
-          window.require.config({ paths: { vs: sBase } });
-          window.require(["vs/editor/editor.main"], function () {
-            res(window.monaco);
-          }, rej);
-        };
-        oScript.onerror = rej;
-        document.head.appendChild(oScript);
-      });
-      window.__monacoLoading.then(resolve).catch(reject);
-    }).then(function (monaco) {
-      that._monaco = monaco;
-      return monaco;
-    });
   };
 
   CodeHost.prototype.setValue = function (sValue, sLang) {
-    var that = this;
-    sValue = sValue || "";
-    sLang = sLang || "abap";
+    var sVal = sValue || "";
+    var sLg = sLang || "abap";
+    this._lastCode = sVal;
+    this._lastLang = sLg;
 
-    return this._ready.then(function (monaco) {
-      if (!that._editor) {
-        that._el.innerHTML = "";
-        that._editor = monaco.editor.create(that._el, {
-          readOnly: true,
-          theme: "vs",
-          minimap: { enabled: true },
-          scrollBeyondLastLine: false
-        });
-      }
+    var oMsg = {
+        type: "SET_CODE",
+        value: sVal,
+        language: sLg
+    };
 
-      if (that._model) {
-        that._model.dispose();
-      }
-
-      that._model = monaco.editor.createModel(sValue, sLang);
-      that._editor.setModel(that._model);
-      that._editor.layout();
-    }).catch(function (e) {
-      that._el.innerHTML =
-        "<pre style='padding:1rem;white-space:pre-wrap;font-family:monospace'>" +
-        "Monaco failed to load.\n\n" + sValue +
-        "\n\nError: " + e +
-        "</pre>";
-    });
+    if (this._isReady) {
+        this._postMessage(oMsg);
+    } else {
+        this._pendingCode = oMsg;
+    }
+    return this._readyPromise;
   };
 
   CodeHost.prototype.dispose = function () {
-    if (this._model) {
-      this._model.dispose();
+    if (this._messageListener) {
+        window.removeEventListener("message", this._messageListener);
+        this._messageListener = null;
     }
-    if (this._editor) {
-      this._editor.dispose();
+    if (this._iframe && this._iframe.parentNode) {
+        this._iframe.parentNode.removeChild(this._iframe);
     }
-    this._editor = null;
+    this._iframe = null;
   };
 
   return CodeHost;

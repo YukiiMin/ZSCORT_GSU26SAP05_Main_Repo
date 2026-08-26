@@ -39,6 +39,13 @@ CLASS zcl_scort_hash_utl DEFINITION
       RETURNING
         VALUE(rv_text) TYPE string.
 
+    "! Tiền xử lý (Pre-Diff Adapter) xóa trailing spaces, CRLF và comment rác.
+    CLASS-METHODS normalize_source
+      IMPORTING
+        it_lines        TYPE ty_string_tab
+      RETURNING
+        VALUE(rt_lines) TYPE ty_string_tab.
+
     CLASS-METHODS text_to_lines
       IMPORTING
         iv_text         TYPE string
@@ -78,6 +85,35 @@ CLASS zcl_scort_hash_utl IMPLEMENTATION.
   METHOD normalize_lines.
     " Deprecated — Apply không normalize. Giữ API, trả nguyên dòng.
     rt_lines = it_lines.
+  ENDMETHOD.
+
+  METHOD normalize_source.
+    DATA: lv_line TYPE string.
+    CLEAR rt_lines.
+    LOOP AT it_lines INTO lv_line.
+      " Loại bỏ CRLF sang LF (hoặc bỏ CR vì LOOP string tab đã chia theo newline)
+      REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>cr_lf IN lv_line WITH cl_abap_char_utilities=>newline.
+      REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>horizontal_tab IN lv_line WITH ` `.
+      
+      " Xóa khoảng trắng thừa ở cuối dòng (trailing spaces)
+      REPLACE REGEX `\s+$` IN lv_line WITH ``.
+
+      " Bỏ qua các dòng trống
+      IF lv_line IS INITIAL.
+        CONTINUE.
+      ENDIF.
+      
+      DATA(lv_trim) = lv_line.
+      CONDENSE lv_trim.
+      " Bỏ qua các dòng comment rác (chỉ chứa * hoặc ")
+      IF lv_trim(1) = '*' OR lv_trim(1) = '"'.
+        IF strlen( lv_trim ) = 1.
+          CONTINUE.
+        ENDIF.
+      ENDIF.
+
+      APPEND lv_line TO rt_lines.
+    ENDLOOP.
   ENDMETHOD.
 
   METHOD calculate_checksum.
