@@ -300,6 +300,37 @@ sap.ui.define([
         return oFormat.format(oDate);
       }
       return s;
+    },
+
+    onLanguageMenuSelect: function (oEvent) {
+      var oItem = oEvent.getParameter("item");
+      var sKey = oItem ? oItem.getKey() : "en";
+      this._applyLanguage(sKey);
+    },
+
+    onLanguageChange: function (oEvent) {
+      var sKey = oEvent.getParameter("item") ? oEvent.getParameter("item").getKey() : (oEvent.getParameter("key") || oEvent.getSource().getSelectedKey());
+      this._applyLanguage(sKey || "en");
+    },
+
+    _applyLanguage: function (sKey) {
+      if (!sKey) { return; }
+      var sNorm = sKey.toLowerCase();
+      localStorage.setItem("scort_lang", sNorm);
+      var oUrl = new URL(window.location.href);
+      oUrl.searchParams.set("sap-language", sNorm.toUpperCase());
+      window.location.href = oUrl.toString();
+    },
+
+    _getText: function (sKey, aArgs) {
+      var oBundle = this.getOwnerComponent().getModel("i18n") ? this.getOwnerComponent().getModel("i18n").getResourceBundle() : null;
+      if (!oBundle) {
+        var oView = this.getView();
+        if (oView && oView.getModel("i18n")) {
+          oBundle = oView.getModel("i18n").getResourceBundle();
+        }
+      }
+      return oBundle ? oBundle.getText(sKey, aArgs) : sKey;
     }
   });
 });

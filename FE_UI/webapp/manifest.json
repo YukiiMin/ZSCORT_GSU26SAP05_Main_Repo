@@ -77,7 +77,7 @@
         "type": "sap.ui.model.resource.ResourceModel",
         "settings": {
           "bundleName": "zscort.app.i18n.i18n",
-          "supportedLocales": ["", "en", "en_US"],
+          "supportedLocales": ["", "en", "en_US", "vi", "vi_VN", "ja", "zh", "de"],
           "fallbackLocale": ""
         }
       },

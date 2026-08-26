@@ -16,7 +16,7 @@
         </f:heading>
         <f:navigationActions>
           <Button icon="sap-icon://full-screen" type="Transparent" press=".onButtonFullScreenPress" tooltip="Toggle Full Screen" />
-          <Button icon="sap-icon://decline" type="Transparent" press=".onButtonCloseComparePress" tooltip="Close" />
+          <Button icon="sap-icon://decline" type="Transparent" press=".onButtonCloseComparePress" tooltip="{i18n>btnClose}" />
         </f:navigationActions>
       </f:DynamicPageTitle>
     </f:title>
@@ -25,21 +25,21 @@
       <IconTabBar id="idCompareIconTabBar" class="sapUiNoContentPadding" stretchContentHeight="true" select=".onTabSelect">
         <items>
           <!-- TAB 1: Git Review (Local vs Target) -->
-          <IconTabFilter key="gitReview" text="Git Review (Local vs Target)" icon="sap-icon://compare-2">
+          <IconTabFilter key="gitReview" text="{i18n>tabGitReview}" icon="sap-icon://compare-2">
             <layout:Splitter orientation="Vertical" width="100%" height="100%">
               <VBox height="auto">
                 <layoutData>
                   <layout:SplitterLayoutData size="auto" />
                 </layoutData>
                 <OverflowToolbar id="idGitReviewToolbar">
-                  <ObjectStatus text="Local (Active)" state="Indication05" class="sapUiTinyMarginEnd" />
-                  <Title text=" vs " />
-                  <ObjectStatus text="Target (Snapshot)" state="Indication04" class="sapUiTinyMarginBegin" />
+                  <ObjectStatus text="{i18n>statusLocalActive}" state="Indication05" class="sapUiTinyMarginEnd" />
+                  <Title text="{i18n>lblVs}" />
+                  <ObjectStatus text="{i18n>statusTargetSnapshot}" state="Indication04" class="sapUiTinyMarginBegin" />
                   <ToolbarSpacer />
-                  <Button icon="sap-icon://navigation-up-arrow" text="Prev Diff" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="Previous Difference" />
-                  <Button icon="sap-icon://navigation-down-arrow" text="Next Diff" type="Transparent" press=".onMonacoNextDiffGit" tooltip="Next Difference" />
+                  <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="{i18n>btnPrevDiff}" />
+                  <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffGit" tooltip="{i18n>btnNextDiff}" />
                   <ToolbarSeparator />
-                  <Button icon="sap-icon://header" text="Single-Column" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="Toggle Inline / Side-by-side" />
+                  <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="{i18n>btnToggleDiffLayout}" />
                 </OverflowToolbar>
               </VBox>
               <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding">
@@ -52,7 +52,7 @@
           </IconTabFilter>
 
           <!-- TAB 2: Version Management (ADT Style) -->
-          <IconTabFilter key="versionMgmt" text="Version History (ADT Style)" icon="sap-icon://history">
+          <IconTabFilter key="versionMgmt" text="{i18n>tabVersionHistory}" icon="sap-icon://history">
             <layout:Splitter orientation="Vertical" width="100%" height="100%">
               <!-- Top Pane: Version Table -->
               <VBox height="100%">
@@ -68,15 +68,15 @@
                   rows="{path: 'detail>/versions'}">
                   <table:extension>
                     <OverflowToolbar>
-                      <Title text="Select 2 Versions to Compare" />
+                      <Title text="{i18n>selectTwoVersions}" />
                       <ToolbarSpacer />
-                      <Button icon="sap-icon://refresh" text="Refresh" press=".onReloadVersions" type="Transparent" />
-                      <Button id="btnCompare" icon="sap-icon://compare-2" text="Compare Selected" type="Emphasized" press=".onComparePress" enabled="false" />
+                      <Button icon="sap-icon://refresh" text="{i18n>btnRefresh}" press=".onReloadVersions" type="Transparent" />
+                      <Button id="btnCompare" icon="sap-icon://compare-2" text="{i18n>btnCompareSelected}" type="Emphasized" press=".onComparePress" enabled="false" />
                     </OverflowToolbar>
                   </table:extension>
                   <table:columns>
                     <table:Column width="4rem" hAlign="Center">
-                      <Label text="Status" />
+                      <Label text="{i18n>colStatus}" />
                       <table:template>
                         <core:Icon
                           src="{= ${detail>VersionNo} === '99998' ? 'sap-icon://sys-enter-2' : 'sap-icon://sys-help-2' }"
@@ -84,37 +84,37 @@
                       </table:template>
                     </table:Column>
                     <table:Column width="6rem">
-                      <Label text="Server" />
+                      <Label text="{i18n>serverId}" />
                       <table:template>
                         <ObjectStatus text="{= ${detail>ServerType} === 'L' ? 'Local' : 'Target' }" state="{= ${detail>ServerType} === 'L' ? 'Information' : 'Warning' }" />
                       </table:template>
                     </table:Column>
                     <table:Column width="6rem">
-                      <Label text="Version" />
+                      <Label text="{i18n>versionNo}" />
                       <table:template>
                         <Text text="{path: 'detail>VersionNo', formatter: '.formatVersionNo'}" />
                       </table:template>
                     </table:Column>
                     <table:Column width="8rem">
-                      <Label text="Author" />
+                      <Label text="{i18n>authorLabel}" />
                       <table:template>
                         <Text text="{detail>Author}" />
                       </table:template>
                     </table:Column>
                     <table:Column width="10rem">
-                      <Label text="Date / Time" />
+                      <Label text="{i18n>colDateTime}" />
                       <table:template>
                         <Text text="{path: 'detail>Datum', formatter: '.formatDate'} {detail>Uzeit}" />
                       </table:template>
                     </table:Column>
                     <table:Column width="10rem">
-                      <Label text="Request" />
+                      <Label text="{i18n>colRequest}" />
                       <table:template>
                         <Text text="{detail>Korrnum}" />
                       </table:template>
                     </table:Column>
                     <table:Column width="auto">
-                      <Label text="Message / Request Text" />
+                      <Label text="{i18n>colRequestText}" />
                       <table:template>
                         <Text text="{detail>Message}" wrapping="false" />
                       </table:template>
@@ -129,14 +129,14 @@
                   <layout:SplitterLayoutData size="60%" />
                 </layoutData>
                 <OverflowToolbar id="idEditorToolbar" visible="{detail>/showEditor}">
-                  <ObjectStatus text="Left: {detail>/leftTitle}" state="Indication05" class="sapUiTinyMarginEnd" />
-                  <Title text=" vs " />
-                  <ObjectStatus text="Right: {detail>/rightTitle}" state="Indication04" class="sapUiTinyMarginBegin" />
+                  <ObjectStatus text="{i18n>lblLeft}: {detail>/leftTitle}" state="Indication05" class="sapUiTinyMarginEnd" />
+                  <Title text="{i18n>lblVs}" />
+                  <ObjectStatus text="{i18n>lblRight}: {detail>/rightTitle}" state="Indication04" class="sapUiTinyMarginBegin" />
                   <ToolbarSpacer />
-                  <Button icon="sap-icon://navigation-up-arrow" text="Prev Diff" type="Transparent" press=".onMonacoPrevDiffVers" tooltip="Previous Difference" />
-                  <Button icon="sap-icon://navigation-down-arrow" text="Next Diff" type="Transparent" press=".onMonacoNextDiffVers" tooltip="Next Difference" />
+                  <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffVers" tooltip="{i18n>btnPrevDiff}" />
+                  <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffVers" tooltip="{i18n>btnNextDiff}" />
                   <ToolbarSeparator />
-                  <Button icon="sap-icon://header" text="Single-Column" type="Transparent" press=".onMonacoToggleSideBySideVers" tooltip="Toggle Inline / Side-by-side" />
+                  <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideVers" tooltip="{i18n>btnToggleDiffLayout}" />
                 </OverflowToolbar>
 
                 <VBox id="monacoVersContainer" width="100%" height="100%" visible="{detail>/showEditor}">

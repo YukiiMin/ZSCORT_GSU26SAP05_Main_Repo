@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="height:100%">
+<html style="height:100%">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,6 +7,16 @@
   <style>
     html, body, #content { height: 100%; margin: 0; }
   </style>
+  <script>
+    (function() {
+      var sLang = localStorage.getItem("scort_lang") || "en";
+      var oUrl = new URL(window.location.href);
+      if (!oUrl.searchParams.has("sap-language")) {
+        oUrl.searchParams.set("sap-language", sLang.toUpperCase());
+        window.location.replace(oUrl.toString());
+      }
+    })();
+  </script>
   <script
     id="sap-ui-bootstrap"
     src="https://ui5.sap.com/1.120.0/resources/sap-ui-core.js"

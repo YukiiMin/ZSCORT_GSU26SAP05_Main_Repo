@@ -16,22 +16,39 @@
             id="idTrSearchBackButton"
             icon="sap-icon://nav-back"
             type="Transparent"
-            text="Object Search"
+            text="{i18n>navObjSearch}"
             tooltip="Back to Object Search"
             press=".onNavObjSearch" />
-          <Title text="TR Search" class="sapUiTinyMarginBegin" />
+          <Title text="{i18n>trSearchTitle}" class="sapUiTinyMarginBegin" />
         </contentLeft>
         <contentMiddle>
           <SegmentedButton
             selectedKey="{appView>/currentModule}"
             selectionChange=".onModuleSwitch">
             <items>
-              <SegmentedButtonItem key="objSearch" text="Object Search" icon="sap-icon://search" />
-              <SegmentedButtonItem key="trSearch"  text="TR Search"     icon="sap-icon://org-chart" />
+              <SegmentedButtonItem key="objSearch" text="{i18n>navObjSearch}" icon="sap-icon://search" />
+              <SegmentedButtonItem key="trSearch"  text="{i18n>navTrSearch}"     icon="sap-icon://org-chart" />
             </items>
           </SegmentedButton>
         </contentMiddle>
         <contentRight>
+          <MenuButton
+            icon="sap-icon://world"
+            text="{= (${appView>/currentLanguage} || 'en').toUpperCase() }"
+            tooltip="Language / Ngôn ngữ"
+            class="sapUiTinyMarginEnd">
+            <menu>
+              <Menu itemSelected=".onLanguageMenuSelect">
+                <items>
+                  <MenuItem key="en" text="🇬🇧 English" />
+                  <MenuItem key="vi" text="🇻🇳 Tiếng Việt" />
+                  <MenuItem key="ja" text="🇯🇵 日本語" />
+                  <MenuItem key="zh" text="🇨🇳 中文" />
+                  <MenuItem key="de" text="🇩🇪 Deutsch" />
+                </items>
+              </Menu>
+            </menu>
+          </MenuButton>
           <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home — Object Search" />
         </contentRight>
       </Bar>
@@ -40,13 +57,13 @@
     <content>
       <VBox height="100%" fitContainer="true">
 
-        <Panel headerText="TR Search Filters" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
+        <Panel headerText="{i18n>searchFilterPanel}" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
           <content>
             <HBox alignItems="End" wrap="Wrap" class="sapUiTinyMargin">
 
               <!-- TR Number -->
               <VBox class="sapUiTinyMarginEnd">
-                <Label text="Transport Request (Wildcard)" />
+                <Label text="{i18n>trkorrFilter}" />
                 <Input id="inputTrkorr"
                   width="14rem"
                   value="{trSearch>/filterTrkorr}"
@@ -56,7 +73,7 @@
 
               <!-- Owner -->
               <VBox class="sapUiTinyMarginEnd">
-                <Label text="Owner / User" />
+                <Label text="{i18n>ownerFilter}" />
                 <Input id="inputOwner"
                   width="10rem"
                   value="{trSearch>/filterOwner}"
@@ -66,7 +83,7 @@
 
               <!-- Date From -->
               <VBox class="sapUiTinyMarginEnd">
-                <Label text="Date From" />
+                <Label text="{i18n>dateFromFilter}" />
                 <DatePicker
                   id="dpDateFrom"
                   value="{trSearch>/filterDateFrom}"
@@ -77,7 +94,7 @@
 
               <!-- Date To -->
               <VBox class="sapUiTinyMarginEnd">
-                <Label text="Date To" />
+                <Label text="{i18n>dateToFilter}" />
                 <DatePicker
                   id="dpDateTo"
                   value="{trSearch>/filterDateTo}"
@@ -88,13 +105,13 @@
 
               <!-- TR Status -->
               <VBox class="sapUiTinyMarginEnd">
-                <Label text="Status" />
+                <Label text="{i18n>statusFilter}" />
                 <Select id="selStatus"
                   width="10rem"
                   selectedKey="{trSearch>/filterStatus}"
                   forceSelection="false">
                   <items>
-                    <core:Item key=""  text="All" />
+                    <core:Item key=""  text="{i18n>allTypes}" />
                     <core:Item key="D" text="D — Modifiable" />
                     <core:Item key="R" text="R — Released" />
                   </items>
@@ -103,9 +120,9 @@
 
               <VBox justifyContent="End">
                 <HBox>
-                  <Button text="Search" type="Emphasized" icon="sap-icon://search"
+                  <Button text="{i18n>searchBtn}" type="Emphasized" icon="sap-icon://search"
                     press=".onSearch" class="sapUiTinyMarginEnd" />
-                  <Button text="Clear"  type="Transparent" press=".onClearFilter" />
+                  <Button text="{i18n>clearBtn}"  type="Transparent" press=".onClearFilter" />
                 </HBox>
               </VBox>
 
@@ -129,16 +146,16 @@
             <!-- TAB 1: TR Tree (sap.ui.table.TreeTable) -->
             <IconTabFilter
               key="tree"
-              text="TR Hierarchy Tree"
+              text="{i18n>tabTrTree}"
               icon="sap-icon://tree">
               <content>
                 <VBox height="100%" fitContainer="true">
                   <Toolbar>
-                    <Title text="TR Request → Task → Objects (3 Levels)" />
+                    <Title text="{i18n>tabTrTree}" />
                     <ToolbarSpacer />
-                    <Button icon="sap-icon://collapse-all" tooltip="Collapse All"
+                    <Button icon="sap-icon://collapse-all" tooltip="{i18n>collapseAll}"
                       press=".onCollapseAll" type="Transparent" />
-                    <Button icon="sap-icon://expand-all" tooltip="Expand All"
+                    <Button icon="sap-icon://expand-all" tooltip="{i18n>expandAll}"
                       press=".onExpandAll" type="Transparent" />
                     <Button icon="sap-icon://refresh" tooltip="Reload"
                       press=".onSearch" type="Transparent" />
@@ -164,7 +181,7 @@
 
                     <table:columns>
                       <table:Column width="22rem" filterProperty="Trkorr">
-                        <Label text="{= ${ddic>/TrTree/Trkorr} || 'TR / Task / Object' }" />
+                        <Label text="{i18n>colTrTaskObj}" />
                         <table:template>
                           <HBox alignItems="Center">
                             <core:Icon
@@ -186,28 +203,28 @@
                       </table:Column>
 
                       <table:Column width="8rem" filterProperty="NodeType">
-                        <Label text="{= ${ddic>/TrTree/NodeType} || 'Type' }" />
+                        <Label text="{i18n>colType}" />
                         <table:template>
                           <Text text="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjType} : (${trTree>NodeType} === 'FOLD' ? '' : ${trTree>NodeType}) }" />
                         </table:template>
                       </table:Column>
 
                       <table:Column width="10rem" filterProperty="Owner">
-                        <Label text="{= ${ddic>/TrTree/Owner} || 'Owner' }" />
+                        <Label text="{i18n>ownerFilter}" />
                         <table:template>
                           <Text text="{trTree>Owner}" />
                         </table:template>
                       </table:Column>
 
                       <table:Column width="auto" filterProperty="Description">
-                        <Label text="{= ${ddic>/TrTree/Description} || 'Description' }" />
+                        <Label text="{i18n>colDescription}" />
                         <table:template>
                           <Text text="{= ${trTree>NodeType} === 'FOLD' ? '' : ${trTree>Description} }" wrapping="false" />
                         </table:template>
                       </table:Column>
 
                       <table:Column width="14rem">
-                        <Label text="Actions" />
+                        <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
                             <!-- TR Details button (Always available for TR / Task) -->
@@ -219,32 +236,32 @@
                               press=".onTreeOpenDetail" />
                             <!-- Release button for Unreleased TR/Task -->
                             <Button
-                              text="Release"
+                              text="{i18n>btnRelease}"
                               icon="sap-icon://shipping-status"
-                              tooltip="Release TR / Task"
+                              tooltip="{i18n>btnReleaseTR}"
                               type="Emphasized"
                               visible="{= (${trTree>NodeType} === 'TR' || ${trTree>NodeType} === 'TASK') &amp;&amp; ${trTree>TrStatus} !== 'R' }"
                               press=".onTreeReleasePress" />
                             <!-- Apply button for Released TR -->
                             <Button
-                              text="Apply"
+                              text="{i18n>btnApply}"
                               icon="sap-icon://upload-to-cloud"
-                              tooltip="Apply Released TR to Target"
+                              tooltip="{i18n>btnApplyTarget}"
                               type="Accept"
                               visible="{= ${trTree>NodeType} === 'TR' &amp;&amp; ${trTree>TrStatus} === 'R' }"
                               press=".onTreeOpenDetail" />
                             <!-- Compare Code button for Object node -->
                             <Button
-                              text="Compare"
+                              text="{i18n>btnCompare}"
                               icon="sap-icon://compare-2"
-                              tooltip="Compare Object Source Code"
+                              tooltip="{i18n>openCompareTooltip}"
                               type="Default"
                               visible="{= ${trTree>NodeType} === 'OBJ' }"
                               press=".onTreeObjCompare" />
                             <!-- View Source / Metadata for Object node -->
                             <Button
                               icon="sap-icon://document-text"
-                              tooltip="View Source &amp; Metadata"
+                              tooltip="{i18n>viewSourceTooltip}"
                               type="Transparent"
                               visible="{= ${trTree>NodeType} === 'OBJ' }"
                               press=".onTreeObjViewSource" />
@@ -261,16 +278,16 @@
             <!-- TAB 2: TR Flat List (sap.m.Table) -->
             <IconTabFilter
               key="flat"
-              text="Object Flat List"
+              text="{i18n>tabFlatList}"
               icon="sap-icon://table-view"
               count="{trSearch>/countFlat}">
               <content>
                 <VBox height="100%">
                   <Toolbar>
-                    <Title text="Objects in TR / Task (Flat)" />
+                    <Title text="{i18n>tabFlatList}" />
                     <ToolbarSpacer />
                     <!-- Additional Object Name filter for flat list -->
-                    <Label text="Object Name:" class="sapUiTinyMarginEnd" />
+                    <Label text="{i18n>colObjName}:" class="sapUiTinyMarginEnd" />
                     <Input id="inputFlatObjName"
                       width="12rem"
                       value="{trSearch>/filterFlatObjName}"
@@ -281,7 +298,7 @@
                       width="10rem"
                       selectedKey="{trSearch>/filterFlatObjType}">
                       <items>
-                        <core:Item key="" text="All Types" />
+                        <core:Item key="" text="{i18n>allTypes}" />
                         <core:Item key="PROG" text="PROG" />
                         <core:Item key="CLAS" text="CLAS" />
                         <core:Item key="INTF" text="INTF" />
@@ -298,18 +315,18 @@
                   <Table id="tblFlat"
                     items="{trSearch>/}"
                     busy="{trSearch>/busyFlat}"
-                    noDataText="{trSearch>/noDataText}"
+                    noDataText="{i18n>noData}"
                     mode="None"
                     alternateRowColors="true"
                     sticky="ColumnHeaders">
                     <columns>
-                      <Column width="10rem"><Text text="TR Number" /></Column>
-                      <Column width="12rem"><Text text="Current Managing TR" /></Column>
-                      <Column width="6rem"><Text text="Object Type" /></Column>
-                      <Column minScreenWidth="Tablet" demandPopin="true"><Text text="Object Name" /></Column>
-                      <Column width="8rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Owner" /></Column>
-                      <Column width="5rem" minScreenWidth="Desktop" demandPopin="true"><Text text="Status" /></Column>
-                      <Column width="7rem"><Text text="Actions" /></Column>
+                      <Column width="10rem"><Text text="{i18n>trkorr}" /></Column>
+                      <Column width="12rem"><Text text="{i18n>currentManagingTr}" /></Column>
+                      <Column width="6rem"><Text text="{i18n>colType}" /></Column>
+                      <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colObjName}" /></Column>
+                      <Column width="8rem" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>ownerFilter}" /></Column>
+                      <Column width="5rem" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colStatus}" /></Column>
+                      <Column width="7rem"><Text text="{i18n>colActions}" /></Column>
                     </columns>
                     <items>
                       <ColumnListItem type="Active">
@@ -330,11 +347,11 @@
                               type="Transparent"
                               press=".onFlatOpenDetail" />
                             <Button icon="sap-icon://compare-2"
-                              tooltip="Open in Code Compare"
+                              tooltip="{i18n>openCompareTooltip}"
                               type="Transparent"
                               press=".onFlatObjCompare" />
                             <Button icon="sap-icon://document-text"
-                              tooltip="View Source &amp; Metadata"
+                              tooltip="{i18n>viewSourceTooltip}"
                               type="Transparent"
                               press=".onFlatObjViewSource" />
                           </HBox>

@@ -6,7 +6,7 @@
   <ShellBar
     id="scortShellBar"
     title="SCORT"
-    subtitle="SAP Cross-system Object Replication Toolkit"
+    subtitle="{i18n>appDescription}"
     primaryTitle="SCORT"
     showMenuButton="true"
     menuButtonPress=".onMenuPress"
@@ -17,14 +17,31 @@
       <m:OverflowToolbar design="Transparent" style="Clear">
         <m:Button
           id="btnNavObjSearch"
-          text="Object Search"
+          text="{i18n>navObjSearch}"
           type="{= ${appView>/currentModule} === 'objSearch' ? 'Emphasized' : 'Transparent' }"
           press=".onNavObjSearch" />
         <m:Button
           id="btnNavTrSearch"
-          text="TR Search"
+          text="{i18n>navTrSearch}"
           type="{= ${appView>/currentModule} === 'trSearch' ? 'Emphasized' : 'Transparent' }"
           press=".onNavTrSearch" />
+        <m:ToolbarSeparator />
+        <m:MenuButton
+          icon="sap-icon://world"
+          text="{= (${appView>/currentLanguage} || 'en').toUpperCase() }"
+          tooltip="Language / Ngôn ngữ">
+          <m:menu>
+            <m:Menu itemSelected=".onLanguageMenuSelect">
+              <m:items>
+                <m:MenuItem key="en" text="🇬🇧 English" />
+                <m:MenuItem key="vi" text="🇻🇳 Tiếng Việt" />
+                <m:MenuItem key="ja" text="🇯🇵 日本語" />
+                <m:MenuItem key="zh" text="🇨🇳 中文" />
+                <m:MenuItem key="de" text="🇩🇪 Deutsch" />
+              </m:items>
+            </m:Menu>
+          </m:menu>
+        </m:MenuButton>
       </m:OverflowToolbar>
     </additionalContent>
 

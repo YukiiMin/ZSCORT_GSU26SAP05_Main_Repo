@@ -2,8 +2,9 @@ sap.ui.define([
   "sap/ui/core/UIComponent",
   "sap/ui/model/json/JSONModel",
   "sap/f/library",
-  "sap/base/Log"
-], function (UIComponent, JSONModel, fLibrary, Log) {
+  "sap/base/Log",
+  "sap/base/i18n/Localization"
+], function (UIComponent, JSONModel, fLibrary, Log, Localization) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
@@ -14,9 +15,13 @@ sap.ui.define([
     },
 
     init: function () {
+      var sSavedLang = localStorage.getItem("scort_lang") || "en";
+      Localization.setLanguage(sSavedLang);
+
       UIComponent.prototype.init.apply(this, arguments);
 
       var oAppModel = new JSONModel({
+        currentLanguage: sSavedLang,
         currentModule:  "objSearch",
         layout: LayoutType.OneColumn,
         trkorr:         "",

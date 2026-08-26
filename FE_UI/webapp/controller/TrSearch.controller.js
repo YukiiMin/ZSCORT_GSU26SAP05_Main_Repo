@@ -68,7 +68,7 @@ sap.ui.define([
       var sOwn = (oM.getProperty("/filterOwner") || "").trim();
 
       if (!sTrk && !sOwn) {
-        sap.m.MessageBox.warning("Vui lòng nhập ít nhất Transport Request hoặc Owner để giới hạn phạm vi tìm kiếm.");
+        sap.m.MessageBox.warning(this._getText("msgEnterTrOrOwner") || "Please enter at least Transport Request or Owner to limit search scope.");
         return;
       }
 
@@ -195,7 +195,7 @@ sap.ui.define([
 
       oM.setProperty("/busyTree", true);
       if (!bSilent) {
-        MessageToast.show("Searching TR…");
+        MessageToast.show(this._getText("searchingTr") || "Searching TR…");
       }
 
       function finish(aFlat) {

@@ -91,7 +91,7 @@ sap.ui.define([
       var sOwn = (oM.getProperty("/filterAuthor") || "").trim();
 
       if (!sObj && !sPkg && !sOwn) {
-        MessageBox.warning("Vui lòng nhập ít nhất 1 điều kiện (Object Name, Package, hoặc Person Responsible) để giới hạn phạm vi tìm kiếm.");
+        MessageBox.warning(this._getText("msgEnterAtLeastOneFilter") || "Please enter at least 1 filter criterion (Object Name, Package, or Person Responsible).");
         return;
       }
 

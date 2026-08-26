@@ -10,11 +10,11 @@
         <contentLeft>
           <Button
             icon="sap-icon://nav-back"
-            text="Back to TR Search"
+            text="{i18n>navTrSearch}"
             press=".onButtonNavBackPress"
             type="Transparent"
-            tooltip="Back to TR Search" />
-          <Title text="TR Objects: {detail>/trkorr}" class="sapUiTinyMarginBegin" />
+            tooltip="{i18n>navTrSearch}" />
+          <Title text="{i18n>masterTitle}: {detail>/trkorr}" class="sapUiTinyMarginBegin" />
         </contentLeft>
         <contentRight>
           <Button text="Release TR" press=".onReleaseTrInDetail" type="Emphasized" icon="sap-icon://shipping-status" visible="{detail>/isUnreleased}" tooltip="Release TR to enable compare" />
@@ -24,7 +24,7 @@
             icon="sap-icon://home"
             type="Transparent"
             press=".onButtonNavObjSearchPress"
-            tooltip="Back to Object Search" />
+            tooltip="{i18n>navObjSearch}" />
           <Button icon="sap-icon://decline" press=".onButtonCloseDetailPress" type="Transparent" tooltip="Close detail" />
         </contentRight>
       </Bar>
@@ -34,9 +34,9 @@
       <VBox height="100%">
         <ObjectHeader
           title="{detail>/trkorr}"
-          intro="Selected Transport Request">
+          intro="{i18n>currentManagingTr}">
           <attributes>
-            <ObjectAttribute title="{= ${ddic>/ZCE_SCORT_TR_VH/As4date} || 'Date' }" text="{path: 'detail>/as4date', formatter: '.formatDate'}" />
+            <ObjectAttribute title="{i18n>colCreated}" text="{path: 'detail>/as4date', formatter: '.formatDate'}" />
             <ObjectAttribute title="Info" text="{detail>/message}" />
           </attributes>
         </ObjectHeader>
@@ -51,42 +51,42 @@
 
           <table:columns>
             <table:Column width="5rem">
-              <Label text="{= ${ddic>/TrCmp/ObjectType} || 'Type' }" />
+              <Label text="{i18n>colType}" />
               <table:template>
                 <Text text="{detail>ObjectType}" />
               </table:template>
             </table:Column>
 
             <table:Column>
-              <Label text="{= ${ddic>/TrCmp/ObjectName} || 'Object Name' }" />
+              <Label text="{i18n>colObjName}" />
               <table:template>
                 <ObjectIdentifier title="{detail>ObjectName}" />
               </table:template>
             </table:Column>
 
             <table:Column width="10rem">
-              <Label text="Package" />
+              <Label text="{i18n>colPackage}" />
               <table:template>
                 <Text text="{= ${detail>PackageName} || ${detail>TadirDevclass} || '' }" />
               </table:template>
             </table:Column>
 
             <table:Column width="8rem">
-              <Label text="Author" />
+              <Label text="{i18n>authorLabel}" />
               <table:template>
                 <Text text="{= ${detail>Author} || ${detail>PersonResponsible} || ${detail>Owner} || '' }" />
               </table:template>
             </table:Column>
 
             <table:Column width="8rem">
-              <Label text="Date" />
+              <Label text="{i18n>colCreated}" />
               <table:template>
                 <Text text="{path:'detail>Datum', formatter:'.formatDate'} {= ${detail>Datum} ? '' : (${detail>As4date} ? ${path:'detail>As4date', formatter:'.formatDate'} : '') }" />
               </table:template>
             </table:Column>
 
             <table:Column width="10rem">
-              <Label text="{= ${ddic>/TrCmp/CompareStatus} || 'Compare Status' }" />
+              <Label text="{i18n>colStatus}" />
               <table:template>
                 <ObjectStatus
                   text="{detail>CompareStatus}"
@@ -96,17 +96,17 @@
             </table:Column>
 
             <table:Column width="7rem">
-              <Label text="Action" />
+              <Label text="{i18n>colActions}" />
               <table:template>
                 <HBox>
                   <Button
-                    tooltip="Compare Code"
+                    tooltip="{i18n>openCompareTooltip}"
                     icon="sap-icon://compare-2"
                     type="Transparent"
                     enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
                     press=".onButtonComparePress" />
                   <Button
-                    tooltip="View Source Code"
+                    tooltip="{i18n>viewSourceTooltip}"
                     icon="sap-icon://detail-view"
                     type="Transparent"
                     enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
