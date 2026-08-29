@@ -5,7 +5,9 @@ sap.ui.define([
   "sap/m/MessageToast",
   "sap/f/library",
   "zscort/app/monaco/DiffHost",
-  "zscort/app/util/ValueHelp"
+  "zscort/app/util/ValueHelp",
+  "zscort/app/util/AiReview",
+  "sap/m/StandardListItem"
 ], function (
   BaseController,
   JSONModel,
@@ -13,7 +15,9 @@ sap.ui.define([
   MessageToast,
   fLibrary,
   DiffHost,
-  ValueHelp
+  ValueHelp,
+  AiReview,
+  StandardListItem
 ) {
   "use strict";
 
@@ -32,6 +36,7 @@ sap.ui.define([
       this._oRouter = this.getOwnerComponent().getRouter();
       this._bDirectMode = this.getView().getId().indexOf("compareMidView") > -1;
       this._oRouter.getRoute("objCompare").attachPatternMatched(this._onDetailMatched, this);
+      this._oRouter.getRoute("trCompare").attachPatternMatched(this._onDetailMatched, this);
       this._oRouter.getRoute("compare").attachPatternMatched(this._onDetailMatched, this);
 
       this._oGitDiffHost = null;
@@ -47,6 +52,12 @@ sap.ui.define([
     onAfterRendering: function () {
       this._ensureGitDiffHost();
       this._ensureVersDiffHost();
+      if (this._mGitModel && this._oGitDiffHost) {
+        this._oGitDiffHost.setModel(this._mGitModel);
+      }
+      if (this._mVersModel && this._oVersDiffHost) {
+        this._oVersDiffHost.setModel(this._mVersModel);
+      }
     },
 
     _serviceUri: function () {
@@ -71,6 +82,9 @@ sap.ui.define([
       oDetailModel.setProperty("/ObjectName", this._sName);
       oDetailModel.setProperty("/versions", []);
       oDetailModel.setProperty("/showEditor", false);
+      if (!oDetailModel.getProperty("/aiExecutionMode")) {
+        oDetailModel.setProperty("/aiExecutionMode", "FE_DIRECT");
+      }
 
       var oApp = this._app();
       oApp.setProperty("/layout", this._bDirectMode ? LayoutType.TwoColumnsMidExpanded : LayoutType.ThreeColumnsEndExpanded);
@@ -106,10 +120,14 @@ sap.ui.define([
           language: sLang
         };
 
-        that._oGitDiffHost.setModel(that._mGitModel).then(function () {
+        if (that._oGitDiffHost) {
+          that._oGitDiffHost.setModel(that._mGitModel).then(function () {
+            that.byId("idDetailDynamicPage").setBusy(false);
+            that._oGitDiffHost.setSideBySide(that._bSideGit);
+          });
+        } else {
           that.byId("idDetailDynamicPage").setBusy(false);
-          that._oGitDiffHost.setSideBySide(that._bSideGit);
-        });
+        }
       }).catch(function (e) {
         that.byId("idDetailDynamicPage").setBusy(false);
         MessageBox.error("Failed to load Git Review source.\n" + String(e));
@@ -321,6 +339,255 @@ sap.ui.define([
           trkorr: oApp.getProperty("/currentTR") || "DUMMY"
         });
       }
+    },
+
+    // ==========================================
+    // TAB 3: DUAL-ACTION AI REVIEW (DUAL MODE: FE_DIRECT / BE_SAP)
+    // ==========================================
+    _getAiMode: function () {
+      var oDetailModel = this.getView().getModel("detail");
+      var sMode = oDetailModel ? oDetailModel.getProperty("/aiExecutionMode") : null;
+      if (!sMode) {
+        var oSb = this.byId("sbAiMode");
+        sMode = (oSb && oSb.getSelectedKey()) || "FE_DIRECT";
+      }
+      return sMode;
+    },
+
+    onAiSyntaxCheckPress: function () {
+      var that = this;
+      var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+
+      if (!this._mGitModel) {
+        MessageToast.show(oI18n.getText("aiReviewNoData"));
+        return;
+      }
+
+      var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
+      var sMode = this._getAiMode();
+
+      this.byId("idAiLoading").setVisible(true);
+      var sLoadKey = sMode === "BE_SAP" ? "aiSyntaxCheckingSap" : "aiSyntaxChecking";
+      this.byId("idAiLoadingText").setText(oI18n.getText(sLoadKey) || "Auditing ABAP syntax & code quality...");
+      this.byId("idAiSyntaxResultPanel").setVisible(false);
+      this.byId("idAiTransportResultPanel").setVisible(false);
+      this.byId("idAiError").setVisible(false);
+
+      var oTabBar = this.byId("idCompareIconTabBar");
+      if (oTabBar.getSelectedKey() !== "aiReview") {
+        oTabBar.setSelectedKey("aiReview");
+      }
+
+      AiReview.checkSyntaxAndQuality(
+        this._sType,
+        this._sName,
+        this._mGitModel.original,
+        this._mGitModel.modified,
+        sLocale,
+        sMode
+      ).then(function (oResult) {
+        that._renderSyntaxResult(oResult, oI18n);
+      }).catch(function (oErr) {
+        that.byId("idAiLoading").setVisible(false);
+        var oErrStrip = that.byId("idAiError");
+        var sErrMsg = String(oErr && oErr.message ? oErr.message : oErr);
+        if (sMode === "BE_SAP") {
+          sErrMsg += " " + oI18n.getText("aiBackendFallbackHint");
+        }
+        oErrStrip.setText(sErrMsg);
+        oErrStrip.setVisible(true);
+      });
+    },
+
+    _renderSyntaxResult: function (oResult, oI18n) {
+      this.byId("idAiLoading").setVisible(false);
+
+      var mStatusState = { PASSED: "Success", WARNING: "Warning", ERROR: "Error" };
+      var mStatusIcon  = { PASSED: "✅", WARNING: "⚠️", ERROR: "🔴" };
+      var sStatus = (oResult.syntax_status || "WARNING").toUpperCase();
+      var oStatusCtrl = this.byId("idAiSyntaxStatus");
+      oStatusCtrl.setState(mStatusState[sStatus] || "Warning");
+      oStatusCtrl.setText((mStatusIcon[sStatus] || "") + " " + (oI18n.getText("aiSyntax_" + sStatus) || sStatus));
+
+      // Score badge
+      var sScoreText = "Score: " + (oResult.syntax_score || "N/A");
+      if (oResult.mode === "DUAL" && oResult.target_score) {
+        sScoreText = "Local: " + oResult.syntax_score + " | Target: " + oResult.target_score;
+      }
+      this.byId("idAiSyntaxScore").setText(sScoreText);
+
+      // Clean ABAP Verdict
+      var sVerdict = oResult.clean_abap_verdict || "Compliant";
+      var oVerdictCtrl = this.byId("idAiCleanVerdict");
+      oVerdictCtrl.setText("Clean ABAP: " + sVerdict);
+      oVerdictCtrl.setState(sVerdict.indexOf("Compliant") > -1 ? "Success" : "Warning");
+
+      // Better Side Badge & Comparison Box (when DUAL or better_side present)
+      var oBetterSideCtrl = this.byId("idAiBetterSide");
+      var oCompBox = this.byId("idAiComparisonBox");
+      var sBetterSide = (oResult.better_side || "").toUpperCase();
+
+      if (sBetterSide) {
+        var mBetterText = {
+          LOCAL: "🏆 Local Code is Better",
+          TARGET: "🏆 Target Code is Better",
+          EQUIVALENT: "⚖️ Both Sides are Equivalent"
+        };
+        var mBetterState = {
+          LOCAL: "Success",
+          TARGET: "Information",
+          EQUIVALENT: "None"
+        };
+        oBetterSideCtrl.setText(mBetterText[sBetterSide] || ("Better: " + sBetterSide));
+        oBetterSideCtrl.setState(mBetterState[sBetterSide] || "Information");
+        oBetterSideCtrl.setVisible(true);
+
+        if (oResult.better_side_reason || oResult.best_version_recommendation) {
+          this.byId("idAiBetterSideReasonStrip").setText("⚖️ Comparison: " + (oResult.better_side_reason || "—"));
+          this.byId("idAiBestRecommendationStrip").setText("💡 Synthesis & Improvement: " + (oResult.best_version_recommendation || "—"));
+          oCompBox.setVisible(true);
+        } else {
+          oCompBox.setVisible(false);
+        }
+      } else {
+        oBetterSideCtrl.setVisible(false);
+        oCompBox.setVisible(false);
+      }
+
+      this.byId("idAiSyntaxSummaryText").setText(oResult.summary || "—");
+
+      var aFindings = oResult.findings || [];
+      var oList = this.byId("idAiFindingsList");
+      oList.destroyItems();
+
+      if (aFindings.length > 0) {
+        aFindings.forEach(function (f) {
+          if (typeof f === 'string') {
+            oList.addItem(new StandardListItem({ title: f, icon: "sap-icon://hint", wrapping: true }));
+            return;
+          }
+          var sIcon = f.type === "SYNTAX_ERROR" ? "sap-icon://error" : (f.type === "WARNING" ? "sap-icon://alert" : "sap-icon://hint");
+          var sSide = f.side ? "[" + f.side.toUpperCase() + "] " : "";
+          var sSnippet = f.line_or_snippet ? "[" + f.line_or_snippet + "] " : "";
+          var sTitle = sSide + sSnippet + (f.message || "");
+          var sDesc = f.suggestion ? "💡 Suggestion: " + f.suggestion : "";
+          oList.addItem(new StandardListItem({
+            title: sTitle,
+            description: sDesc,
+            icon: sIcon,
+            wrapping: true
+          }));
+        });
+      }
+
+      this.byId("idAiSyntaxResultPanel").setVisible(true);
+    },
+
+    onAiTransportReviewPress: function () {
+      var that = this;
+      var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+
+      if (!this._mGitModel) {
+        MessageToast.show(oI18n.getText("aiReviewNoData"));
+        return;
+      }
+
+      var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
+      var sMode = this._getAiMode();
+
+      this.byId("idAiLoading").setVisible(true);
+      var sLoadKey = sMode === "BE_SAP" ? "aiReviewAnalyzingSap" : "aiReviewAnalyzing";
+      this.byId("idAiLoadingText").setText(oI18n.getText(sLoadKey) || oI18n.getText("aiReviewAnalyzing"));
+      this.byId("idAiSyntaxResultPanel").setVisible(false);
+      this.byId("idAiTransportResultPanel").setVisible(false);
+      this.byId("idAiError").setVisible(false);
+
+      var oTabBar = this.byId("idCompareIconTabBar");
+      if (oTabBar.getSelectedKey() !== "aiReview") {
+        oTabBar.setSelectedKey("aiReview");
+      }
+
+      AiReview.reviewTransport(
+        this._sType,
+        this._sName,
+        this._mGitModel.original,
+        this._mGitModel.modified,
+        sLocale,
+        sMode
+      ).then(function (oResult) {
+        that._renderTransportResult(oResult, oI18n);
+      }).catch(function (oErr) {
+        that.byId("idAiLoading").setVisible(false);
+        var oErrStrip = that.byId("idAiError");
+        var sErrMsg = String(oErr && oErr.message ? oErr.message : oErr);
+        if (sMode === "BE_SAP") {
+          sErrMsg += " " + oI18n.getText("aiBackendFallbackHint");
+        }
+        oErrStrip.setText(sErrMsg);
+        oErrStrip.setVisible(true);
+      });
+    },
+
+    onAiReviewPress: function () {
+      this.onAiTransportReviewPress();
+    },
+
+    _renderTransportResult: function (oResult, oI18n) {
+      this.byId("idAiLoading").setVisible(false);
+
+      // Impact level -> ObjectStatus state
+      var mImpactState = { LOW: "Success", MEDIUM: "Warning", HIGH: "Error", CRITICAL: "Error" };
+      var mImpactIcon  = { LOW: "\u2705", MEDIUM: "\u26A0", HIGH: "\uD83D\uDD34", CRITICAL: "\uD83D\uDEA8" };
+      var sImpact = (oResult.impact_level || "MEDIUM").toUpperCase();
+      var oImpactCtrl = this.byId("idAiImpactStatus");
+      oImpactCtrl.setState(mImpactState[sImpact] || "Warning");
+      oImpactCtrl.setText((mImpactIcon[sImpact] || "") + " " + oI18n.getText("aiImpact_" + sImpact, [sImpact]));
+
+      // Recommendation -> ObjectStatus state
+      var mRecState = { TRANSPORT: "Success", DO_NOT_TRANSPORT: "Error", REVIEW_REQUIRED: "Warning" };
+      var mRecText  = { TRANSPORT: "aiRec_TRANSPORT", DO_NOT_TRANSPORT: "aiRec_DO_NOT_TRANSPORT", REVIEW_REQUIRED: "aiRec_REVIEW_REQUIRED" };
+      var sRec = (oResult.recommendation || "REVIEW_REQUIRED").toUpperCase();
+      var oRecCtrl = this.byId("idAiRecommendStatus");
+      oRecCtrl.setState(mRecState[sRec] || "Warning");
+      oRecCtrl.setText(oI18n.getText(mRecText[sRec] || "aiRec_REVIEW_REQUIRED"));
+
+      // Summary
+      this.byId("idAiSummaryText").setText(oResult.summary || "—");
+
+      // Risks list
+      var aRisks = oResult.risks || [];
+      var oRisksBox = this.byId("idAiRisksBox");
+      var oRisksList = this.byId("idAiRisksList");
+      oRisksList.destroyItems();
+      if (aRisks.length > 0) {
+        aRisks.forEach(function (r) {
+          var sRiskText = typeof r === 'string' ? r : (r.risk || r.message || r.description || JSON.stringify(r));
+          oRisksList.addItem(new StandardListItem({ title: sRiskText, icon: "sap-icon://alert", wrapping: true }));
+        });
+        oRisksBox.setVisible(true);
+      } else {
+        oRisksBox.setVisible(false);
+      }
+
+      // Notes list (Pre & Post-Import Guidelines)
+      var aNotes = oResult.notes || [];
+      var oNotesBox = this.byId("idAiNotesBox");
+      var oNotesList = this.byId("idAiNotesList");
+      oNotesList.destroyItems();
+      if (aNotes.length > 0) {
+        aNotes.forEach(function (n) {
+          var sNoteText = typeof n === 'string' ? n : (n.note || n.message || n.description || JSON.stringify(n));
+          oNotesList.addItem(new StandardListItem({ title: sNoteText, icon: "sap-icon://notes", wrapping: true }));
+        });
+        oNotesBox.setVisible(true);
+      } else {
+        oNotesBox.setVisible(false);
+      }
+
+      // Reason
+      this.byId("idAiReasonText").setText(oResult.reason || "—");
+
+      this.byId("idAiTransportResultPanel").setVisible(true);
     },
 
     formatVersionNo: function(sVer) {

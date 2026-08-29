@@ -3,8 +3,9 @@ sap.ui.define([
   "sap/ui/model/json/JSONModel",
   "sap/f/library",
   "sap/base/Log",
-  "sap/base/i18n/Localization"
-], function (UIComponent, JSONModel, fLibrary, Log, Localization) {
+  "sap/base/i18n/Localization",
+  "sap/ui/Device"
+], function (UIComponent, JSONModel, fLibrary, Log, Localization, Device) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
@@ -12,6 +13,17 @@ sap.ui.define([
   return UIComponent.extend("zscort.app.Component", {
     metadata: {
       manifest: "json"
+    },
+
+    getContentDensityClass: function () {
+      if (!this._sContentDensityClass) {
+        if (!Device.support.touch) {
+          this._sContentDensityClass = "sapUiSizeCompact";
+        } else {
+          this._sContentDensityClass = "sapUiSizeCozy";
+        }
+      }
+      return this._sContentDensityClass;
     },
 
     init: function () {
@@ -40,7 +52,7 @@ sap.ui.define([
           endColumn: { fullScreen: false }
         }
       });
-      var oMainModel = this.getModel("");
+      var oMainModel = this.getModel();
       this.setModel(oAppModel, "appView");
       this.setModel(new JSONModel({}), "detail");
       var oObjModel = this.getModel("objModel");

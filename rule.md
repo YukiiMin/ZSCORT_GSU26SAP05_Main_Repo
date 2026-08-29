@@ -9,6 +9,23 @@
   - Do NOT apologize for errors or include conversational fluff. Be direct and technical.
 - Do NOT truncate code blocks with placeholders like "// rest of code remains unchanged" when replacing file contents.
 - Prefer functional paradigms, strong typing, and guard clauses (early returns) to prevent nested code.
+- In ABAP & SAP development:
+  - Use ONLY English for all comments.
+  - ONLY add introductory/header/docstring comments (e.g., ABAP Doc `"!`, method/section headers).
+  - Do NOT add line-by-line explanatory inline comments (code must be self-explanatory).
+  - Do NOT write Vietnamese comments in ABAP/SAP backend source code.
+- In CDS & Data Definitions (.asddls, .ddls.asddls, .asbdef):
+  - NEVER use `"` for comments (causes syntax errors). Use ONLY `/* ... */` block comments in English for section headers.
+  - Do NOT write line-by-line explanatory or Vietnamese comments. Keep definitions clean and declarative.
+  - All fields specified in `@Consumption.valueHelpDefinition.additionalBinding.element` MUST strictly exist as exposed fields/keys in the target entity view to prevent ADT warnings and metadata breakage.
+- In Service Definitions (.srvd.asddls) & Service Bindings (.srvb):
+  - ZERO comments allowed. Keep strictly to entity exposure statements (`expose ... as ...;`).
+- In Monaco Editor Integration:
+  - When updating diff models (`SET_DIFF`), always assign new models to `diffEditor.setModel(...)` BEFORE disposing previous models.
+  - Guard `monaco.editor.createDiffNavigator` and fallback to `diffEditor.goToDiff(...)`.
+- In AI Integration & SAP SICF REST Endpoints:
+  - SICF service nodes require explicit `Handler List` class registration (`IF_HTTP_EXTENSION`), `Logon Data` configuration, and activation.
+  - Frontend parsing must use a universal normalizer (`_normalizeAiResponse`) that unwraps Gemini envelopes (`candidates[0].content.parts[0].text`), strips markdown fences, and extracts JSON boundaries.
 - For tasks requiring more than 3 steps, maintain a .agent_scratchpad.md file at the workspace root.
 - Structure of scratchpad:
   - Current Goal

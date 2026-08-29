@@ -45,7 +45,7 @@
     "deviceTypes": {
       "desktop": true,
       "tablet": true,
-      "phone": false
+      "phone": true
     }
   },
   "sap.ui5": {
@@ -160,6 +160,12 @@
           "pattern": "objCompare/{objectType}/{objectName}",
           "name": "objCompare",
           "target": ["objSearch", "compareMid"],
+          "layout": "TwoColumnsMidExpanded"
+        },
+        {
+          "pattern": "trCompare/{objectType}/{objectName}",
+          "name": "trCompare",
+          "target": ["trSearch", "compareMid"],
           "layout": "TwoColumnsMidExpanded"
         },
         {

@@ -29,8 +29,8 @@ CLASS zcl_scort_l_reader DEFINITION
 
     CLASS-METHODS read_active
       IMPORTING
-        iv_object_type   TYPE trobjtype
-        iv_object_name   TYPE sobj_name
+        iv_object_type   TYPE csequence
+        iv_object_name   TYPE csequence
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
@@ -210,10 +210,10 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     DATA lv_ok    TYPE abap_bool.
 
     CLEAR rs_source.
-    rs_source-object_type = iv_object_type.
-    rs_source-object_name = iv_object_name.
+    rs_source-object_type = CONV #( iv_object_type ).
+    rs_source-object_name = CONV #( iv_object_name ).
 
-    IF is_supported( iv_object_type ) = abap_false.
+    IF is_supported( CONV #( iv_object_type ) ) = abap_false.
       rs_source-supported = abap_false.
       rs_source-message   = 'NOT_SUPPORTED'.
       RETURN.
@@ -222,25 +222,29 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
     CASE iv_object_type.
       WHEN 'PROG'.
-        read_prog( EXPORTING iv_name = iv_object_name
+        read_prog( EXPORTING iv_name = CONV #( iv_object_name )
                    IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
       WHEN 'CLAS'.
-        read_oo( EXPORTING iv_name = iv_object_name iv_is_intf = abap_false
+        read_oo( EXPORTING iv_name = CONV #( iv_object_name ) iv_is_intf = abap_false
                  IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
       WHEN 'INTF'.
-        read_oo( EXPORTING iv_name = iv_object_name iv_is_intf = abap_true
+        read_oo( EXPORTING iv_name = CONV #( iv_object_name ) iv_is_intf = abap_true
                  IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
       WHEN 'FUNC'.
-        read_func( EXPORTING iv_name = iv_object_name
+        read_func( EXPORTING iv_name = CONV #( iv_object_name )
                    IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
       WHEN 'FUGR'.
-        read_fugr( EXPORTING iv_name = iv_object_name
+        read_fugr( EXPORTING iv_name = CONV #( iv_object_name )
                    IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
     ENDCASE.
 
     IF lv_ok = abap_false OR lt_lines IS INITIAL.
       rs_source-found   = abap_false.
-      rs_source-message = 'ORIGIN_MISSING'.
+      rs_source-message = zcm_scort=>get_text_by_key(
+                            is_t100_key = zcm_scort=>source_missing
+                            iv_attr1    = CONV #( iv_object_type )
+                            iv_attr2    = CONV #( iv_object_name )
+                            iv_attr3    = 'Local' ).
       RETURN.
     ENDIF.
 

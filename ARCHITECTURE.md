@@ -90,9 +90,19 @@ FE_UI/
 | `ZCL_SCORT_T_READER` | Helper | Reads compressed source from ZA_SCORT_T_SRC |
 | `ZCL_SCORT_COMPRESSION_UTL` | Utility (Stateless) | GZIP encode/decode source code |
 | `ZCL_SCORT_TR_TREE_QUERY` | Query Provider | Builds TR hierarchy tree from E070/E071/E07T |
-| `ZBP_IR_SCORT_OBJ_L` | Behavior Pool (RAP auto-gen) | Empty CCIMP (read-only) |
-| `ZBP_IR_SCORT_OBJ_T` | Behavior Pool (RAP auto-gen) | Empty CCIMP (read-only) |
-| `ZBP_IR_SCORT_OBJ_M` | Behavior Pool | CCIMP: checkDiff action using CL_ABAP_DIFF |
+| `ZCL_SCORT_AI_ASSISTANT` | Utility / AI Service | Dual-action AI Assistant: Syntax audit + Transport recommendation (Gemini Key Rotation & SAP AI Core BTP Destination adapter) |
+| `ZCL_SCORT_AI_HTTP_HANDLER` | ICF HTTP Handler | REST Endpoint handler for /sap/bc/zscort_ai |
+| `ZCL026_SCORT_RELEASE_SERVICE` | Business Service | Direct TR release service (TR_RELEASE_REQUEST) using ZCM_SCORT messages |
+| `ZCL026_SCORT_TARGET_APPLY` | Business Service | Target apply snapshot & GZIP compression using ZCM_SCORT messages |
+| `ZCM_SCORT` | RAP Message Class (CLAS) | Official SAP RAP Message Class (IF_T100_MESSAGE, IF_ABAP_BEHV_MESSAGE) used across 8 classes |
+| `ZBP_IR_SCORT_OBJ_M` | Behavior Pool | CCIMP: checkDiff and aiReview actions |
+| `ZBP_IR_SCORT_OBJ_L` | Behavior Pool | CCIMP: read Local source via ZCL_SCORT_L_READER with ZCM_SCORT error handling |
+| `ZBP_IR_SCORT_OBJ_T` | Behavior Pool | CCIMP: read Target source via ZCL_SCORT_T_READER with ZCM_SCORT error handling |
+
+#### Texts (Message Classes)
+| Object Name | Type | Purpose |
+|---|---|---|
+| `ZCM_SCORT` | Message Class (T100 - MSAG) | Multi-language translatable messages for Release, Apply, Diff & AI |
 
 #### DDIC
 | Object Name | Type | Purpose |

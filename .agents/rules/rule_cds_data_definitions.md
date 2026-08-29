@@ -1,0 +1,29 @@
+---
+description: Strict standards for SAP CDS Entities, Projections, Behavior Definitions, and Service Definitions
+---
+
+# SAP CDS & Data Definition Standards
+
+When writing, editing, or generating CDS Entities (`.asddls`), Projections (`.ddls.asddls`), Behavior Definitions (`.asbdef`), Metadata Extensions (`.asddlxs`), and Service Definitions (`.srvd.asddls`):
+
+## 1. Comment Delimiters & Formatting
+1. **NO Double Quotes (`"`):** NEVER use `"` as a comment in CDS or BDEF files. `"` is invalid in CDS grammar and causes compiler/SADL parser failures (`CX_SADL_DUMP_APPL_MODEL_ERROR`).
+2. **ONLY Block Comments (`/* ... */`):** When comments are needed to mark sections, use ONLY English block comments `/* ... */`.
+3. **No Explanatory / Line-by-Line Comments:** Do NOT explain what annotations or fields do line-by-line. The code must be clean, declarative, and self-documenting.
+4. **No Vietnamese Comments:** NEVER write Vietnamese comments or annotations in any CDS, BDEF, or Service Definition files.
+
+## 2. Projections & Annotations Cleanliness
+1. Only include valid and active annotations. Do not leave commented-out experimental annotations.
+2. Group annotations logically: `@UI.headerInfo`, `@UI.lineItem`, `@UI.selectionField`, `@Consumption.valueHelpDefinition`.
+3. Ensure all exposed associations and action annotations (`@UI.lineItem: [{ type: #FOR_ACTION, dataAction: '...' }]`) match valid BDEF operations.
+
+## 3. Service Definitions & Service Bindings Invariants (ZERO Comments)
+1. **ZERO Comments in Service Definitions (`.srvd.asddls`):**
+   - NEVER add comments of any kind (`/* ... */`, `//`, `"`) inside `define service { ... }`.
+   - The file must contain strictly the service label header and entity exposure lines (`expose <ENTITY> as <ALIAS>;`).
+2. **ZERO Comments in Service Bindings (`.srvb`):**
+   - Bindings must remain pure metadata configurations without manual comments.
+
+## 4. Value Help & `additionalBinding` Target Element Alignment
+1. **Target Element Existence:** In `@Consumption.valueHelpDefinition: [{ entity: { name: '...', element: '...' }, additionalBinding: [...] }]`, every field referenced in `element` MUST exist as an active field/key in the target Value Help CDS entity.
+2. **Never Map Ghost Fields:** If the target entity only filters by `ObjectType` and `ObjectName`, do NOT map `ServerId` or other unexposed fields. Mismatched elements generate SAP Gateway activation warnings (`Annotated element ... not equal to element in view ...`) and broken OData Value Help metadata.

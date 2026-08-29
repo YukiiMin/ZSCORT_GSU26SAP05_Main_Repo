@@ -5,6 +5,9 @@ CLASS lhc_zir_scort_obj_m DEFINITION INHERITING FROM cl_abap_behavior_handler.
 
     METHODS check_diff FOR MODIFY
       IMPORTING keys FOR ACTION zir_scort_obj_m~checkdiff RESULT result.
+
+    METHODS ai_review FOR MODIFY
+      IMPORTING keys FOR ACTION zir_scort_obj_m~aireview RESULT result.
 ENDCLASS.
 
 CLASS lhc_zir_scort_obj_m IMPLEMENTATION.
@@ -74,6 +77,48 @@ CLASS lhc_zir_scort_obj_m IMPLEMENTATION.
       ls_result-%param-objecttype     = <key>-%key-objecttype.
       ls_result-%param-objectname     = <key>-%key-objectname.
       ls_result-%param-existencestatus = lv_status.
+      APPEND ls_result TO result.
+    ENDLOOP.
+  ENDMETHOD.
+
+  METHOD ai_review.
+    "-- RAP Action: AI Code Review calling ZCL_SCORT_AI_ASSISTANT
+    LOOP AT keys ASSIGNING FIELD-SYMBOL(<key>).
+      DATA(ls_local) = zcl_scort_l_reader=>read_active(
+        iv_object_type = <key>-%key-objecttype
+        iv_object_name = <key>-%key-objectname
+      ).
+
+      DATA(ls_target) = zcl_scort_t_reader=>read_current(
+        iv_object_type = <key>-%key-objecttype
+        iv_object_name = <key>-%key-objectname
+      ).
+
+      DATA lv_ai_json TYPE string.
+      TRY.
+          lv_ai_json = zcl_scort_ai_assistant=>review_transport(
+            iv_obj_type    = CONV #( <key>-%key-objecttype )
+            iv_obj_name    = CONV #( <key>-%key-objectname )
+            iv_local_code  = ls_local-text
+            iv_target_code = ls_target-text
+          ).
+        CATCH cx_root INTO DATA(lx_err).
+          lv_ai_json = '{"error": "' && lx_err->get_text( ) && '"}'.
+          APPEND VALUE #(
+            %tky = <key>-%tky
+            %msg = NEW zcm_scort(
+                     severity = if_abap_behv_message=>severity-error
+                     textid   = zcm_scort=>internal_error
+                     attr1    = lx_err->get_text( ) )
+          ) TO reported-zir_scort_obj_m.
+      ENDTRY.
+
+      DATA ls_result LIKE LINE OF result.
+      ls_result-%key                  = <key>-%key.
+      ls_result-%param-pgmid          = <key>-%key-pgmid.
+      ls_result-%param-objecttype     = <key>-%key-objecttype.
+      ls_result-%param-objectname     = <key>-%key-objectname.
+      ls_result-%param-existencestatus = lv_ai_json.
       APPEND ls_result TO result.
     ENDLOOP.
   ENDMETHOD.

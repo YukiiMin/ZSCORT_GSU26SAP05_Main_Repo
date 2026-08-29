@@ -40,6 +40,13 @@
                   <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffGit" tooltip="{i18n>btnNextDiff}" />
                   <ToolbarSeparator />
                   <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="{i18n>btnToggleDiffLayout}" />
+                  <ToolbarSeparator />
+                  <Button id="btnAiReview"
+                    icon="sap-icon://ai"
+                    text="{i18n>btnAiReview}"
+                    type="Emphasized"
+                    press=".onAiReviewPress"
+                    tooltip="{i18n>btnAiReviewTooltip}" />
                 </OverflowToolbar>
               </VBox>
               <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding">
@@ -148,6 +155,157 @@
               </VBox>
             </layout:Splitter>
           </IconTabFilter>
+
+          <!-- TAB 3: AI Review -->
+          <IconTabFilter key="aiReview" text="{i18n>tabAiReview}" icon="sap-icon://ai">
+            <VBox class="sapUiSmallMargin">
+              <!-- Header / Trigger Toolbar with 2 Actions -->
+              <OverflowToolbar>
+                <core:Icon src="sap-icon://ai" class="sapUiSmallMarginEnd" />
+                <Title text="{i18n>aiReviewTitle}" />
+                <ToolbarSpacer />
+                <Label text="{i18n>lblAiMode}:" class="sapUiTinyMarginEnd" />
+                <SegmentedButton
+                  id="sbAiMode"
+                  selectedKey="{detail>/aiExecutionMode}"
+                  class="sapUiTinyMarginEnd">
+                  <items>
+                    <SegmentedButtonItem key="FE_DIRECT" text="{i18n>aiModeDirectClient}" tooltip="{i18n>aiModeDirectTooltip}" icon="sap-icon://cloud" />
+                    <SegmentedButtonItem key="BE_SAP" text="{i18n>aiModeSapBackend}" tooltip="{i18n>aiModeSapTooltip}" icon="sap-icon://sap-logo-shape" />
+                  </items>
+                </SegmentedButton>
+                <ToolbarSeparator />
+                <Button id="btnAiSyntaxCheck"
+                  icon="sap-icon://syntax"
+                  text="{i18n>btnAiSyntaxCheck}"
+                  type="Emphasized"
+                  press=".onAiSyntaxCheckPress"
+                  class="sapUiTinyMarginEnd" />
+                <Button id="btnAiTransportReview"
+                  icon="sap-icon://shipping-status"
+                  text="{i18n>btnAiTransportReview}"
+                  type="Accept"
+                  press=".onAiTransportReviewPress" />
+              </OverflowToolbar>
+
+              <!-- Loading state -->
+              <HBox
+                id="idAiLoading"
+                visible="false"
+                alignItems="Center"
+                class="sapUiMediumMargin">
+                <BusyIndicator size="1rem" class="sapUiSmallMarginEnd" />
+                <Text id="idAiLoadingText" text="{i18n>aiReviewAnalyzing}" />
+              </HBox>
+
+              <!-- ACTION 1: Syntax & Code Quality Result Panel -->
+              <Panel id="idAiSyntaxResultPanel" headerText="{i18n>aiSyntaxPanelTitle}" expandable="true" expanded="true" visible="false" class="sapUiSmallMarginTop">
+                <HBox alignItems="Center" wrap="Wrap" class="sapUiSmallMargin sapUiSmallMarginBottom">
+                  <ObjectStatus
+                    id="idAiSyntaxStatus"
+                    text="—"
+                    state="None"
+                    class="sapUiSmallMarginEnd" />
+                  <ObjectStatus
+                    id="idAiSyntaxScore"
+                    text="—"
+                    state="Information"
+                    class="sapUiSmallMarginEnd" />
+                  <ObjectStatus
+                    id="idAiCleanVerdict"
+                    text="—"
+                    state="None"
+                    class="sapUiSmallMarginEnd" />
+                  <ObjectStatus
+                    id="idAiBetterSide"
+                    text=""
+                    state="Success"
+                    visible="false" />
+                </HBox>
+
+                <!-- Comparison & Best-Practice Recommendation (when both Local & Target exist) -->
+                <VBox id="idAiComparisonBox" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginBottom" visible="false">
+                  <Title text="{i18n>aiComparisonTitle}" level="H5" class="sapUiTinyMarginBottom" />
+                  <MessageStrip
+                    id="idAiBetterSideReasonStrip"
+                    text=""
+                    type="Information"
+                    showIcon="true"
+                    class="sapUiTinyMarginBottom" />
+                  <MessageStrip
+                    id="idAiBestRecommendationStrip"
+                    text=""
+                    type="Success"
+                    showIcon="true" />
+                </VBox>
+
+                <!-- Syntax Summary -->
+                <VBox class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginBottom">
+                  <Title text="{i18n>aiSyntaxSummaryTitle}" level="H5" />
+                  <Text id="idAiSyntaxSummaryText" text="—" wrapping="true" class="sapUiTinyMarginTop" />
+                </VBox>
+
+                <!-- Syntax & Quality Findings -->
+                <VBox id="idAiFindingsBox" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginBottom">
+                  <Title text="{i18n>aiFindingsTitle}" level="H5" />
+                  <List id="idAiFindingsList" class="sapUiTinyMarginTop" noDataText="{i18n>aiNoSyntaxErrors}">
+                  </List>
+                </VBox>
+              </Panel>
+
+              <!-- ACTION 2: Transport Recommendation Result Panel -->
+              <Panel id="idAiTransportResultPanel" headerText="{i18n>aiTransportPanelTitle}" expandable="true" expanded="true" visible="false" class="sapUiSmallMarginTop">
+                <!-- Impact Badge + Recommendation -->
+                <HBox alignItems="Center" class="sapUiSmallMargin sapUiSmallMarginBottom">
+                  <ObjectStatus
+                    id="idAiImpactStatus"
+                    text="—"
+                    state="None"
+                    class="sapUiSmallMarginEnd" />
+                  <ObjectStatus
+                    id="idAiRecommendStatus"
+                    text="—"
+                    state="None" />
+                </HBox>
+
+                <!-- Summary -->
+                <VBox class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginBottom">
+                  <Title text="{i18n>aiSummaryTitle}" level="H5" />
+                  <Text id="idAiSummaryText" text="—" wrapping="true" class="sapUiTinyMarginTop" />
+                </VBox>
+
+                <!-- Risks -->
+                <VBox id="idAiRisksBox" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginBottom" visible="false">
+                  <Title text="{i18n>aiRisksTitle}" level="H5" />
+                  <List id="idAiRisksList" class="sapUiTinyMarginTop">
+                  </List>
+                </VBox>
+
+                <!-- Transport Notes & Pre/Post-Import Precautions -->
+                <VBox id="idAiNotesBox" class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginBottom" visible="false">
+                  <Title text="{i18n>aiNotesTitle}" level="H5" />
+                  <List id="idAiNotesList" class="sapUiTinyMarginTop">
+                  </List>
+                </VBox>
+
+                <!-- Reason -->
+                <VBox class="sapUiSmallMarginBegin sapUiSmallMarginEnd sapUiSmallMarginBottom">
+                  <Title text="{i18n>aiReasonTitle}" level="H5" />
+                  <Text id="idAiReasonText" text="—" wrapping="true" class="sapUiTinyMarginTop" />
+                </VBox>
+              </Panel>
+
+              <!-- Error state -->
+              <MessageStrip
+                id="idAiError"
+                text=""
+                type="Error"
+                showIcon="true"
+                visible="false"
+                class="sapUiSmallMarginTop" />
+            </VBox>
+          </IconTabFilter>
+
         </items>
       </IconTabBar>
     </f:content>

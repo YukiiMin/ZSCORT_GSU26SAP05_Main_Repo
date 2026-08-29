@@ -28,6 +28,8 @@ sap.ui.define([
         busyLocal:  false,
         busyTarget: false,
         busyMatrix: false,
+        loadingMoreLocal:  false,
+        loadingMoreTarget: false,
         matrixServerType: "L",
         matrixFilter:     "",
         localRows:  [],
@@ -35,20 +37,37 @@ sap.ui.define([
         matrixRows: [],
         noDataText: "Enter search criteria and press Search"
       });
+      oModel.setSizeLimit(100000);
       this.getView().setModel(oModel, "objSearch");
 
-      this.getOwnerComponent().getRouter()
-        .getRoute("objSearch")
-        .attachPatternMatched(this._onRouteMatched, this);
+      var oRouter = this.getOwnerComponent().getRouter();
+      if (oRouter) {
+        var oRoute = oRouter.getRoute("objSearch");
+        if (oRoute) {
+          oRoute.attachPatternMatched(this._onRouteMatched, this);
+        }
+        var oObjCmpRoute = oRouter.getRoute("objCompare");
+        if (oObjCmpRoute) {
+          oObjCmpRoute.attachPatternMatched(this._onRouteMatched, this);
+        }
+      }
       this._app().setProperty("/currentModule", "objSearch");
     },
 
     _onRouteMatched: function () {
       this._app().setProperty("/currentModule", "objSearch");
+      this._ensureBeginVisible();
+    },
+
+    _ensureBeginVisible: function () {
       try {
-        var oFcl = this.getOwnerComponent().getRootControl().byId("fcl");
-        if (oFcl && typeof oFcl.to === "function") {
-          oFcl.to(this.getView().getId());
+        var oRoot = this.getOwnerComponent().getRootControl();
+        var oFcl = oRoot && oRoot.byId && oRoot.byId("fcl");
+        if (!oFcl) {
+          oFcl = sap.ui.getCore().byId("container-zscort.app---appView--fcl");
+        }
+        if (oFcl && typeof oFcl.toBeginColumnPage === "function") {
+          oFcl.toBeginColumnPage(this.getView());
         }
       } catch (e) { /* ignore */ }
     },
@@ -117,6 +136,14 @@ sap.ui.define([
       this._bTargetLoaded = false;
       this._bMatrixLoaded = false;
       this._aRawMatrixData = [];
+      this._aRawLocalData = [];
+      this._aRawTargetData = [];
+      this._nextLinkLocal = null;
+      this._nextLinkTarget = null;
+      this._bFetchingLocal = false;
+      this._bFetchingTarget = false;
+      oM.setProperty("/loadingMoreLocal", false);
+      oM.setProperty("/loadingMoreTarget", false);
       oM.setProperty("/localRows", []);
       oM.setProperty("/targetRows", []);
       oM.setProperty("/matrixRows", []);
@@ -314,19 +341,12 @@ sap.ui.define([
       return sUri || OBJ_SERVICE_URI;
     },
 
-    _fetchEntitySet: function (sEntity, sFilter, iTop) {
+    _buildEntityUrl: function (sEntity, sFilter) {
       var sUrl = this._serviceUri().replace(/\/?$/, "/") + sEntity.replace(/^\//, "");
-      var aQ = [];
       if (sFilter) {
-        aQ.push("$filter=" + encodeURIComponent(sFilter));
+        sUrl += "?$filter=" + encodeURIComponent(sFilter);
       }
-      if (iTop) {
-        aQ.push("$top=" + iTop);
-      }
-      if (aQ.length) {
-        sUrl += "?" + aQ.join("&");
-      }
-      return ValueHelp.fetchJson(sUrl, 20000);
+      return sUrl;
     },
 
     _setRows: function (sProp, aData, sCountProp) {
@@ -347,23 +367,79 @@ sap.ui.define([
       }
 
       oM.setProperty("/busyLocal", true);
+      oM.setProperty("/loadingMoreLocal", false);
       var sFilter = this._buildODataFilter("local");
+      var sUrl = this._buildEntityUrl("LocalObjects", sFilter);
       var that = this;
 
-      return this._fetchEntitySet("LocalObjects", sFilter, 500).then(function (aData) {
+      this._bFetchingLocal = true;
+      this._aRawLocalData = [];
+      this._nextLinkLocal = null;
+
+      return ValueHelp.fetchProgressiveJson(sUrl, function (aAllSoFar, aChunk, bHasMore, sNextLink) {
+        that._nextLinkLocal = sNextLink;
+        that._aRawLocalData = aAllSoFar;
+        var aFiltered = that._applyClientFilters(aAllSoFar, "local");
+        that._setRows("localRows", aFiltered, "countLocal");
+        oM.setProperty("/busyLocal", false);
+        oM.setProperty("/loadingMoreLocal", bHasMore);
+        that._bLocalLoaded = true;
+        that._searchMatrix();
+      }, 90000).then(function (aData) {
+        that._bFetchingLocal = false;
+        that._nextLinkLocal = null;
+        that._aRawLocalData = aData;
         var aFiltered = that._applyClientFilters(aData, "local");
         that._setRows("localRows", aFiltered, "countLocal");
         oM.setProperty("/busyLocal", false);
+        oM.setProperty("/loadingMoreLocal", false);
         that._bLocalLoaded = true;
+        that._searchMatrix();
         if (!aFiltered.length) {
-          MessageToast.show("No local objects matched the filter");
+          MessageToast.show(that._getText("noData") || "No local objects matched the filter");
         }
         return aFiltered;
       }).catch(function (oErr) {
+        that._bFetchingLocal = false;
         oM.setProperty("/busyLocal", false);
-        that._setRows("localRows", [], "countLocal");
-        MessageBox.error("OData Local Error: " + (oErr.message || oErr));
-        return [];
+        oM.setProperty("/loadingMoreLocal", false);
+        if (!that._aRawLocalData || !that._aRawLocalData.length) {
+          that._setRows("localRows", [], "countLocal");
+          MessageBox.error("OData Local Error: " + (oErr.message || oErr));
+        }
+        return that._aRawLocalData || [];
+      });
+    },
+
+    onLocalTableScroll: function (oEvent) {
+      var iFirst = oEvent.getParameter("firstVisibleRow");
+      var oTable = this.byId("idLocalTable");
+      var iVisibleCount = oTable ? oTable.getVisibleRowCount() : 20;
+      var aRows = this._aRawLocalData || [];
+
+      if (this._nextLinkLocal && !this._bFetchingLocal && (iFirst + iVisibleCount >= aRows.length - 25)) {
+        this._fetchNextLocalChunk();
+      }
+    },
+
+    _fetchNextLocalChunk: function () {
+      if (!this._nextLinkLocal || this._bFetchingLocal) { return; }
+      this._bFetchingLocal = true;
+      var that = this;
+      var oM = this.getView().getModel("objSearch");
+      oM.setProperty("/loadingMoreLocal", true);
+
+      ValueHelp.fetchPageJson(this._nextLinkLocal, 30000).then(function (oPage) {
+        that._bFetchingLocal = false;
+        that._nextLinkLocal = oPage.nextLink;
+        that._aRawLocalData = (that._aRawLocalData || []).concat(oPage.data || []);
+        var aFiltered = that._applyClientFilters(that._aRawLocalData, "local");
+        that._setRows("localRows", aFiltered, "countLocal");
+        oM.setProperty("/loadingMoreLocal", !!oPage.nextLink);
+        that._searchMatrix();
+      }).catch(function () {
+        that._bFetchingLocal = false;
+        oM.setProperty("/loadingMoreLocal", false);
       });
     },
 
@@ -382,23 +458,79 @@ sap.ui.define([
       }
 
       oM.setProperty("/busyTarget", true);
+      oM.setProperty("/loadingMoreTarget", false);
       var sFilter = this._buildODataFilter("target");
+      var sUrl = this._buildEntityUrl("TargetObjects", sFilter);
       var that = this;
 
-      return this._fetchEntitySet("TargetObjects", sFilter, 500).then(function (aData) {
+      this._bFetchingTarget = true;
+      this._aRawTargetData = [];
+      this._nextLinkTarget = null;
+
+      return ValueHelp.fetchProgressiveJson(sUrl, function (aAllSoFar, aChunk, bHasMore, sNextLink) {
+        that._nextLinkTarget = sNextLink;
+        that._aRawTargetData = aAllSoFar;
+        var aFiltered = that._applyClientFilters(aAllSoFar, "target");
+        that._setRows("targetRows", aFiltered, "countTarget");
+        oM.setProperty("/busyTarget", false);
+        oM.setProperty("/loadingMoreTarget", bHasMore);
+        that._bTargetLoaded = true;
+        that._searchMatrix();
+      }, 90000).then(function (aData) {
+        that._bFetchingTarget = false;
+        that._nextLinkTarget = null;
+        that._aRawTargetData = aData;
         var aFiltered = that._applyClientFilters(aData, "target");
         that._setRows("targetRows", aFiltered, "countTarget");
         oM.setProperty("/busyTarget", false);
+        oM.setProperty("/loadingMoreTarget", false);
         that._bTargetLoaded = true;
+        that._searchMatrix();
         if (!aFiltered.length) {
-          MessageToast.show("No target objects matched the filter");
+          MessageToast.show(that._getText("noData") || "No target objects matched the filter");
         }
         return aFiltered;
       }).catch(function (oErr) {
+        that._bFetchingTarget = false;
         oM.setProperty("/busyTarget", false);
-        that._setRows("targetRows", [], "countTarget");
-        MessageBox.error("OData Target Error: " + (oErr.message || oErr));
-        return [];
+        oM.setProperty("/loadingMoreTarget", false);
+        if (!that._aRawTargetData || !that._aRawTargetData.length) {
+          that._setRows("targetRows", [], "countTarget");
+          MessageBox.error("OData Target Error: " + (oErr.message || oErr));
+        }
+        return that._aRawTargetData || [];
+      });
+    },
+
+    onTargetTableScroll: function (oEvent) {
+      var iFirst = oEvent.getParameter("firstVisibleRow");
+      var oTable = this.byId("idTargetTable");
+      var iVisibleCount = oTable ? oTable.getVisibleRowCount() : 20;
+      var aRows = this._aRawTargetData || [];
+
+      if (this._nextLinkTarget && !this._bFetchingTarget && (iFirst + iVisibleCount >= aRows.length - 25)) {
+        this._fetchNextTargetChunk();
+      }
+    },
+
+    _fetchNextTargetChunk: function () {
+      if (!this._nextLinkTarget || this._bFetchingTarget) { return; }
+      this._bFetchingTarget = true;
+      var that = this;
+      var oM = this.getView().getModel("objSearch");
+      oM.setProperty("/loadingMoreTarget", true);
+
+      ValueHelp.fetchPageJson(this._nextLinkTarget, 30000).then(function (oPage) {
+        that._bFetchingTarget = false;
+        that._nextLinkTarget = oPage.nextLink;
+        that._aRawTargetData = (that._aRawTargetData || []).concat(oPage.data || []);
+        var aFiltered = that._applyClientFilters(that._aRawTargetData, "target");
+        that._setRows("targetRows", aFiltered, "countTarget");
+        oM.setProperty("/loadingMoreTarget", !!oPage.nextLink);
+        that._searchMatrix();
+      }).catch(function () {
+        that._bFetchingTarget = false;
+        oM.setProperty("/loadingMoreTarget", false);
       });
     },
 
@@ -526,14 +658,28 @@ sap.ui.define([
     },
 
     onTableLocalSelectionChange: function (oEvent) {
-      var oCtx = oEvent.getParameter("listItem") && oEvent.getParameter("listItem").getBindingContext("objSearch");
+      var oCtx = oEvent.getParameter("rowContext");
+      if (!oCtx) {
+        var iIndex = oEvent.getParameter("rowIndex");
+        var oTable = oEvent.getSource();
+        if (iIndex >= 0 && oTable) {
+          oCtx = oTable.getContextByIndex(iIndex);
+        }
+      }
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
     },
 
     onTableTargetSelectionChange: function (oEvent) {
-      var oCtx = oEvent.getParameter("listItem") && oEvent.getParameter("listItem").getBindingContext("objSearch");
+      var oCtx = oEvent.getParameter("rowContext");
+      if (!oCtx) {
+        var iIndex = oEvent.getParameter("rowIndex");
+        var oTable = oEvent.getSource();
+        if (iIndex >= 0 && oTable) {
+          oCtx = oTable.getContextByIndex(iIndex);
+        }
+      }
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "T", "BOTH");
@@ -545,6 +691,14 @@ sap.ui.define([
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
+    },
+
+    onButtonCompareLocalPress: function (oEvent) {
+      this.onButtonOpenComparePress(oEvent);
+    },
+
+    onButtonViewSourceLocalPress: function (oEvent) {
+      this.onButtonViewSourcePress(oEvent);
     },
 
     onButtonOpenComparePress: function (oEvent) {

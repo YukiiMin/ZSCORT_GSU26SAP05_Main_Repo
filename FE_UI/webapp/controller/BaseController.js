@@ -75,11 +75,9 @@ sap.ui.define([
       }
       oApp.setProperty("/compareOrigin", sOrigin);
       oApp.setProperty("/currentModule", "compare");
-      // Compare OData key ServerId is TGT (ZA_SCORT_T_SRC), not L/T (those are SourceCodeView ServerType).
-      var sSrv = (sServerId === "T" || sServerId === "L" || !sServerId)
-        ? (oApp.getProperty("/serverId") || "TGT")
-        : sServerId;
-      this.getOwnerComponent().getRouter().navTo("objCompare", {
+      // Choose route based on origin module: trCompare (Begin = TrSearch) vs objCompare (Begin = ObjSearch)
+      var sRoute = (sOrigin === "trSearch") ? "trCompare" : "objCompare";
+      this.getOwnerComponent().getRouter().navTo(sRoute, {
         objectType: sObjectType,
         objectName: encodeURIComponent(sObjectName)
       });

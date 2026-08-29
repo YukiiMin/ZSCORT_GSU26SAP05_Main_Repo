@@ -50,8 +50,6 @@ define root view entity ZCR_SCORT_OBJ_M
       @UI.identification: [{ position: 70 }]
       TargetAuthor,
 
-      " Không dùng criticality: ExistenceStatusCriticality — field không tồn tại
-      " → CX_SADL_DUMP_APPL_MODEL_ERROR / STOB ZCR_SCORT_OBJ_M trên S40.
       @UI.lineItem: [{ position: 80, label: 'Existence Status' }]
       @UI.identification: [{ position: 80 }]
       ExistenceStatus,
@@ -59,14 +57,23 @@ define root view entity ZCR_SCORT_OBJ_M
       @UI.hidden: true
       ServerType,
 
-      /* Action button: Check Diff */
-      @UI.lineItem: [{
+      /* Action buttons: Check Diff & AI Code Review */
+      @UI.lineItem: [
+        {
           position: 90,
           label: 'Check Diff',
           type: #FOR_ACTION,
           dataAction: 'checkDiff',
           requiresContext: true
-      }]
+        },
+        {
+          position: 100,
+          label: 'AI Review',
+          type: #FOR_ACTION,
+          dataAction: 'aiReview',
+          requiresContext: true
+        }
+      ]
       /* Navigation Property: OData nav link to Source Code entity */
       _SourceCode
 }

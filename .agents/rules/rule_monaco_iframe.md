@@ -25,3 +25,7 @@ To guarantee isolation and stability, Monaco MUST be loaded inside an isolated `
 ### 2.3 UI5 XML View Layout
 - **Rule:** NEVER use a standard `<VBox height="100%">` inside an `<IconTabFilter>` for embedding the iframe container. UI5's layout engine often collapses the height to 0px.
 - **Rule:** Use a `sap.ui.layout.Splitter` for bulletproof 100% height stretching. Place the iframe container inside the Splitter and set `layoutData` to `size="auto"`.
+
+### 2.4 Model Lifecycle & Safe Diff Navigation (Monaco v0.52+)
+- **Set Before Dispose:** When updating diff models (`SET_DIFF`), always instantiate and assign the new models to `diffEditor.setModel({ original, modified })` BEFORE calling `dispose()` on previous models. This prevents `TextModel got disposed before DiffEditorWidget model got reset`.
+- **Safe Diff Navigation:** Guard `monaco.editor.createDiffNavigator` with type checks. Use `diffEditor.goToDiff('next' | 'previous')` as fallback when `diffNavigator` is unavailable.

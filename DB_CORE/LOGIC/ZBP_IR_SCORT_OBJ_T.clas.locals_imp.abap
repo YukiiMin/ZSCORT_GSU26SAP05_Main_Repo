@@ -30,8 +30,8 @@ CLASS lhc_TargetObject IMPLEMENTATION.
 
       TRY.
           DATA(ls_tgt) = zcl_scort_t_reader=>read_current(
-                           iv_object_type = ls_key-ObjectType
-                           iv_object_name = ls_key-ObjectName ).
+                           iv_object_type = CONV #( ls_key-ObjectType )
+                           iv_object_name = CONV #( ls_key-ObjectName ) ).
           ls_src-VersionNo      = ls_tgt-version_no.
           ls_src-SourceCodeText = ls_tgt-text.
           ls_src-LineCount      = ls_tgt-line_count.
@@ -41,7 +41,9 @@ CLASS lhc_TargetObject IMPLEMENTATION.
           ENDIF.
           ls_src-Message        = ls_tgt-message.
         CATCH cx_root INTO DATA(lx).
-          ls_src-Message = lx->get_text( ).
+          ls_src-Message = zcm_scort=>get_text_by_key(
+                             is_t100_key = zcm_scort=>internal_error
+                             iv_attr1    = lx->get_text( ) ).
       ENDTRY.
 
       INSERT ls_src INTO TABLE result.

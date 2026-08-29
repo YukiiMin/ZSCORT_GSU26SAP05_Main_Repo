@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<abapGit version="v1.0.0" serializer="LCL_OBJECT_MSAG" serializer_version="v1.0.0">
+ <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+  <asx:values>
+   <T100A>
+    <ARBGB>ZCM_SCORT</ARBGB>
+    <MASTERLANG>E</MASTERLANG>
+    <STEXT>SCORT Toolkit - Enterprise Multi-Language Message Class</STEXT>
+   </T100A>
+   <T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>001</MSGNR>
+     <TEXT>Transport Request/Task &amp;1 does not exist.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>002</MSGNR>
+     <TEXT>Transport Request &amp;1 is already in Released status.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>003</MSGNR>
+     <TEXT>Transport Request &amp;1 released successfully.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>004</MSGNR>
+     <TEXT>Release failed for &amp;1: &amp;2</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>010</MSGNR>
+     <TEXT>Target Apply started for TR &amp;1.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>011</MSGNR>
+     <TEXT>Target Apply completed: &amp;1 objects saved to snapshot, &amp;2 skipped.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>020</MSGNR>
+     <TEXT>Object &amp;1 &amp;2: Source code not found on system &amp;3.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>030</MSGNR>
+     <TEXT>AI Assistant: Syntax and quality audit completed for &amp;1 &amp;2.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>031</MSGNR>
+     <TEXT>AI Assistant: Transport recommendation evaluated with impact &amp;1.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>032</MSGNR>
+     <TEXT>All Gemini API keys in pool exhausted or network unreachable.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>033</MSGNR>
+     <TEXT>SAP AI Core Destination &amp;1 is unavailable.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>034</MSGNR>
+     <TEXT>Invalid AI Action &amp;1 requested. Expected SYNTAX or TRANSPORT.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>040</MSGNR>
+     <TEXT>HTTP &amp;1 Method not allowed. Only POST is supported.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>041</MSGNR>
+     <TEXT>Request payload body is empty.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>050</MSGNR>
+     <TEXT>Internal processing error: &amp;1</TEXT>
+    </T100>
+   </T100>
+  </asx:values>
+ </asx:abap>
+</abapGit>

@@ -55,8 +55,8 @@
             if (!data) return;
 
             if (data.type === 'SET_DIFF') {
-                if (originalModel) originalModel.dispose();
-                if (modifiedModel) modifiedModel.dispose();
+                var oldOriginal = originalModel;
+                var oldModified = modifiedModel;
 
                 originalModel = monaco.editor.createModel(data.original || '', data.language || 'abap');
                 modifiedModel = monaco.editor.createModel(data.modified || '', data.language || 'abap');
@@ -66,22 +66,38 @@
                     modified: modifiedModel
                 });
 
+                if (oldOriginal) { try { oldOriginal.dispose(); } catch(e) {} }
+                if (oldModified) { try { oldModified.dispose(); } catch(e) {} }
+
                 if (diffNavigator) {
-                    diffNavigator.dispose();
+                    try { diffNavigator.dispose(); } catch(e) {}
+                    diffNavigator = null;
                 }
-                diffNavigator = monaco.editor.createDiffNavigator(diffEditor, {
-                    followsCaret: true,
-                    ignoreCharChanges: true
-                });
+                if (typeof monaco.editor.createDiffNavigator === 'function') {
+                    try {
+                        diffNavigator = monaco.editor.createDiffNavigator(diffEditor, {
+                            followsCaret: true,
+                            ignoreCharChanges: true
+                        });
+                    } catch(e) {}
+                }
             }
             else if (data.type === 'SET_SIDE_BY_SIDE') {
                 diffEditor.updateOptions({ renderSideBySide: data.renderSideBySide });
             }
             else if (data.type === 'NEXT_DIFF') {
-                if (diffNavigator) diffNavigator.next();
+                if (diffNavigator && typeof diffNavigator.next === 'function') {
+                    diffNavigator.next();
+                } else if (diffEditor && typeof diffEditor.goToDiff === 'function') {
+                    diffEditor.goToDiff('next');
+                }
             }
             else if (data.type === 'PREV_DIFF') {
-                if (diffNavigator) diffNavigator.previous();
+                if (diffNavigator && typeof diffNavigator.previous === 'function') {
+                    diffNavigator.previous();
+                } else if (diffEditor && typeof diffEditor.goToDiff === 'function') {
+                    diffEditor.goToDiff('previous');
+                }
             }
         });
     </script>

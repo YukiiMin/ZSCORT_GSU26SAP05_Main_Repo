@@ -27,4 +27,7 @@ define behavior for ZIR_SCORT_OBJ_M
 
   /* Custom Instance Action: trigger deep code comparison */
   action ( features : instance ) checkDiff result [1] $self;
+
+  /* Custom Instance Action: AI Code Review & Transport Recommendation */
+  action ( features : instance ) aiReview result [1] $self;
 }

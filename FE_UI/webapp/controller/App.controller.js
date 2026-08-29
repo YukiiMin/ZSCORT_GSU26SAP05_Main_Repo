@@ -9,6 +9,7 @@ sap.ui.define([
   return Controller.extend("zscort.app.controller.App", {
 
     onInit: function () {
+      this.getView().addStyleClass(this.getOwnerComponent().getContentDensityClass());
       this._oRouter = this.getOwnerComponent().getRouter();
       this._oRouter.attachRouteMatched(this.onRouteMatched, this);
     },
@@ -33,6 +34,7 @@ sap.ui.define([
           oAppModel.setProperty("/currentModule", "compare");
           break;
         case "objCompare":
+        case "trCompare":
           // Direct compare from Object/TR Search: Begin + Mid only
           oAppModel.setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
           oAppModel.setProperty("/currentModule", "compare");

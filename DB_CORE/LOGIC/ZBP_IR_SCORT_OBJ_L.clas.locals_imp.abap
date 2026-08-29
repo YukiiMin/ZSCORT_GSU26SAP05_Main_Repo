@@ -30,15 +30,17 @@ CLASS lhc_LocalObject IMPLEMENTATION.
 
       TRY.
           DATA(ls_ori) = zcl_scort_l_reader=>read_active(
-                           iv_object_type = ls_key-ObjectType
-                           iv_object_name = ls_key-ObjectName ).
+                           iv_object_type = CONV #( ls_key-ObjectType )
+                           iv_object_name = CONV #( ls_key-ObjectName ) ).
           ls_src-VersionNo      = zcl_scort_v_reader=>c_vers_active.
           ls_src-SourceCodeText = ls_ori-text.
           ls_src-LineCount      = ls_ori-line_count.
           ls_src-SrcHash        = CONV #( ls_ori-hash ).
           ls_src-Message        = ls_ori-message.
         CATCH cx_root INTO DATA(lx).
-          ls_src-Message = lx->get_text( ).
+          ls_src-Message = zcm_scort=>get_text_by_key(
+                             is_t100_key = zcm_scort=>internal_error
+                             iv_attr1    = lx->get_text( ) ).
       ENDTRY.
 
       INSERT ls_src INTO TABLE result.

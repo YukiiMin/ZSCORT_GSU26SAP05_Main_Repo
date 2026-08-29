@@ -83,8 +83,7 @@ CLASS zcl_scort_hash_utl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD normalize_lines.
-    " Deprecated — Apply không normalize. Giữ API, trả nguyên dòng.
-    rt_lines = it_lines.
+    rt_lines = normalize_source( it_lines ).
   ENDMETHOD.
 
   METHOD normalize_source.

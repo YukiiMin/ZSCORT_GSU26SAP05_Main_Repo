@@ -45,7 +45,6 @@ define root custom entity ZCR_SCORT_COMPARE
   @UI.identification: [{ position: 25 }]
   key ServerId : abap.char(10);
 
-  " Key — Object Page phải mang theo Mode + Version, không thì rơi về L_VS_T
   @EndUserText.label: 'Compare Mode'
   @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_COMPARE_MODE', element: 'CompareMode' } }]
   @UI.lineItem: [{ position: 28 }]
@@ -58,8 +57,7 @@ define root custom entity ZCR_SCORT_COMPARE
     entity: { name: 'ZCR_SCORT_OBJ_VERSION', element: 'VersionNo' },
     additionalBinding: [
       { localElement: 'ObjectType', element: 'ObjectType', usage: #FILTER },
-      { localElement: 'ObjectName', element: 'ObjectName', usage: #FILTER },
-      { localElement: 'ServerId', element: 'ServerId', usage: #FILTER }
+      { localElement: 'ObjectName', element: 'ObjectName', usage: #FILTER }
     ]
   }]
   @UI.lineItem: [{ position: 29 }]
@@ -72,8 +70,7 @@ define root custom entity ZCR_SCORT_COMPARE
     entity: { name: 'ZCR_SCORT_OBJ_VERSION', element: 'VersionNo' },
     additionalBinding: [
       { localElement: 'ObjectType', element: 'ObjectType', usage: #FILTER },
-      { localElement: 'ObjectName', element: 'ObjectName', usage: #FILTER },
-      { localElement: 'ServerId', element: 'ServerId', usage: #FILTER }
+      { localElement: 'ObjectName', element: 'ObjectName', usage: #FILTER }
     ]
   }]
   @UI.lineItem: [{ position: 31 }]

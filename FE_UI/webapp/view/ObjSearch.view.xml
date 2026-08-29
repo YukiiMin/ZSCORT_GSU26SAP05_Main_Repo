@@ -51,23 +51,21 @@
 
         <Panel headerText="{i18n>searchFilterPanel}" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
           <content>
-            <HBox alignItems="End" wrap="Wrap" class="sapUiTinyMargin">
+            <HBox class="scortFilterBox sapUiTinyMargin">
 
               <!-- Object Name -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>objNameLabel}" />
                 <Input id="idFilterObjNameInput"
-                  width="14rem"
                   value="{objSearch>/filterObjName}"
                   placeholder="ZSCORT*"
                   submit=".onFilterObjNameInputSubmit" />
               </VBox>
 
               <!-- Object Type (multi-select) -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>objTypeLabel}" />
                 <MultiComboBox id="idFilterObjTypeMultiComboBox"
-                  width="14rem"
                   placeholder="{i18n>allTypes}"
                   selectedKeys="{objSearch>/filterObjTypes}">
                   <items>
@@ -88,28 +86,26 @@
               </VBox>
 
               <!-- Package -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>packageLabel}" />
                 <Input id="idFilterPackageInput"
-                  width="12rem"
                   value="{objSearch>/filterPackage}"
                   placeholder="ZSCORT*"
                   submit=".onFilterPackageInputSubmit" />
               </VBox>
 
               <!-- Person Responsible -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>authorLabel}" />
                 <Input id="idFilterAuthorInput"
-                  width="10rem"
                   value="{objSearch>/filterAuthor}"
                   placeholder="USER*"
                   submit=".onFilterAuthorInputSubmit" />
               </VBox>
 
               <!-- Search Buttons -->
-              <VBox justifyContent="End">
-                <HBox>
+              <VBox class="scortFilterButtons" justifyContent="End">
+                <HBox wrap="Wrap" class="scortFilterButtons">
                   <Button id="idSearchButton"
                     text="{i18n>searchBtn}"
                     type="Emphasized"
@@ -154,17 +150,20 @@
               count="{objSearch>/countLocal}">
               <content>
                 <VBox height="100%" fitContainer="true">
-                  <Toolbar>
+                  <OverflowToolbar>
                     <Title text="{i18n>objectsLocalTitle}" />
                     <ToolbarSpacer />
+                    <BusyIndicator size="1rem" visible="{objSearch>/loadingMoreLocal}" class="sapUiTinyMarginEnd" />
                     <Label text="{= ${objSearch>/countLocal} + ' object(s)'}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportLocalPress" />
-                  </Toolbar>
+                  </OverflowToolbar>
                   <table:Table id="idLocalTable"
                     busy="{objSearch>/busyLocal}"
                     noData="{i18n>enterSearchCriteria}"
                     selectionMode="Single"
                     rowSelectionChange=".onTableLocalSelectionChange"
+                    firstVisibleRowChanged=".onLocalTableScroll"
+                    threshold="50"
                     alternateRowColors="true"
                     enableColumnReordering="true"
                     enableGrouping="true"
@@ -203,23 +202,15 @@
                       <table:Column width="10rem" filterProperty="CreatedOn" sortProperty="CreatedOn">
                         <Label text="{i18n>colCreated}" />
                         <table:template>
-                          <Text text="{path:'objSearch>CreatedOn', formatter:'.formatDate'}" />
+                          <Text text="{path: 'objSearch>CreatedOn', formatter: '.formatDate'}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="6rem">
+                      <table:Column width="10rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
-                            <Button icon="sap-icon://compare-2"
-                              tooltip="{i18n>openCompareTooltip}"
-                              type="Transparent"
-                              customData:objType="{objSearch>ObjectType}"
-                              customData:objName="{objSearch>ObjectName}"
-                              press=".onButtonOpenComparePress" />
-                            <Button icon="sap-icon://detail-view"
-                              tooltip="{i18n>viewSourceTooltip}"
-                              type="Transparent"
-                              press=".onButtonViewSourcePress" />
+                            <Button text="{i18n>btnCompare}" icon="sap-icon://compare-2" tooltip="{i18n>openCompareTooltip}" press=".onButtonOpenComparePress" class="sapUiTinyMarginEnd" />
+                            <Button icon="sap-icon://document-text" tooltip="{i18n>viewSourceTooltip}" type="Transparent" press=".onButtonViewSourcePress" />
                           </HBox>
                         </table:template>
                       </table:Column>
@@ -229,25 +220,28 @@
               </content>
             </IconTabFilter>
 
-            <!-- TAB 2: Target Objects (from ZA_SCORT_T) -->
+            <!-- TAB 2: Target Objects (from ZA_SCORT_T_SRC) -->
             <IconTabFilter
               key="target"
               text="{i18n>tabTarget}"
-              icon="sap-icon://server-farm"
+              icon="sap-icon://upload-to-cloud"
               count="{objSearch>/countTarget}">
               <content>
                 <VBox height="100%" fitContainer="true">
-                  <Toolbar>
+                  <OverflowToolbar>
                     <Title text="{i18n>objectsTargetTitle}" />
                     <ToolbarSpacer />
+                    <BusyIndicator size="1rem" visible="{objSearch>/loadingMoreTarget}" class="sapUiTinyMarginEnd" />
                     <Label text="{= ${objSearch>/countTarget} + ' object(s)'}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportTargetPress" />
-                  </Toolbar>
+                  </OverflowToolbar>
                   <table:Table id="idTargetTable"
                     busy="{objSearch>/busyTarget}"
                     noData="{i18n>enterSearchCriteria}"
                     selectionMode="Single"
                     rowSelectionChange=".onTableTargetSelectionChange"
+                    firstVisibleRowChanged=".onTargetTableScroll"
+                    threshold="50"
                     alternateRowColors="true"
                     enableColumnReordering="true"
                     enableGrouping="true"
@@ -318,7 +312,7 @@
               count="{objSearch>/countMatrix}">
               <content>
                 <VBox height="100%" fitContainer="true">
-                  <Toolbar>
+                  <OverflowToolbar>
                     <Title text="{i18n>objectsMatrixTitle}" />
                     <ToolbarSpacer />
                     <Label text="{i18n>lblViewCodeAsServer}:" class="sapUiTinyMarginEnd" />
@@ -342,7 +336,7 @@
                       </items>
                     </SegmentedButton>
                     <Button icon="sap-icon://refresh" tooltip="Reload" press=".onButtonSearchMatrixPress" type="Transparent" />
-                  </Toolbar>
+                  </OverflowToolbar>
                   <table:Table id="idMatrixTable"
                     busy="{objSearch>/busyMatrix}"
                     noData="{i18n>enterSearchCriteria}"

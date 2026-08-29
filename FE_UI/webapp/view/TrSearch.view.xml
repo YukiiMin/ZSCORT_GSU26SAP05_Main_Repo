@@ -59,55 +59,50 @@
 
         <Panel headerText="{i18n>searchFilterPanel}" expandable="true" expanded="true" class="sapUiSmallMarginBottom">
           <content>
-            <HBox alignItems="End" wrap="Wrap" class="sapUiTinyMargin">
+            <HBox class="scortFilterBox sapUiTinyMargin">
 
               <!-- TR Number -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>trkorrFilter}" />
                 <Input id="inputTrkorr"
-                  width="14rem"
                   value="{trSearch>/filterTrkorr}"
                   placeholder="S40K*"
                   submit=".onSearch" />
               </VBox>
 
               <!-- Owner -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>ownerFilter}" />
                 <Input id="inputOwner"
-                  width="10rem"
                   value="{trSearch>/filterOwner}"
                   placeholder="e.g. DEV*"
                   submit=".onSearch" />
               </VBox>
 
               <!-- Date From -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>dateFromFilter}" />
                 <DatePicker
                   id="dpDateFrom"
                   value="{trSearch>/filterDateFrom}"
                   valueFormat="yyyyMMdd"
-                  displayFormat="dd.MM.yyyy"
-                  width="10rem" />
+                  displayFormat="dd.MM.yyyy" />
               </VBox>
 
               <!-- Date To -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>dateToFilter}" />
                 <DatePicker
                   id="dpDateTo"
                   value="{trSearch>/filterDateTo}"
                   valueFormat="yyyyMMdd"
-                  displayFormat="dd.MM.yyyy"
-                  width="10rem" />
+                  displayFormat="dd.MM.yyyy" />
               </VBox>
 
               <!-- TR Status -->
-              <VBox class="sapUiTinyMarginEnd">
+              <VBox class="scortFilterItem">
                 <Label text="{i18n>statusFilter}" />
                 <Select id="selStatus"
-                  width="10rem"
                   selectedKey="{trSearch>/filterStatus}"
                   forceSelection="false">
                   <items>
@@ -118,8 +113,8 @@
                 </Select>
               </VBox>
 
-              <VBox justifyContent="End">
-                <HBox>
+              <VBox class="scortFilterButtons" justifyContent="End">
+                <HBox wrap="Wrap" class="scortFilterButtons">
                   <Button text="{i18n>searchBtn}" type="Emphasized" icon="sap-icon://search"
                     press=".onSearch" class="sapUiTinyMarginEnd" />
                   <Button text="{i18n>clearBtn}"  type="Transparent" press=".onClearFilter" />

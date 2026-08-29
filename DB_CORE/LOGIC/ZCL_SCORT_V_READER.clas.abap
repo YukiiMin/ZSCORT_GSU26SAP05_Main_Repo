@@ -48,20 +48,20 @@ CLASS zcl_scort_v_reader DEFINITION
     CONSTANTS c_vers_active TYPE versno VALUE '99998'.
 
     CLASS-METHODS map_vrs_objtype
-      IMPORTING iv_object_type     TYPE trobjtype
+      IMPORTING iv_object_type     TYPE csequence
       RETURNING VALUE(rv_vrs_type) TYPE vrsd-objtype.
 
     CLASS-METHODS list_versions
       IMPORTING
-        iv_object_type TYPE trobjtype
-        iv_object_name TYPE sobj_name
+        iv_object_type TYPE csequence
+        iv_object_name TYPE csequence
       RETURNING
         VALUE(rt_list) TYPE tt_version.
 
     CLASS-METHODS read_version
       IMPORTING
-        iv_object_type TYPE trobjtype
-        iv_object_name TYPE sobj_name
+        iv_object_type TYPE csequence
+        iv_object_name TYPE csequence
         iv_version_no  TYPE versno
       RETURNING
         VALUE(rs_source) TYPE ty_source.
@@ -69,8 +69,8 @@ CLASS zcl_scort_v_reader DEFINITION
     " Mở màn hình Version Management chuẩn SAP (click chọn version)
     CLASS-METHODS display_versions
       IMPORTING
-        iv_object_type TYPE trobjtype
-        iv_object_name TYPE sobj_name.
+        iv_object_type TYPE csequence
+        iv_object_name TYPE csequence.
 
   PRIVATE SECTION.
     TYPES:
@@ -83,9 +83,9 @@ CLASS zcl_scort_v_reader DEFINITION
 
     CLASS-METHODS read_version_content
       IMPORTING
-        iv_object_type TYPE trobjtype
+        iv_object_type TYPE csequence
         iv_vrs_type    TYPE vrsd-objtype
-        iv_object_name TYPE sobj_name
+        iv_object_name TYPE csequence
         iv_version_no  TYPE versno
       EXPORTING
         et_lines       TYPE ty_string_tab
@@ -95,22 +95,20 @@ CLASS zcl_scort_v_reader DEFINITION
 
 
     CLASS-METHODS list_clas_versions
-      IMPORTING iv_object_name TYPE sobj_name
+      IMPORTING iv_object_name TYPE csequence
       RETURNING VALUE(rt_vrsd) TYPE tt_vrsd.
 
     "! List giống Version Management (SVRS_GET_VERSION_DIRECTORY_46)
     CLASS-METHODS read_version_directory
       IMPORTING
         iv_vrs_type    TYPE vrsd-objtype
-        iv_object_name TYPE sobj_name
+        iv_object_name TYPE csequence
       RETURNING
         VALUE(rt_vrsd) TYPE tt_vrsd.
 
-    CLASS-METHODS append_text_table
-      IMPORTING it_any   TYPE ANY TABLE
+    CLASS-METHODS extract_text_from_any
+      IMPORTING is_any   TYPE any
       CHANGING  ct_lines TYPE ty_string_tab.
-
-
 
 ENDCLASS.
 
@@ -393,11 +391,12 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
   METHOD read_version_content.
     DATA ls_object TYPE svrs2_versionable_object.
-    DATA lv_line TYPE string.
+    FIELD-SYMBOLS <ls_sub> TYPE any.
+
     CLEAR: et_lines, ev_ok, ev_message.
 
     ls_object-objtype = iv_vrs_type. " SVRS expects VRSD objtype (CLAS, INTF, FUNC, REPS)
-    ls_object-objname = iv_object_name.
+    ls_object-objname = CONV #( iv_object_name ).
     ls_object-versno  = iv_version_no.
 
     CALL FUNCTION 'SVRS_GET_VERSION'
@@ -416,56 +415,119 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
     ev_ok = abap_true.
 
-    " Parse Deep Structure to String Tab based on type
+    " Parse Deep Structure to String Tab dynamically based on type
     CASE iv_vrs_type.
       WHEN 'CLAS'.
-        " Ghép các section (CPUB, CPRO, CPRI)
-        APPEND |*"*--- Public Section ---*| TO et_lines.
-        zcl_scort_v_reader=>append_text_table( EXPORTING it_any = ls_object-cpub-reps CHANGING ct_lines = et_lines ).
-        APPEND || TO et_lines.
-        
-        APPEND |*"*--- Protected Section ---*| TO et_lines.
-        zcl_scort_v_reader=>append_text_table( EXPORTING it_any = ls_object-cpro-reps CHANGING ct_lines = et_lines ).
-        APPEND || TO et_lines.
+        ASSIGN COMPONENT 'CPUB' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          APPEND '*"*--- Public Section ---*' TO et_lines.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+          APPEND '' TO et_lines.
+        ENDIF.
 
-        APPEND |*"*--- Private Section ---*| TO et_lines.
-        zcl_scort_v_reader=>append_text_table( EXPORTING it_any = ls_object-cpri-reps CHANGING ct_lines = et_lines ).
+        ASSIGN COMPONENT 'CPRO' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          APPEND '*"*--- Protected Section ---*' TO et_lines.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+          APPEND '' TO et_lines.
+        ENDIF.
+
+        ASSIGN COMPONENT 'CPRI' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          APPEND '*"*--- Private Section ---*' TO et_lines.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+        ENDIF.
 
         ev_message = |CLAS via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
 
       WHEN 'INTF'.
-        zcl_scort_v_reader=>append_text_table( EXPORTING it_any = ls_object-intf-reps CHANGING ct_lines = et_lines ).
+        ASSIGN COMPONENT 'INTF' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+        ENDIF.
         ev_message = |INTF via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
 
       WHEN 'FUNC'.
-        zcl_scort_v_reader=>append_text_table( EXPORTING it_any = ls_object-func-reps CHANGING ct_lines = et_lines ).
+        ASSIGN COMPONENT 'FUNC' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+        ENDIF.
         ev_message = |FUNC via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
 
+      WHEN 'METH'.
+        ASSIGN COMPONENT 'METH' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+        ENDIF.
+        ev_message = |METH via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
+
       WHEN OTHERS.
-        " REPS, METH, v.v.
-        zcl_scort_v_reader=>append_text_table( EXPORTING it_any = ls_object-reps CHANGING ct_lines = et_lines ).
+        ASSIGN COMPONENT 'REPS' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+        ENDIF.
         ev_message = |{ iv_vrs_type } via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
     ENDCASE.
 
+    " Fallback: if lines empty, try reading REPS component
+    IF et_lines IS INITIAL.
+      ASSIGN COMPONENT 'REPS' OF STRUCTURE ls_object TO <ls_sub>.
+      IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+        extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+      ENDIF.
+    ENDIF.
+
     " Normalize (Pre-Diff Adapter)
-    et_lines = zcl_scort_hash_utl=>normalize_source( et_lines ).
+    et_lines = zcl_scort_hash_utl=>normalize_lines( et_lines ).
   ENDMETHOD.
 
-  METHOD append_text_table.
-    DATA lv_line TYPE string.
-    FIELD-SYMBOLS <ls> TYPE any.
-    FIELD-SYMBOLS <lv> TYPE any.
+  METHOD extract_text_from_any.
+    FIELD-SYMBOLS <lt_table> TYPE ANY TABLE.
+    FIELD-SYMBOLS <ls_row>   TYPE any.
+    FIELD-SYMBOLS <lv_val>   TYPE any.
 
-    LOOP AT it_any ASSIGNING <ls>.
-      CLEAR lv_line.
-      ASSIGN COMPONENT 'LINE' OF STRUCTURE <ls> TO <lv>.
-      IF sy-subrc = 0.
-        lv_line = CONV string( <lv> ).
-      ELSE.
-        lv_line = CONV string( <ls> ).
-      ENDIF.
-      APPEND lv_line TO ct_lines.
-    ENDLOOP.
+    " Case 1: is_any is already an internal table
+    ASSIGN is_any TO <lt_table>.
+    IF sy-subrc = 0.
+      LOOP AT <lt_table> ASSIGNING <ls_row>.
+        ASSIGN COMPONENT 'LINE' OF STRUCTURE <ls_row> TO <lv_val>.
+        IF sy-subrc = 0.
+          APPEND CONV string( <lv_val> ) TO ct_lines.
+        ELSE.
+          APPEND CONV string( <ls_row> ) TO ct_lines.
+        ENDIF.
+      ENDLOOP.
+      RETURN.
+    ENDIF.
+
+    " Case 2: is_any is a structure containing the table
+    ASSIGN COMPONENT 'ABAPTEXT' OF STRUCTURE is_any TO <lt_table>.
+    IF sy-subrc <> 0.
+      ASSIGN COMPONENT 'ABAPTXT' OF STRUCTURE is_any TO <lt_table>.
+    ENDIF.
+    IF sy-subrc <> 0.
+      ASSIGN COMPONENT 'SOURCE' OF STRUCTURE is_any TO <lt_table>.
+    ENDIF.
+    IF sy-subrc <> 0.
+      ASSIGN COMPONENT 'TEXT' OF STRUCTURE is_any TO <lt_table>.
+    ENDIF.
+    IF sy-subrc <> 0.
+      ASSIGN COMPONENT 'LINES' OF STRUCTURE is_any TO <lt_table>.
+    ENDIF.
+    IF sy-subrc <> 0.
+      ASSIGN COMPONENT 'DELTA' OF STRUCTURE is_any TO <lt_table>.
+    ENDIF.
+
+    IF sy-subrc = 0 AND <lt_table> IS ASSIGNED.
+      LOOP AT <lt_table> ASSIGNING <ls_row>.
+        ASSIGN COMPONENT 'LINE' OF STRUCTURE <ls_row> TO <lv_val>.
+        IF sy-subrc = 0.
+          APPEND CONV string( <lv_val> ) TO ct_lines.
+        ELSE.
+          APPEND CONV string( <ls_row> ) TO ct_lines.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

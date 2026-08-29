@@ -47,25 +47,23 @@ CLASS zcl_scort_t_reader DEFINITION
 
     CLASS-METHODS read_version
       IMPORTING
-        iv_object_type   TYPE trobjtype
-        iv_object_name   TYPE sobj_name
-
+        iv_object_type   TYPE csequence
+        iv_object_name   TYPE csequence
         iv_version_no    TYPE versno OPTIONAL
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
     CLASS-METHODS read_current
       IMPORTING
-        iv_object_type   TYPE trobjtype
-        iv_object_name   TYPE sobj_name
-
+        iv_object_type   TYPE csequence
+        iv_object_name   TYPE csequence
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
     CLASS-METHODS list_versions
       IMPORTING
-        iv_object_type TYPE trobjtype
-        iv_object_name TYPE sobj_name
+        iv_object_type TYPE csequence
+        iv_object_name TYPE csequence
       RETURNING
         VALUE(rt_vers) TYPE tt_version.
 
@@ -80,8 +78,8 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     DATA lv_max      TYPE versno.
 
     CLEAR rs_source.
-    rs_source-object_type = iv_object_type.
-    rs_source-object_name = iv_object_name.
+    rs_source-object_type = CONV #( iv_object_type ).
+    rs_source-object_name = CONV #( iv_object_name ).
 
     lv_obj_name = CONV trobj_name( iv_object_name ).
     CONDENSE lv_obj_name.
@@ -104,7 +102,11 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       ELSE.
         rs_source-found         = abap_false.
         rs_source-is_new_target = abap_true.
-        rs_source-message       = |NEW_AT_TARGET — chưa có { iv_object_type } { lv_obj_name } trong ZA05_SCORT_T/_SRC|.
+        rs_source-message       = zcm_scort=>get_text_by_key(
+                                    is_t100_key = zcm_scort=>source_missing
+                                    iv_attr1    = CONV #( iv_object_type )
+                                    iv_attr2    = CONV #( lv_obj_name )
+                                    iv_attr3    = 'Target' ).
         RETURN.
       ENDIF.
     ENDIF.
@@ -126,8 +128,8 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     DATA lv_cur      TYPE versno.
 
     CLEAR rs_source.
-    rs_source-object_type = iv_object_type.
-    rs_source-object_name = iv_object_name.
+    rs_source-object_type = CONV #( iv_object_type ).
+    rs_source-object_name = CONV #( iv_object_name ).
 
     lv_obj_name = CONV trobj_name( iv_object_name ).
     CONDENSE lv_obj_name.
@@ -154,7 +156,11 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     IF sy-subrc <> 0.
       rs_source-found         = abap_false.
       rs_source-is_new_target = abap_true.
-      rs_source-message       = |Version { lv_vers } không có trong ZA05_SCORT_T_SRC|.
+      rs_source-message       = zcm_scort=>get_text_by_key(
+                                  is_t100_key = zcm_scort=>source_missing
+                                  iv_attr1    = CONV #( iv_object_type )
+                                  iv_attr2    = CONV #( lv_obj_name )
+                                  iv_attr3    = 'Target' ).
       RETURN.
     ENDIF.
 

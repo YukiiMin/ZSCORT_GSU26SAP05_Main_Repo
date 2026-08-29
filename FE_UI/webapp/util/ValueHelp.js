@@ -106,41 +106,58 @@ sap.ui.define([
     return withTimeout(oFetch, iTimeoutMs || 12000);
   }
 
-  function fetchAllJson(sUrl, iTimeoutMs) {
+  function fetchPageJson(sUrl, iTimeoutMs) {
+    var oFetch = fetch(sUrl, {
+      method: "GET",
+      credentials: "same-origin",
+      headers: { Accept: "application/json" }
+    }).then(function (oRes) {
+      if (!oRes.ok) {
+        return oRes.text().then(function (sBody) {
+          var sMsg = "HTTP " + oRes.status;
+          try {
+            var oJson = JSON.parse(sBody);
+            if (oJson && oJson.error && oJson.error.message) {
+              sMsg = sMsg + ": " + oJson.error.message;
+            }
+          } catch (e) { /* ignore */ }
+          throw new Error(sMsg);
+        });
+      }
+      return oRes.json();
+    }).then(function (oJson) {
+      if (!oJson) { return { data: [], nextLink: null }; }
+      var aData = oJson.value || (oJson.d && oJson.d.results) || [];
+      var sNextLink = oJson["@odata.nextLink"] || (oJson.d && oJson.d.__next) || null;
+      if (sNextLink) {
+        try { sNextLink = new URL(sNextLink, sUrl).href; } catch (e) { /* ignore */ }
+      }
+      return { data: aData, nextLink: sNextLink };
+    });
+    return withTimeout(oFetch, iTimeoutMs || 30000);
+  }
+
+  function fetchProgressiveJson(sUrl, fnOnChunk, iTimeoutMs) {
     var aAllData = [];
     function fetchNext(sNextUrl) {
-      return fetch(sNextUrl, {
-        method: "GET",
-        credentials: "same-origin",
-        headers: { Accept: "application/json" }
-      }).then(function (oRes) {
-        if (!oRes.ok) {
-          return oRes.text().then(function (sBody) {
-            var sMsg = "HTTP " + oRes.status;
-            try {
-              var oJson = JSON.parse(sBody);
-              if (oJson && oJson.error && oJson.error.message) {
-                sMsg = sMsg + ": " + oJson.error.message;
-              }
-            } catch (e) { /* ignore */ }
-            throw new Error(sMsg);
-          });
+      return fetchPageJson(sNextUrl, iTimeoutMs).then(function (oPage) {
+        var aChunk = oPage.data || [];
+        aAllData = aAllData.concat(aChunk);
+        var bHasMore = !!oPage.nextLink;
+        if (typeof fnOnChunk === "function") {
+          fnOnChunk(aAllData, aChunk, bHasMore, oPage.nextLink);
         }
-        return oRes.json();
-      }).then(function (oJson) {
-        if (!oJson) { return aAllData; }
-        var aData = oJson.value || (oJson.d && oJson.d.results) || [];
-        aAllData = aAllData.concat(aData);
-        var sNextLink = oJson["@odata.nextLink"] || (oJson.d && oJson.d.__next);
-        if (sNextLink) {
-          var sAbs = sNextLink;
-          try { sAbs = new URL(sNextLink, sNextUrl).href; } catch (e) { /* ignore */ }
-          return fetchNext(sAbs);
+        if (oPage.nextLink) {
+          return fetchNext(oPage.nextLink);
         }
         return aAllData;
       });
     }
-    return withTimeout(fetchNext(sUrl), iTimeoutMs || 60000);
+    return withTimeout(fetchNext(sUrl), iTimeoutMs || 90000);
+  }
+
+  function fetchAllJson(sUrl, iTimeoutMs) {
+    return fetchProgressiveJson(sUrl, null, iTimeoutMs);
   }
 
   function loadRows(mOpts) {
@@ -283,7 +300,9 @@ sap.ui.define([
     open: open,
     withTimeout: withTimeout,
     fetchJson: fetchJson,
+    fetchPageJson: fetchPageJson,
     fetchAllJson: fetchAllJson,
+    fetchProgressiveJson: fetchProgressiveJson,
     loadRows: loadRows,
     filtersToOData: filtersToOData
   };

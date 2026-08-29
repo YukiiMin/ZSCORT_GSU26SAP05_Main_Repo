@@ -25,29 +25,36 @@ sap.ui.define([
         countFlat:       0,
         noDataText:      "Enter search criteria and press Search"
       });
+      oModel.setSizeLimit(100000);
       this.getView().setModel(oModel, "trSearch");
 
-      this.getOwnerComponent().getRouter()
-        .getRoute("trSearch")
-        .attachPatternMatched(this._onRouteMatched, this);
+      var oRouter = this.getOwnerComponent().getRouter();
+      if (oRouter) {
+        ["trSearch", "home", "master", "detail", "compare", "trCompare"].forEach(function (sRoute) {
+          var r = oRouter.getRoute(sRoute);
+          if (r) {
+            r.attachPatternMatched(this._onRouteMatched, this);
+          }
+        }, this);
+      }
 
       this._app().setProperty("/currentModule", "trSearch");
     },
 
     _onRouteMatched: function () {
       this._app().setProperty("/currentModule", "trSearch");
-      // Ensure this page is the visible begin-column page (FCL may keep ObjSearch on top)
       this._ensureBeginVisible();
     },
 
     _ensureBeginVisible: function () {
       try {
-        var oFcl = this.getOwnerComponent().getRootControl().byId("fcl");
-        if (!oFcl) { return; }
-        var oView = this.getView();
-        var sId = oView.getId();
-        if (typeof oFcl.to === "function") {
-          oFcl.to(sId);
+        var oRoot = this.getOwnerComponent().getRootControl();
+        var oFcl = oRoot && oRoot.byId && oRoot.byId("fcl");
+        if (!oFcl) {
+          oFcl = sap.ui.getCore().byId("container-zscort.app---appView--fcl");
+        }
+        if (oFcl && typeof oFcl.toBeginColumnPage === "function") {
+          oFcl.toBeginColumnPage(this.getView());
         }
       } catch (e) { /* ignore */ }
     },
@@ -114,7 +121,9 @@ sap.ui.define([
         return;
       }
       var oTreeData = this._buildTreeData(aFlat || []);
-      oTree.setModel(new JSONModel(oTreeData), "trTree");
+      var oTreeM = new JSONModel(oTreeData);
+      oTreeM.setSizeLimit(100000);
+      oTree.setModel(oTreeM, "trTree");
       oTree.bindRows({
         path: "trTree>/",
         parameters: { arrayNames: ["children"] }
@@ -412,15 +421,17 @@ sap.ui.define([
       }
       var sFilter = aParts.join(" and ");
       var sUrl = this._trServiceUri() + "TrObjectSearch" +
-        (sFilter ? ("?$filter=" + encodeURIComponent(sFilter) + "&$top=1000") : "?$top=1000");
+        (sFilter ? ("?$filter=" + encodeURIComponent(sFilter)) : "");
 
       oM.setProperty("/busyFlat", true);
-      ValueHelp.fetchJson(sUrl, 30000).then(function (aData) {
+      ValueHelp.fetchAllJson(sUrl, 60000).then(function (aData) {
         aData = aData || [];
         oM.setProperty("/countFlat", aData.length);
         var oTbl = that.byId("tblFlat");
         if (oTbl) {
-          oTbl.setModel(new JSONModel(aData), "trSearch");
+          var oFlatM = new JSONModel(aData);
+          oFlatM.setSizeLimit(100000);
+          oTbl.setModel(oFlatM, "trSearch");
         }
         oM.setProperty("/busyFlat", false);
         that._bFlatLoaded = true;

@@ -51,7 +51,7 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
       INTO @DATA(ls_e070).
 
     IF sy-subrc <> 0.
-      ev_message = |Transport Request { iv_parent_trkorr } không tồn tại.|.
+      ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>tr_not_found iv_attr1 = CONV #( iv_parent_trkorr ) ).
       RETURN.
     ENDIF.
 
@@ -147,7 +147,7 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
 
       " --- Áp dụng Rule 3 (Pre-Diff Adapter) trước khi tính Hash & GZIP ---
       DATA(lt_norm) = zcl_scort_hash_utl=>text_to_lines( ls_src-text ).
-      lt_norm       = zcl_scort_hash_utl=>normalize_source( lt_norm ).
+      lt_norm       = zcl_scort_hash_utl=>normalize_lines( lt_norm ).
       DATA(lv_source) = zcl_scort_hash_utl=>lines_to_text( lt_norm ).
 
       DATA(lv_checksum)   = calculate_checksum( lv_source ).
@@ -263,18 +263,18 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
               COMPARING pgmid object obj_name version_no.
             MODIFY za05_scort_t_src FROM TABLE @lt_src_insert.
           ENDIF.
-          COMMIT WORK.
+          COMMIT WORK AND WAIT.
           ev_success = abap_true.
-          ev_message = |Apply thành công TR { iv_parent_trkorr }. Đã cập nhật/thêm mới { lv_changed_count } object ({ lv_unchanged_count } object giữ nguyên).|.
+          ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>target_apply_success iv_attr1 = CONV #( lv_changed_count ) iv_attr2 = CONV #( lv_unchanged_count ) ).
         CATCH cx_root INTO DATA(lx_db).
           ROLLBACK WORK.
           ev_success = abap_false.
-          ev_message = |Lỗi Database Apply: { lx_db->get_text( ) }|.
+          ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>internal_error iv_attr1 = lx_db->get_text( ) ).
       ENDTRY.
 
     ELSE.
       ev_success = abap_true.
-      ev_message = |Tất cả object trong TR { iv_parent_trkorr } trùng khớp với Target System. Không có gì thay đổi, Version giữ nguyên.|.
+      ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>target_apply_success iv_attr1 = '0' iv_attr2 = CONV #( lv_unchanged_count ) ).
     ENDIF.
 
   ENDMETHOD.

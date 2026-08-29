@@ -26,7 +26,7 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
 
     IF sy-subrc <> 0.
       ev_status  = 'UNKNOWN'.
-      ev_message = |Transport Request/Task { iv_trkorr } không tồn tại.|.
+      ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>tr_not_found iv_attr1 = CONV #( iv_trkorr ) ).
       RETURN.
     ENDIF.
 
@@ -36,7 +36,7 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
 
     " 2. Kiểm tra nếu đã Released trước đó
     IF ls_e070-trstatus = 'R'.
-      ev_message = |{ COND string( WHEN ev_request_type = 'TASK' THEN 'Task' ELSE 'Transport Request' ) } { iv_trkorr } đã ở trạng thái Released.|.
+      ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>tr_already_released iv_attr1 = CONV #( iv_trkorr ) ).
       RETURN.
     ENDIF.
 
