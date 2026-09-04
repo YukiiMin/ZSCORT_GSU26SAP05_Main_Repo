@@ -1,15 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_COMPARE_QUERY
-*"* Compare Detail: 2 chuỗi thô TargetCode + SourceCode (Monaco).
-*"* Không LCS / DiffLine / tô màu dòng trên ABAP.
-*"*
-*"* CompareMode:
-*"*   L_VS_T        — Trái = ZA05_SCORT_T_SRC (VersionNo hoặc current_version),
-*"*                   Phải = Local Active
-*"*   VER_VS_VER    — Trái = Local VersionNo (VRSD), Phải = Local VersionNoRight
-*"*   ACTIVE_VS_VER — alias → VER_VS_VER (Right = 99998 Active)
-*"* Target: SOURCE_HEX GZIP + SRC_HASH (plain-text SHA1).
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_compare_query DEFINITION
   PUBLIC
   FINAL
@@ -161,7 +149,6 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
     ls_entity-ObjectType     = ls_keys-object_type.
     ls_entity-ObjectName     = ls_keys-object_name.
     ls_entity-ServerId       = lv_srv.
-    " Giữ đúng key đã chọn (Object Page navigate theo key)
     ls_entity-CompareMode    = lv_mode.
     IF ls_detail-compare_mode IS NOT INITIAL.
       ls_entity-CompareMode = ls_detail-compare_mode.
@@ -234,7 +221,6 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       TRY.
           io_response->set_data( lt_page ).
         CATCH cx_root.
-          " Preview đôi khi fail với string lớn — trả metadata không kèm source
           LOOP AT lt_page ASSIGNING FIELD-SYMBOL(<ls>).
             CLEAR: <ls>-TargetCode, <ls>-SourceCode.
             IF <ls>-Message IS INITIAL.
@@ -305,7 +291,6 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
         CLEAR rv_vers.
         RETURN.
     ENDTRY.
-    " Key NUMC trống / 0 → coi như chưa chọn (L_VS_T)
     IF rv_vers = '00000'.
       CLEAR rv_vers.
     ENDIF.
@@ -326,7 +311,9 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
 
     IF zcl_scort_l_reader=>is_supported( iv_object_type ) = abap_false.
       rs_detail-status_code = 'NOT_SUPPORTED'.
-      rs_detail-message     = 'Object type not supported'.
+      rs_detail-message     = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>obj_type_not_supported
+                                iv_attr1    = CONV #( iv_object_type ) ).
       RETURN.
     ENDIF.
 
@@ -343,8 +330,6 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " ZCL_SCORT_T_READER on S40 has no IV_SERVER_ID (table ZA05_SCORT_T is single-tenant).
-    " Passing iv_server_id caused SYNTAX_ERROR / CX_SY_DYN_CALL_PARAM_NOT_FOUND.
     compare_local_target(
       EXPORTING
         iv_object_type = iv_object_type
@@ -413,10 +398,16 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
 
     IF cs_detail-source_hash = cs_detail-target_hash.
       cs_detail-status_code = 'IDENTICAL'.
-      cs_detail-message     = |{ lv_left } vs { lv_right }: identical|.
+      cs_detail-message     = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>hashes_identical
+                                iv_attr1    = CONV #( iv_object_type )
+                                iv_attr2    = CONV #( iv_object_name ) ).
     ELSE.
       cs_detail-status_code = 'DIFFERENT'.
-      cs_detail-message     = |{ lv_left } vs { lv_right }: different|.
+      cs_detail-message     = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>hashes_different
+                                iv_attr1    = CONV #( iv_object_type )
+                                iv_attr2    = CONV #( iv_object_name ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -427,7 +418,6 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
 
     cs_detail-compare_mode = c_mode_l_vs_t.
 
-    " Phải = Local Active (source chờ Apply)
     ls_ori = zcl_scort_l_reader=>read_active(
                iv_object_type = iv_object_type
                iv_object_name = iv_object_name ).
@@ -441,7 +431,6 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
     cs_detail-source_hash  = CONV #( ls_ori-hash ).
     cs_detail-source_lines = ls_ori-line_count.
 
-    " Trái = version trong ZA05_SCORT_T_SRC (VersionNo hoặc current_version)
     lv_vers = to_versno( iv_version_no ).
     IF lv_vers IS NOT INITIAL.
       ls_tgt = zcl_scort_t_reader=>read_version(
@@ -459,7 +448,10 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       cs_detail-target_code  = ``.
       cs_detail-target_lines = 0.
       cs_detail-version_no   = ls_tgt-version_no.
-      cs_detail-message      = 'Chưa có version Target trong ZA05_SCORT_T'.
+      cs_detail-message      = zcm_scort=>get_text_by_key(
+                                 is_t100_key = zcm_scort=>target_initial_apply
+                                 iv_attr1    = CONV #( iv_object_type )
+                                 iv_attr2    = CONV #( iv_object_name ) ).
       RETURN.
     ENDIF.
 
@@ -479,10 +471,16 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
 
     IF cs_detail-source_hash = cs_detail-target_hash.
       cs_detail-status_code = 'IDENTICAL'.
-      cs_detail-message     = |Local Active vs ZA05 { ls_tgt-version_no }: identical|.
+      cs_detail-message     = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>hashes_identical
+                                iv_attr1    = CONV #( iv_object_type )
+                                iv_attr2    = CONV #( iv_object_name ) ).
     ELSE.
       cs_detail-status_code = 'DIFFERENT'.
-      cs_detail-message     = |Local Active vs ZA05 { ls_tgt-version_no }: different|.
+      cs_detail-message     = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>hashes_different
+                                iv_attr1    = CONV #( iv_object_type )
+                                iv_attr2    = CONV #( iv_object_name ) ).
     ENDIF.
   ENDMETHOD.
 

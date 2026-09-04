@@ -1,7 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_VH_QUERY
-*"* Value Help query provider with paging, sorting, and count handling.
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_vh_query DEFINITION
   PUBLIC
   FINAL
@@ -56,7 +52,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
 
     lv_sql = zcl_scort_query_utl=>get_filter_sql( io_request ).
 
-    " VH Trkorr
     IF lv_entity CS 'VH_TRKORR' OR lv_entity CS 'VHTRKORR'.
       DATA lt_trkorr TYPE STANDARD TABLE OF zc_scort_vh_trkorr WITH DEFAULT KEY.
       DATA ls_trkorr TYPE zc_scort_vh_trkorr.
@@ -119,7 +114,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH Object Type =====
     IF lv_entity CS 'VH_OBJ_TYPE' OR lv_entity CS 'VHOBJTYPE'.
       DATA lt_otype TYPE STANDARD TABLE OF zc_scort_vh_obj_type WITH DEFAULT KEY.
       lt_otype = VALUE #(
@@ -151,7 +145,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH Object Name =====
     IF lv_entity CS 'VH_OBJ_NAME' OR lv_entity CS 'VHOBJNAME'.
       DATA lt_oname TYPE STANDARD TABLE OF zc_scort_vh_obj_name WITH DEFAULT KEY.
       DATA ls_oname TYPE zc_scort_vh_obj_name.
@@ -301,7 +294,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH Compare Mode =====
     IF lv_entity CS 'VH_COMPARE_MODE' OR lv_entity CS 'VHCOMPAREMODE'
         OR ( lv_entity CS 'COMPAREMODE' AND lv_entity CS 'VH' ).
       DATA lt_mode TYPE STANDARD TABLE OF zc_scort_vh_compare_mode WITH DEFAULT KEY.
@@ -315,7 +307,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH Compare Status =====
     IF lv_entity CS 'VH_COMPARE_STATUS' OR lv_entity CS 'VHCOMPARESTATUS'
         OR ( lv_entity CS 'COMPARESTATUS' AND lv_entity CS 'VH' ).
       DATA lt_status TYPE STANDARD TABLE OF zc_scort_vh_compare_status WITH DEFAULT KEY.
@@ -332,7 +323,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH Server Type =====
     IF lv_entity CS 'VH_SERVER_TYPE' OR lv_entity CS 'VHSERVERTYPE'
         OR ( lv_entity CS 'SERVERTYPE' AND lv_entity CS 'VH' ).
       DATA lt_stype TYPE STANDARD TABLE OF zc_scort_vh_server_type WITH DEFAULT KEY.
@@ -345,7 +335,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH Server Id =====
     IF lv_entity CS 'VH_SERVER_ID' OR lv_entity CS 'VHSERVERID'
         OR ( lv_entity CS 'SERVERID' AND lv_entity CS 'VH' ).
       DATA lt_sid TYPE STANDARD TABLE OF zc_scort_vh_server_id WITH DEFAULT KEY.
@@ -360,7 +349,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH User / Person Responsible =====
     IF lv_entity CS 'VH_USER' OR lv_entity CS 'VHUSER'.
       DATA lt_user TYPE STANDARD TABLE OF zc_scort_vh_user WITH DEFAULT KEY.
       DATA ls_user TYPE zc_scort_vh_user.
@@ -372,7 +360,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       ENDIF.
 
       IF lv_pat IS NOT INITIAL.
-        " Exact
         SELECT bname FROM usr02 WHERE bname = @lv_pat INTO TABLE @DATA(lt_usr_exact) UP TO 5 ROWS.
         IF lt_usr_exact IS INITIAL AND strlen( lv_pat ) >= 2.
           lv_like = |{ lv_pat }%|.
@@ -405,7 +392,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== VH Package / Development Class =====
     IF lv_entity CS 'VH_PACKAGE' OR lv_entity CS 'VHPACKAGE'.
       DATA lt_pkg TYPE STANDARD TABLE OF zc_scort_vh_package WITH DEFAULT KEY.
       DATA ls_pkg TYPE zc_scort_vh_package.

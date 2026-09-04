@@ -1,10 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_VERSION_QUERY
-*"* REQ3 — danh sách Version cho Compare.
-*"*   ServerType = 'L' → VRSD / V_READER (+ Active 99998)
-*"*   ServerType = 'T' → ZA026_SCORT_REPO (Target simulator)
-*"* Cover đủ RAP: sort + paging + set_data/count.
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_version_query DEFINITION
   PUBLIC
   FINAL
@@ -104,7 +97,6 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
       DELETE lt_entity WHERE VersionNo <> ls_filter-version_no.
     ENDIF.
 
-    " Local VRSD: bỏ 00000 (nhãn UI SE80 không dùng)
     IF ls_filter-server_type <> c_server_target.
       DELETE lt_entity WHERE VersionNo = '00000' OR VersionNo IS INITIAL.
     ENDIF.
@@ -130,7 +122,6 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
     IF rs_filter-server_type IS INITIAL.
       rs_filter-server_type = c_server_local.
     ENDIF.
-    " Không dùng server_id — ZA05_SCORT_T single-tenant (field không có trong ty_filters).
   ENDMETHOD.
 
   METHOD read_local.

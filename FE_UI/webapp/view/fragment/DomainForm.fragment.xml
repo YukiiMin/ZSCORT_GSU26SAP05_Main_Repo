@@ -12,7 +12,7 @@
       <Text text="({adtDomain>/label})" class="sapUiTinyMarginBegin" visible="{= !!${adtDomain>/label} }" />
     </HBox>
 
-    <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+    <layout:Grid defaultSpan="L12 M12 S12" class="sapUiNoContentPadding">
       <!-- Section: Format -->
       <VBox class="sapUiTinyMargin">
         <Panel expandable="false" expanded="true" headerText="Format" class="sapUiNoContentPadding">

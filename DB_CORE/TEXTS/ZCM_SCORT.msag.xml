@@ -98,6 +98,96 @@
      <MSGNR>050</MSGNR>
      <TEXT>Internal processing error: &amp;1</TEXT>
     </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>060</MSGNR>
+     <TEXT>Object type &amp;1 is not supported.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>061</MSGNR>
+     <TEXT>Object &amp;1 &amp;2: Source code not found on local system.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>062</MSGNR>
+     <TEXT>Object &amp;1 &amp;2: Initial apply to Target repository.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>063</MSGNR>
+     <TEXT>Object &amp;1 &amp;2: Invalid or corrupted hex snapshot on Target.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>064</MSGNR>
+     <TEXT>Object &amp;1 &amp;2: Source and Target code hashes are identical.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>065</MSGNR>
+     <TEXT>Object &amp;1 &amp;2: Source and Target code hashes are different.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>066</MSGNR>
+     <TEXT>Transport Request &amp;1 not found in E070.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>067</MSGNR>
+     <TEXT>Transport Request &amp;1 status &amp;2 is not released.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>068</MSGNR>
+     <TEXT>Transport Request &amp;1 contains no comparable development objects.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>069</MSGNR>
+     <TEXT>Missing Transport Request parameter for action &amp;1.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>070</MSGNR>
+     <TEXT>Task &amp;1 released successfully. Merged to Request &amp;2.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>071</MSGNR>
+     <TEXT>&amp;1 is a subtask of &amp;2. Specify the parent request.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>072</MSGNR>
+     <TEXT>Transport Request &amp;1 is not a Workbench Request (type &amp;2).</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>073</MSGNR>
+     <TEXT>Release for &amp;1 is incomplete (status &amp;2, code &amp;3).</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>074</MSGNR>
+     <TEXT>Release dependent task &amp;1 first.</TEXT>
+    </T100>
    </T100>
   </asx:values>
  </asx:abap>

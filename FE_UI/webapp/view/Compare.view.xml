@@ -15,7 +15,11 @@
           <Title text="{detail>/ObjectType} {detail>/ObjectName}" />
         </f:heading>
         <f:navigationActions>
-          <Button icon="sap-icon://full-screen" type="Transparent" press=".onButtonFullScreenPress" tooltip="Toggle Full Screen" />
+          <Button
+            icon="{= ${appView>/layout} === 'EndColumnFullScreen' || ${appView>/layout} === 'MidColumnFullScreen' ? 'sap-icon://exit-full-screen' : 'sap-icon://full-screen' }"
+            type="Transparent"
+            press=".onButtonFullScreenPress"
+            tooltip="{= ${appView>/layout} === 'EndColumnFullScreen' || ${appView>/layout} === 'MidColumnFullScreen' ? 'Exit Full Screen' : 'Toggle Full Screen' }" />
           <Button icon="sap-icon://decline" type="Transparent" press=".onButtonCloseComparePress" tooltip="{i18n>btnClose}" />
         </f:navigationActions>
       </f:DynamicPageTitle>
@@ -82,7 +86,7 @@
                     width="100%"
                     vertical="true"
                     visible="{= !${detail>/isNotSupported} &amp;&amp; ${detail>/compareMode} === 'form' &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC') }">
-                    <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+                    <layout:Grid defaultSpan="{= ${detail>/sideBySideForm} === false ? 'L12 M12 S12' : 'L6 M12 S12' }" class="sapUiNoContentPadding">
                       <!-- Left Column: Local ADT Form -->
                       <VBox class="sapUiSmallMargin">
                         <HBox alignItems="Center" class="sapUiTinyMarginBottom">

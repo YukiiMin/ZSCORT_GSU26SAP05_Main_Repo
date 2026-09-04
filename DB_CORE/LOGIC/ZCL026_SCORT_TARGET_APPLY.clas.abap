@@ -14,11 +14,13 @@ CLASS zcl026_scort_target_apply DEFINITION
   PRIVATE SECTION.
     CLASS-METHODS normalize_object
       IMPORTING
-        iv_pgmid  TYPE e071-pgmid
-        iv_object TYPE e071-object
+        iv_pgmid    TYPE e071-pgmid
+        iv_object   TYPE e071-object
       EXPORTING
-        ev_pgmid  TYPE e071-pgmid
-        ev_object TYPE e071-object .
+        ev_pgmid    TYPE e071-pgmid
+        ev_object   TYPE e071-object
+      CHANGING
+        cv_obj_name TYPE e071-obj_name OPTIONAL.
 
     CLASS-METHODS calculate_checksum
       IMPORTING
@@ -44,7 +46,6 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
 
     ev_success = abap_false.
 
-    " 1. Đọc thông tin TR từ E070
     SELECT SINGLE trkorr, trfunction, trstatus, as4user, as4date, as4time, strkorr
       FROM e070
       WHERE trkorr = @iv_parent_trkorr
@@ -55,32 +56,36 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " --- RÀO CHẮN 1: CHẶN TASK CON (Chỉ chấp nhận TR Cha) ---
     IF ls_e070-strkorr IS NOT INITIAL OR ls_e070-trfunction = 'S' OR ls_e070-trfunction = 'Q'.
-      ev_message = |{ iv_parent_trkorr } là Task con (thuộc TR Cha { ls_e070-strkorr }). Vui lòng chỉ định và Apply TR Cha!|.
+      ev_message = zcm_scort=>get_text_by_key(
+                     is_t100_key = zcm_scort=>tr_is_subtask
+                     iv_attr1    = CONV #( iv_parent_trkorr )
+                     iv_attr2    = CONV #( ls_e070-strkorr ) ).
       RETURN.
     ENDIF.
 
-    " --- RÀO CHẮN 2: CHỈ XỬ LÝ WORKBENCH REQUEST (TRFUNCTION = 'K') ---
     IF ls_e070-trfunction <> 'K'.
-      ev_message = |Transport Request { iv_parent_trkorr } không phải là Workbench Request (Loại hiện tại: { ls_e070-trfunction }).|.
+      ev_message = zcm_scort=>get_text_by_key(
+                     is_t100_key = zcm_scort=>tr_not_workbench
+                     iv_attr1    = CONV #( iv_parent_trkorr )
+                     iv_attr2    = CONV #( ls_e070-trfunction ) ).
       RETURN.
     ENDIF.
 
-    " --- RÀO CHẮN 3: KIỂM TRA TRẠNG THÁI RELEASED (TRSTATUS = 'R' HOẶC 'N') ---
     IF ls_e070-trstatus <> 'R' AND ls_e070-trstatus <> 'N'.
-      ev_message = |Transport Request { iv_parent_trkorr } chưa được Release hoàn tất (Trạng thái hiện tại: { ls_e070-trstatus }).|.
+      ev_message = zcm_scort=>get_text_by_key(
+                     is_t100_key = zcm_scort=>tr_not_released
+                     iv_attr1    = CONV #( iv_parent_trkorr )
+                     iv_attr2    = CONV #( ls_e070-trstatus ) ).
       RETURN.
     ENDIF.
 
-    " Đọc Description của TR từ E07T
     SELECT SINGLE as4text
       FROM e07t
       WHERE trkorr = @iv_parent_trkorr
         AND langu  = @sy-langu
       INTO @DATA(lv_descript).
 
-    " 2. Đọc danh sách Object thô từ E071
     SELECT pgmid, object, obj_name
       FROM e071
       WHERE ( trkorr = @iv_parent_trkorr OR trkorr IN ( SELECT trkorr FROM e070 WHERE strkorr = @iv_parent_trkorr ) )
@@ -88,11 +93,12 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
       INTO TABLE @DATA(lt_raw_objects).
 
     IF lt_raw_objects IS INITIAL.
-      ev_message = |Không tìm thấy Object nào trong TR { iv_parent_trkorr } hoặc các Task con của nó.|.
+      ev_message = zcm_scort=>get_text_by_key(
+                     is_t100_key = zcm_scort=>tr_no_comparable_objs
+                     iv_attr1    = CONV #( iv_parent_trkorr ) ).
       RETURN.
     ENDIF.
 
-    " --- CHUẨN HÓA PGMID/OBJECT VÀ LỌC TRÙNG LẶP ---
     TYPES: BEGIN OF ty_object,
              pgmid    TYPE e071-pgmid,
              object   TYPE e071-object,
@@ -107,11 +113,13 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
 
       normalize_object(
         EXPORTING
-          iv_pgmid  = ls_raw-pgmid
-          iv_object = ls_raw-object
+          iv_pgmid    = ls_raw-pgmid
+          iv_object   = ls_raw-object
         IMPORTING
-          ev_pgmid  = ls_norm-pgmid
-          ev_object = ls_norm-object
+          ev_pgmid    = ls_norm-pgmid
+          ev_object   = ls_norm-object
+        CHANGING
+          cv_obj_name = ls_norm-obj_name
       ).
 
       APPEND ls_norm TO lt_objects.
@@ -122,7 +130,6 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
 
     GET TIME STAMP FIELD DATA(lv_timestamp).
 
-    " 3. DUYỆT TỪNG OBJECT ĐỂ ĐỌC SOURCE CODE & XỬ LÝ VERSION
     LOOP AT lt_objects INTO DATA(ls_obj).
 
       IF zcl_scort_l_reader=>is_supported( ls_obj-object ) = abap_false.
@@ -137,7 +144,6 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
-      " --- BỔ SUNG: ĐỌC PACKAGE (DEVCLASS) TỪ BẢNG TADIR ---
       SELECT SINGLE devclass
         FROM tadir
         WHERE pgmid    = @ls_obj-pgmid
@@ -145,12 +151,11 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
           AND obj_name = @ls_obj-obj_name
         INTO @DATA(lv_devclass).
 
-      " --- Áp dụng Rule 3 (Pre-Diff Adapter) trước khi tính Hash & GZIP ---
-      DATA(lt_norm) = zcl_scort_hash_utl=>text_to_lines( ls_src-text ).
-      lt_norm       = zcl_scort_hash_utl=>normalize_lines( lt_norm ).
-      DATA(lv_source) = zcl_scort_hash_utl=>lines_to_text( lt_norm ).
-
-      DATA(lv_checksum)   = calculate_checksum( lv_source ).
+      DATA(lv_source)   = ls_src-text.
+      DATA(lv_checksum) = ls_src-hash.
+      IF lv_checksum IS INITIAL.
+        lv_checksum = calculate_checksum( lv_source ).
+      ENDIF.
       DATA(lv_source_hex) = compress_source( lv_source ).
       DATA(lv_preview)    = COND char255( WHEN strlen( lv_source ) > 255 THEN lv_source(255) ELSE lv_source ).
 
@@ -165,12 +170,11 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
             ls_src_detail  TYPE za05_scort_t_src.
 
       IF sy-subrc <> 0.
-        " --- TRƯỜNG HỢP 1: TẠO MỚI OBJECT (Khởi tạo Version 1) ---
         ls_new_catalog-client          = sy-mandt.
         ls_new_catalog-pgmid           = ls_obj-pgmid.
         ls_new_catalog-object          = ls_obj-object.
         ls_new_catalog-obj_name        = ls_obj-obj_name.
-        ls_new_catalog-devclass        = lv_devclass. " <-- Đã cập nhật Package
+        ls_new_catalog-devclass        = lv_devclass.
         ls_new_catalog-author          = ls_e070-as4user.
         ls_new_catalog-descript        = lv_descript.
         ls_new_catalog-current_version = 1.
@@ -199,7 +203,6 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         lv_changed_count = lv_changed_count + 1.
 
       ELSE.
-        " --- ĐÃ TỒN TẠI -> SO SÁNH CHECKSUM VỚI CURRENT VERSION ---
         SELECT SINGLE src_hash
           FROM za05_scort_t_src
           WHERE pgmid      = @ls_catalog-pgmid
@@ -209,15 +212,13 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
           INTO @DATA(lv_current_hash).
 
         IF lv_checksum = lv_current_hash.
-          " --- TRƯỜNG HỢP 2: CODE KHÔNG ĐỔI -> GIỮ NGUYÊN VERSION & DATA ---
           lv_unchanged_count = lv_unchanged_count + 1.
 
         ELSE.
-          " --- TRƯỜNG HỢP 3: CODE CÓ THAY ĐỔI -> TĂNG VERSION + 1 ---
           DATA(lv_next_ver) = ls_catalog-current_version + 1.
 
           ls_new_catalog                 = ls_catalog.
-          ls_new_catalog-devclass        = lv_devclass. " <-- Cập nhật lại Package nếu có thay đổi
+          ls_new_catalog-devclass        = lv_devclass.
           ls_new_catalog-current_version = lv_next_ver.
           ls_new_catalog-changed_by      = sy-uname.
           ls_new_catalog-changed_at      = sy-datum.
@@ -249,10 +250,8 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
 
     ENDLOOP.
 
-    " 4. CẬP NHẬT DATABASE
     IF lt_catalog_modify IS NOT INITIAL OR lt_src_insert IS NOT INITIAL.
 
-      " INSERT array → DBSQL_DUPLICATE_KEY_ERROR khi Apply lại — dùng MODIFY (upsert).
       TRY.
           IF lt_catalog_modify IS NOT INITIAL.
             MODIFY za05_scort_t FROM TABLE @lt_catalog_modify.
@@ -285,14 +284,23 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
     ev_object = iv_object.
 
     IF iv_pgmid = 'LIMU'.
-      ev_pgmid = 'R3TR'.
       CASE iv_object.
-        WHEN 'REPS' OR 'REPT'.
-          ev_object = 'PROG'.
         WHEN 'FUNC'.
-          ev_object = 'FUGR'.
-        WHEN 'CPUB' OR 'CPRI' OR 'CPRO' OR 'CLSD' OR 'METH'.
+          ev_pgmid  = 'LIMU'.
+          ev_object = 'FUNC'.
+        WHEN 'REPS' OR 'REPT'.
+          ev_pgmid  = 'R3TR'.
+          ev_object = 'PROG'.
+        WHEN 'CPUB' OR 'CPRI' OR 'CPRO' OR 'CLSD'.
+          ev_pgmid  = 'R3TR'.
           ev_object = 'CLAS'.
+        WHEN 'METH'.
+          ev_pgmid  = 'R3TR'.
+          ev_object = 'CLAS'.
+          IF cv_obj_name IS SUPPLIED AND strlen( cv_obj_name ) > 30.
+            cv_obj_name = cv_obj_name(30).
+            CONDENSE cv_obj_name.
+          ENDIF.
       ENDCASE.
     ENDIF.
   ENDMETHOD.
@@ -326,16 +334,19 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    TRY.
-        cl_abap_gzip=>compress_text(
-          EXPORTING
-            text_in  = iv_source
-          IMPORTING
-            gzip_out = rv_source_hex
-        ).
-      CATCH cx_root.
-        CLEAR rv_source_hex.
-    ENDTRY.
+    rv_source_hex = zcl_scort_compression_utl=>encode_text_to_hex( iv_source ).
+    IF rv_source_hex IS INITIAL.
+      TRY.
+          cl_abap_gzip=>compress_text(
+            EXPORTING
+              text_in  = iv_source
+            IMPORTING
+              gzip_out = rv_source_hex
+          ).
+        CATCH cx_root.
+          CLEAR rv_source_hex.
+      ENDTRY.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

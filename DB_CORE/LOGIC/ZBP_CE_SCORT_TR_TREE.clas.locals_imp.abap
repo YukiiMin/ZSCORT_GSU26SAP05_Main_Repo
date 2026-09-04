@@ -27,7 +27,6 @@ ENDCLASS.
 CLASS lhc_TrTree IMPLEMENTATION.
 
   METHOD extract_trkorr.
-    " FE gửi TrTree('S40K…') — NodeId ≈ Trkorr (có thể pad space do CHAR40).
     DATA lv TYPE c LENGTH 40.
     lv = iv_node_id.
     rv_trkorr = lv(20).
@@ -35,7 +34,6 @@ CLASS lhc_TrTree IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD msg.
-    " Không dùng message class ZSCORT/000 (thường không tồn tại → dump).
     TRY.
         ro_msg = new_message_with_text( severity = iv_severity text = CONV string( iv_text ) ).
       CATCH cx_root.
@@ -57,21 +55,17 @@ CLASS lhc_TrTree IMPLEMENTATION.
 
       lt_nodes = zcl_scort_tr_tree_query=>build_tree( iv_trkorr = lv_trkorr ).
 
-      " 1) Exact NodeId
       READ TABLE lt_nodes ASSIGNING FIELD-SYMBOL(<node>)
         WITH KEY node_id = <key>-NodeId.
-      " 2) Fallback: TR header của Trkorr
       IF sy-subrc <> 0.
         READ TABLE lt_nodes ASSIGNING <node>
           WITH KEY node_type = 'TR' trkorr = lv_trkorr.
       ENDIF.
-      " 3) Fallback: bất kỳ node cùng Trkorr
       IF sy-subrc <> 0.
         READ TABLE lt_nodes ASSIGNING <node>
           WITH KEY trkorr = lv_trkorr.
       ENDIF.
       IF sy-subrc <> 0.
-        " Synthesize minimal row so action key resolution does not dump
         ls_result-NodeId   = <key>-NodeId.
         ls_result-Trkorr   = lv_trkorr.
         ls_result-NodeType = 'TR'.
@@ -93,7 +87,6 @@ CLASS lhc_TrTree IMPLEMENTATION.
       ls_result-ObjName      = <node>-obj_name.
       ls_result-ObjType      = <node>-obj_type.
       ls_result-Pgmid        = <node>-pgmid.
-      " Trả đúng key FE gửi để %tky khớp
       ls_result-NodeId = <key>-NodeId.
       APPEND ls_result TO result.
     ENDLOOP.
@@ -117,7 +110,6 @@ CLASS lhc_TrTree IMPLEMENTATION.
       IF lv_status = 'R'.
         lv_release = if_abap_behv=>fc-o-disabled.
       ELSEIF lv_status IS NOT INITIAL.
-        " Chưa Release → chưa Apply
         lv_apply = if_abap_behv=>fc-o-disabled.
       ENDIF.
 
@@ -128,9 +120,6 @@ CLASS lhc_TrTree IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD ReleaseRequest.
-    " Logic Release = ZCL026_SCORT_RELEASE_SERVICE (trong FM LOCAL).
-    " Không gọi class trực tiếp từ RAP — CTS/AUTH RAISE/COMMIT → dump
-    " BEHAVIOR_ILLEGAL_STATEMENT. FM + DESTINATION 'NONE' = LUW riêng.
     DATA lv_trkorr  TYPE e070-trkorr.
     DATA lv_ok      TYPE abap_bool.
     DATA lv_msg     TYPE string.
@@ -146,11 +135,12 @@ CLASS lhc_TrTree IMPLEMENTATION.
         APPEND VALUE #( %tky = <key>-%tky ) TO failed-trtree.
         APPEND VALUE #( %tky = <key>-%tky
                         %msg = msg( iv_severity = if_abap_behv_message=>severity-error
-                                    iv_text = 'Missing TR number' ) ) TO reported-trtree.
+                                    iv_text = zcm_scort=>get_text_by_key(
+                                                is_t100_key = zcm_scort=>missing_tr_param
+                                                iv_attr1    = 'ReleaseRequest' ) ) ) TO reported-trtree.
         CONTINUE.
       ENDIF.
 
-      " TR cha: bắt release hết task trước (SAP + UI rule)
       CLEAR: lv_str, lv_task.
       SELECT SINGLE strkorr FROM e070 WHERE trkorr = @lv_trkorr INTO @lv_str.
       IF sy-subrc = 0 AND lv_str IS INITIAL.
@@ -161,13 +151,14 @@ CLASS lhc_TrTree IMPLEMENTATION.
           APPEND VALUE #( %tky = <key>-%tky ) TO failed-trtree.
           APPEND VALUE #( %tky = <key>-%tky
                           %msg = msg( iv_severity = if_abap_behv_message=>severity-error
-                                      iv_text = |Release task { lv_task } first| ) ) TO reported-trtree.
+                                      iv_text = zcm_scort=>get_text_by_key(
+                                                  is_t100_key = zcm_scort=>release_task_first
+                                                  iv_attr1    = CONV #( lv_task ) ) ) ) TO reported-trtree.
           CONTINUE.
         ENDIF.
       ENDIF.
 
       CLEAR: lv_ok, lv_msg, lv_status, lv_fm_ok, lv_fm_msg.
-      " MESSAGE = text từ system_failure (FM thiếu / chưa RFC / dump trong FM)
       CALL FUNCTION 'Z_SCORT_TR_RELEASE_LOCAL'
         DESTINATION 'NONE'
         EXPORTING
@@ -186,19 +177,20 @@ CLASS lhc_TrTree IMPLEMENTATION.
         IF lv_fm_msg IS INITIAL.
           lv_fm_msg = |subrc { sy-subrc }|.
         ENDIF.
-        " 1 = system_failure: thường FM chưa có / chưa Remote-Enabled / dump ST22 trong FM
-        lv_msg = |Release LUW failed: { lv_fm_msg }. SE37: Z_SCORT_TR_RELEASE_LOCAL → Attributes → Remote-Enabled + Activate. ST22 nếu dump|.
+        lv_msg = |Release LUW failed: { lv_fm_msg }|.
       ELSE.
         lv_ok  = xsdbool( lv_fm_ok = abap_true OR lv_fm_ok = 'X' ).
         lv_msg = CONV string( lv_fm_msg ).
       ENDIF.
 
       SELECT SINGLE trstatus FROM e070 WHERE trkorr = @lv_trkorr INTO @lv_status.
-      " R/N = xong; O = đang export (vẫn coi release đã nhận — không downgrade thành fail)
       IF lv_ok = abap_true AND lv_status <> 'R' AND lv_status <> 'N' AND lv_status <> 'O'.
         lv_ok = abap_false.
         IF lv_msg IS INITIAL.
-          lv_msg = |Release did not complete (status still { lv_status })|.
+          lv_msg = zcm_scort=>get_text_by_key(
+                     is_t100_key = zcm_scort=>release_incomplete
+                     iv_attr1    = CONV #( lv_trkorr )
+                     iv_attr2    = CONV #( lv_status ) ).
         ENDIF.
       ENDIF.
 
@@ -206,7 +198,9 @@ CLASS lhc_TrTree IMPLEMENTATION.
         APPEND VALUE #( %tky = <key>-%tky
                         %msg = msg( iv_severity = if_abap_behv_message=>severity-success
                                     iv_text = COND #( WHEN lv_msg IS NOT INITIAL THEN lv_msg
-                                                     ELSE |Released { lv_trkorr }| ) ) ) TO reported-trtree.
+                                                     ELSE zcm_scort=>get_text_by_key(
+                                                            is_t100_key = zcm_scort=>tr_released_success
+                                                            iv_attr1    = CONV #( lv_trkorr ) ) ) ) ) TO reported-trtree.
         APPEND VALUE #( %tky = <key>-%tky
                         %param = VALUE #( NodeId = <key>-NodeId
                                           Trkorr = lv_trkorr
@@ -217,15 +211,14 @@ CLASS lhc_TrTree IMPLEMENTATION.
         APPEND VALUE #( %tky = <key>-%tky
                         %msg = msg( iv_severity = if_abap_behv_message=>severity-error
                                     iv_text = COND #( WHEN lv_msg IS NOT INITIAL THEN lv_msg
-                                                     ELSE |Release failed: { lv_trkorr }| ) ) ) TO reported-trtree.
+                                                     ELSE zcm_scort=>get_text_by_key(
+                                                            is_t100_key = zcm_scort=>release_failed
+                                                            iv_attr1    = CONV #( lv_trkorr ) ) ) ) ) TO reported-trtree.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.
 
   METHOD ApplyToTarget.
-    " Logic = ZCL026_SCORT_TARGET_APPLY (có COMMIT WORK).
-    " Không gọi class trực tiếp từ BDEF → dump BEHAVIOR_ILLEGAL_STATEMENT.
-    " FM Z_SCORT_TR_APPLY_LOCAL DESTINATION 'NONE' = LUW riêng.
     DATA lv_trkorr TYPE e070-trkorr.
     DATA lv_ok     TYPE abap_bool.
     DATA lv_msg    TYPE string.
@@ -238,7 +231,9 @@ CLASS lhc_TrTree IMPLEMENTATION.
         APPEND VALUE #( %tky = <key>-%tky ) TO failed-trtree.
         APPEND VALUE #( %tky = <key>-%tky
                         %msg = msg( iv_severity = if_abap_behv_message=>severity-error
-                                    iv_text = 'Missing TR for ApplyToTarget' ) ) TO reported-trtree.
+                                    iv_text = zcm_scort=>get_text_by_key(
+                                                is_t100_key = zcm_scort=>missing_tr_param
+                                                iv_attr1    = 'ApplyToTarget' ) ) ) TO reported-trtree.
         CONTINUE.
       ENDIF.
 
@@ -260,7 +255,7 @@ CLASS lhc_TrTree IMPLEMENTATION.
         IF lv_fm_msg IS INITIAL.
           lv_fm_msg = |subrc { sy-subrc }|.
         ENDIF.
-        lv_msg = |Apply LUW failed: { lv_fm_msg }. SE37: Z_SCORT_TR_APPLY_LOCAL Remote-Enabled + Activate|.
+        lv_msg = |Apply LUW failed: { lv_fm_msg }|.
       ELSE.
         lv_ok  = xsdbool( lv_fm_ok = abap_true OR lv_fm_ok = 'X' ).
         lv_msg = CONV string( lv_fm_msg ).
@@ -270,7 +265,9 @@ CLASS lhc_TrTree IMPLEMENTATION.
         APPEND VALUE #( %tky = <key>-%tky
                         %msg = msg( iv_severity = if_abap_behv_message=>severity-success
                                     iv_text = COND #( WHEN lv_msg IS NOT INITIAL THEN lv_msg
-                                                     ELSE |Apply OK { lv_trkorr }| ) ) ) TO reported-trtree.
+                                                     ELSE zcm_scort=>get_text_by_key(
+                                                            is_t100_key = zcm_scort=>target_apply_started
+                                                            iv_attr1    = CONV #( lv_trkorr ) ) ) ) ) TO reported-trtree.
         APPEND VALUE #( %tky = <key>-%tky
                         %param = VALUE #( NodeId = <key>-NodeId
                                           Trkorr = lv_trkorr
@@ -281,7 +278,9 @@ CLASS lhc_TrTree IMPLEMENTATION.
         APPEND VALUE #( %tky = <key>-%tky
                         %msg = msg( iv_severity = if_abap_behv_message=>severity-error
                                     iv_text = COND #( WHEN lv_msg IS NOT INITIAL THEN lv_msg
-                                                     ELSE |Apply failed for { lv_trkorr }| ) ) ) TO reported-trtree.
+                                                     ELSE zcm_scort=>get_text_by_key(
+                                                            is_t100_key = zcm_scort=>internal_error
+                                                            iv_attr1    = |Apply failed for { lv_trkorr }| ) ) ) ) TO reported-trtree.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.

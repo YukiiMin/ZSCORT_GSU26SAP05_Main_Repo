@@ -1,9 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_QUERY_UTL
-*"* Helper dùng chung cho các RAP Query Provider của REQ3.
-*"* Bóc giá trị filter từ IF_RAP_QUERY_REQUEST (OData V4 $filter).
-*"* Activate class này TRƯỚC mọi ZCL_SCORT_*_QUERY.
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_query_utl DEFINITION
   PUBLIC
   FINAL
@@ -24,7 +18,6 @@ CLASS zcl_scort_query_utl DEFINITION
       RETURNING
         VALUE(rv_value) TYPE string.
 
-    "! Ưu tiên get_as_ranges; fallback SQL (= / EQ / LIKE).
     CLASS-METHODS filter_low
       IMPORTING
         io_request      TYPE REF TO if_rap_query_request
@@ -32,7 +25,6 @@ CLASS zcl_scort_query_utl DEFINITION
       RETURNING
         VALUE(rv_value) TYPE string.
 
-    "! Cover đầy đủ RAP: sort + paging + set_data/count (đúng flag).
     CLASS-METHODS respond
       IMPORTING
         io_request  TYPE REF TO if_rap_query_request
@@ -40,7 +32,6 @@ CLASS zcl_scort_query_utl DEFINITION
       CHANGING
         ct_data     TYPE STANDARD TABLE.
 
-    "! Ghi response rỗng (không truyền table generic — tránh lỗi activate).
     CLASS-METHODS respond_empty
       IMPORTING
         io_request  TYPE REF TO if_rap_query_request
@@ -93,7 +84,6 @@ CLASS zcl_scort_query_utl IMPLEMENTATION.
     lv_upper = to_upper( iv_sql ).
     lv_field = to_upper( iv_field ).
 
-    " = / EQ / LIKE (FE typeahead hay dùng LIKE)
     FIND |{ lv_field } =| IN lv_upper MATCH OFFSET lv_pos.
     IF sy-subrc = 0.
       lv_op_len = 1.
@@ -258,7 +248,6 @@ CLASS zcl_scort_query_utl IMPLEMENTATION.
         lv_count_req = abap_true.
     ENDTRY.
 
-    " Chỉ gọi set_* khi FE xin — gọi thừa → "feature is not implemented"
     IF lv_data_req = abap_true.
       TRY.
           io_response->set_data( <lt_page> ).

@@ -1,15 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_V_READER
-*"* TH2 — Version History (read-only)
-*"* UI   : SVRS_DISPLAY_VERSION (giống SE80 Version Management)
-*"* List : VRSD only for CLAS (CPUB/METH…) — no GET_VERSION_LIST
-*"* Read :
-*"*   PROG/REPS     → SVRS_GET_REPS_FROM_OBJECT / SVRS_GET_VERSION_REPS
-*"*   CLAS          → =====CS else ghép CU/CO/CI + locals + CMxxx
-*"*   INTF          → INTF / =====IP / INTFSEC
-*"*   FUNC          → SVRS_GET_VERSION_FUNC
-*"*   FUGR          → SVRS_GET_REPS_FROM_OBJECT
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_v_reader DEFINITION
   PUBLIC
   FINAL
@@ -66,7 +54,6 @@ CLASS zcl_scort_v_reader DEFINITION
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
-    " Mở màn hình Version Management chuẩn SAP (click chọn version)
     CLASS-METHODS display_versions
       IMPORTING
         iv_object_type TYPE csequence
@@ -92,13 +79,10 @@ CLASS zcl_scort_v_reader DEFINITION
         ev_ok          TYPE abap_bool
         ev_message     TYPE string.
 
-
-
     CLASS-METHODS list_clas_versions
       IMPORTING iv_object_name TYPE csequence
       RETURNING VALUE(rt_vrsd) TYPE tt_vrsd.
 
-    "! List giống Version Management (SVRS_GET_VERSION_DIRECTORY_46)
     CLASS-METHODS read_version_directory
       IMPORTING
         iv_vrs_type    TYPE vrsd-objtype
@@ -143,7 +127,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     lv_vrs_type = map_vrs_objtype( iv_object_type ).
     lv_objname  = CONV vrsd-objname( iv_object_name ).
 
-    " Ưu tiên FM directory (cùng nguồn list Version Management / ADT)
     lt_vrsd = read_version_directory(
                 iv_vrs_type   = lv_vrs_type
                 iv_object_name = CONV sobj_name( lv_objname ) ).
@@ -181,12 +164,11 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " Dedup theo VERSNO (FM / SELECT có thể trùng)
     DATA lt_seen TYPE SORTED TABLE OF versno WITH UNIQUE KEY table_line.
     DATA lv_label TYPE string.
     LOOP AT lt_vrsd INTO DATA(ls_vrsd).
       IF ls_vrsd-versno IS INITIAL OR ls_vrsd-versno = '00000'.
-        CONTINUE. " kỹ thuật — SE80 không đếm là version 1…
+        CONTINUE.
       ENDIF.
       INSERT ls_vrsd-versno INTO TABLE lt_seen.
       IF sy-subrc <> 0.
@@ -236,7 +218,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD display_versions.
-    " Cùng FM mà SE80 / Version Management dùng (ảnh 4)
     DATA lv_pgmid  TYPE e071-pgmid.
     DATA lv_object TYPE e071-object.
     DATA lv_name   TYPE e071-obj_name.
@@ -266,7 +247,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     CLEAR rt_vrsd.
     lv_objname = CONV vrsd-objname( iv_object_name ).
 
-    " Cùng directory mà Version Management dùng (đủ VERSNO hơn SELECT VRSD thuần)
     TRY.
         CALL FUNCTION 'SVRS_GET_VERSION_DIRECTORY_46'
           EXPORTING
@@ -293,7 +273,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD list_clas_versions.
-    " Only VRSD — no GET_VERSION_LIST / SVRS_VERSIONABLE_OBJECTS (type conflict on S40).
     DATA ls_keep    TYPE vrsd.
     DATA lt_raw     TYPE tt_vrsd.
     DATA lv_pattern TYPE vrsd-objname.
@@ -395,7 +374,7 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
     CLEAR: et_lines, ev_ok, ev_message.
 
-    ls_object-objtype = iv_vrs_type. " SVRS expects VRSD objtype (CLAS, INTF, FUNC, REPS)
+    ls_object-objtype = iv_vrs_type.
     ls_object-objname = CONV #( iv_object_name ).
     ls_object-versno  = iv_version_no.
 
@@ -408,6 +387,32 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
         OTHERS             = 3.
 
     IF sy-subrc <> 0.
+      IF iv_object_type = 'PROG' OR iv_vrs_type = 'REPS'.
+        DATA lt_fallback_reps TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
+        DATA lv_pname TYPE programm.
+        lv_pname = CONV #( iv_object_name ).
+        TRY.
+            CALL FUNCTION 'SVRS_GET_VERSION_REPS'
+              EXPORTING
+                progname = lv_pname
+                versno   = iv_version_no
+              TABLES
+                texttab  = lt_fallback_reps
+              EXCEPTIONS
+                OTHERS   = 1.
+            IF sy-subrc = 0 AND lt_fallback_reps IS NOT INITIAL.
+              extract_text_from_any( EXPORTING is_any = lt_fallback_reps CHANGING ct_lines = et_lines ).
+              IF et_lines IS NOT INITIAL.
+                ev_ok = abap_true.
+                ev_message = |PROG via SVRS_GET_VERSION_REPS ({ lines( et_lines ) } lines)|.
+                et_lines = zcl_scort_hash_utl=>normalize_lines( et_lines ).
+                RETURN.
+              ENDIF.
+            ENDIF.
+          CATCH cx_root.
+        ENDTRY.
+      ENDIF.
+
       ev_ok = abap_false.
       ev_message = |SVRS_GET_VERSION failed for { iv_object_name } vers { iv_version_no } (Subrc: { sy-subrc })|.
       RETURN.
@@ -415,7 +420,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
     ev_ok = abap_true.
 
-    " Parse Deep Structure to String Tab dynamically based on type
     CASE iv_vrs_type.
       WHEN 'CLAS'.
         ASSIGN COMPONENT 'CPUB' OF STRUCTURE ls_object TO <ls_sub>.
@@ -469,7 +473,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
         ev_message = |{ iv_vrs_type } via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
     ENDCASE.
 
-    " Fallback: if lines empty, try reading REPS component
     IF et_lines IS INITIAL.
       ASSIGN COMPONENT 'REPS' OF STRUCTURE ls_object TO <ls_sub>.
       IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
@@ -477,57 +480,151 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " Normalize (Pre-Diff Adapter)
+    IF et_lines IS INITIAL AND ( iv_object_type = 'PROG' OR iv_vrs_type = 'REPS' ).
+      DATA lt_repotext TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
+      TRY.
+          CALL FUNCTION 'SVRS_GET_REPS_FROM_OBJECT'
+            EXPORTING
+              object   = ls_object
+            TABLES
+              repotext = lt_repotext
+            EXCEPTIONS
+              OTHERS   = 1.
+          IF sy-subrc = 0 AND lt_repotext IS NOT INITIAL.
+            extract_text_from_any( EXPORTING is_any = lt_repotext CHANGING ct_lines = et_lines ).
+          ENDIF.
+        CATCH cx_root.
+      ENDTRY.
+    ENDIF.
+
+    IF et_lines IS INITIAL AND ( iv_object_type = 'PROG' OR iv_vrs_type = 'REPS' ).
+      DATA lt_vrs_reps2 TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
+      DATA lv_progname2 TYPE programm.
+      lv_progname2 = CONV #( iv_object_name ).
+      TRY.
+          CALL FUNCTION 'SVRS_GET_VERSION_REPS'
+            EXPORTING
+              progname = lv_progname2
+              versno   = iv_version_no
+            TABLES
+              texttab  = lt_vrs_reps2
+            EXCEPTIONS
+              OTHERS   = 1.
+          IF sy-subrc = 0 AND lt_vrs_reps2 IS NOT INITIAL.
+            extract_text_from_any( EXPORTING is_any = lt_vrs_reps2 CHANGING ct_lines = et_lines ).
+          ENDIF.
+        CATCH cx_root.
+      ENDTRY.
+    ENDIF.
+
+    IF et_lines IS INITIAL AND iv_vrs_type = 'FUNC'.
+      DATA lt_vrs_func TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
+      TRY.
+          CALL FUNCTION 'SVRS_GET_VERSION_FUNC'
+            EXPORTING
+              funcname = CONV rs38l_fnam( iv_object_name )
+              versno   = iv_version_no
+            TABLES
+              texttab  = lt_vrs_func
+            EXCEPTIONS
+              OTHERS   = 1.
+          IF sy-subrc = 0 AND lt_vrs_func IS NOT INITIAL.
+            extract_text_from_any( EXPORTING is_any = lt_vrs_func CHANGING ct_lines = et_lines ).
+          ENDIF.
+        CATCH cx_root.
+      ENDTRY.
+    ENDIF.
+
     et_lines = zcl_scort_hash_utl=>normalize_lines( et_lines ).
   ENDMETHOD.
 
   METHOD extract_text_from_any.
+    DATA lo_type       TYPE REF TO cl_abap_typedescr.
+    DATA lo_struct     TYPE REF TO cl_abap_structdescr.
+    DATA lo_comp_descr TYPE REF TO cl_abap_typedescr.
+    DATA lo_row_descr  TYPE REF TO cl_abap_typedescr.
+    DATA lt_comp_names TYPE string_table.
+    DATA lv_str        TYPE string.
+    DATA lt_split      TYPE string_table.
     FIELD-SYMBOLS <lt_table> TYPE ANY TABLE.
     FIELD-SYMBOLS <ls_row>   TYPE any.
     FIELD-SYMBOLS <lv_val>   TYPE any.
+    FIELD-SYMBOLS <lv_comp>  TYPE any.
 
-    " Case 1: is_any is already an internal table
-    ASSIGN is_any TO <lt_table>.
-    IF sy-subrc = 0.
-      LOOP AT <lt_table> ASSIGNING <ls_row>.
-        ASSIGN COMPONENT 'LINE' OF STRUCTURE <ls_row> TO <lv_val>.
-        IF sy-subrc = 0.
-          APPEND CONV string( <lv_val> ) TO ct_lines.
-        ELSE.
-          APPEND CONV string( <ls_row> ) TO ct_lines.
-        ENDIF.
-      ENDLOOP.
+    IF is_any IS INITIAL.
       RETURN.
     ENDIF.
 
-    " Case 2: is_any is a structure containing the table
-    ASSIGN COMPONENT 'ABAPTEXT' OF STRUCTURE is_any TO <lt_table>.
-    IF sy-subrc <> 0.
-      ASSIGN COMPONENT 'ABAPTXT' OF STRUCTURE is_any TO <lt_table>.
-    ENDIF.
-    IF sy-subrc <> 0.
-      ASSIGN COMPONENT 'SOURCE' OF STRUCTURE is_any TO <lt_table>.
-    ENDIF.
-    IF sy-subrc <> 0.
-      ASSIGN COMPONENT 'TEXT' OF STRUCTURE is_any TO <lt_table>.
-    ENDIF.
-    IF sy-subrc <> 0.
-      ASSIGN COMPONENT 'LINES' OF STRUCTURE is_any TO <lt_table>.
-    ENDIF.
-    IF sy-subrc <> 0.
-      ASSIGN COMPONENT 'DELTA' OF STRUCTURE is_any TO <lt_table>.
-    ENDIF.
+    lo_type = cl_abap_typedescr=>describe_by_data( is_any ).
 
-    IF sy-subrc = 0 AND <lt_table> IS ASSIGNED.
-      LOOP AT <lt_table> ASSIGNING <ls_row>.
-        ASSIGN COMPONENT 'LINE' OF STRUCTURE <ls_row> TO <lv_val>.
-        IF sy-subrc = 0.
-          APPEND CONV string( <lv_val> ) TO ct_lines.
-        ELSE.
-          APPEND CONV string( <ls_row> ) TO ct_lines.
+    CASE lo_type->kind.
+      WHEN cl_abap_typedescr=>kind_table.
+        ASSIGN is_any TO <lt_table>.
+        IF sy-subrc = 0 AND <lt_table> IS ASSIGNED.
+          LOOP AT <lt_table> ASSIGNING <ls_row>.
+            lo_row_descr = cl_abap_typedescr=>describe_by_data( <ls_row> ).
+            IF lo_row_descr->kind = cl_abap_typedescr=>kind_struct.
+              ASSIGN COMPONENT 'LINE' OF STRUCTURE <ls_row> TO <lv_val>.
+              IF sy-subrc <> 0.
+                ASSIGN COMPONENT 'TEXT' OF STRUCTURE <ls_row> TO <lv_val>.
+              ENDIF.
+              IF sy-subrc <> 0.
+                ASSIGN COMPONENT 1 OF STRUCTURE <ls_row> TO <lv_val>.
+              ENDIF.
+              IF sy-subrc = 0 AND <lv_val> IS ASSIGNED.
+                APPEND CONV string( <lv_val> ) TO ct_lines.
+              ENDIF.
+            ELSE.
+              APPEND CONV string( <ls_row> ) TO ct_lines.
+            ENDIF.
+          ENDLOOP.
         ENDIF.
-      ENDLOOP.
-    ENDIF.
+
+      WHEN cl_abap_typedescr=>kind_struct.
+        lo_struct = CAST cl_abap_structdescr( lo_type ).
+        lt_comp_names = VALUE #( ( `SOURCE` ) ( `ABAPTEXT` ) ( `ABAPTXT` ) ( `TEXT` ) ( `LINES` ) ( `DELTA` ) ).
+        LOOP AT lt_comp_names INTO DATA(lv_cname).
+          ASSIGN COMPONENT lv_cname OF STRUCTURE is_any TO <lv_comp>.
+          IF sy-subrc = 0 AND <lv_comp> IS ASSIGNED AND <lv_comp> IS NOT INITIAL.
+            lo_comp_descr = cl_abap_typedescr=>describe_by_data( <lv_comp> ).
+            IF lo_comp_descr->kind = cl_abap_typedescr=>kind_table.
+              extract_text_from_any( EXPORTING is_any = <lv_comp> CHANGING ct_lines = ct_lines ).
+              IF ct_lines IS NOT INITIAL.
+                RETURN.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+        ENDLOOP.
+
+        LOOP AT lo_struct->components INTO DATA(ls_comp).
+          ASSIGN COMPONENT ls_comp-name OF STRUCTURE is_any TO <lv_comp>.
+          IF sy-subrc = 0 AND <lv_comp> IS ASSIGNED AND <lv_comp> IS NOT INITIAL.
+            lo_comp_descr = cl_abap_typedescr=>describe_by_data( <lv_comp> ).
+            IF lo_comp_descr->kind = cl_abap_typedescr=>kind_table.
+              extract_text_from_any( EXPORTING is_any = <lv_comp> CHANGING ct_lines = ct_lines ).
+              IF ct_lines IS NOT INITIAL.
+                RETURN.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+        ENDLOOP.
+
+      WHEN cl_abap_typedescr=>kind_elem.
+        lv_str = CONV string( is_any ).
+        IF lv_str CS cl_abap_char_utilities=>cr_lf.
+          SPLIT lv_str AT cl_abap_char_utilities=>cr_lf INTO TABLE lt_split.
+        ELSEIF lv_str CS cl_abap_char_utilities=>newline.
+          SPLIT lv_str AT cl_abap_char_utilities=>newline INTO TABLE lt_split.
+        ELSE.
+          APPEND lv_str TO ct_lines.
+          RETURN.
+        ENDIF.
+        LOOP AT lt_split INTO DATA(lv_sline).
+          APPEND lv_sline TO ct_lines.
+        ENDLOOP.
+
+      WHEN OTHERS.
+    ENDCASE.
   ENDMETHOD.
 
 ENDCLASS.

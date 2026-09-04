@@ -13,8 +13,6 @@ CLASS zcl_scort_tr_cmp_query DEFINITION
         trkorr         TYPE trkorr,
         object_type    TYPE trobjtype,
         object_name    TYPE sobj_name,
-        " IDENTICAL | DIFFERENT | NEW_AT_TARGET | NOT_SUPPORTED
-        " | SOURCE_MISSING | BAD_HEX
         compare_status TYPE c LENGTH 20,
         origin_hash    TYPE c LENGTH 40,
         target_hash    TYPE c LENGTH 40,
@@ -24,7 +22,6 @@ CLASS zcl_scort_tr_cmp_query DEFINITION
       END OF ty_master_row,
       tt_master TYPE STANDARD TABLE OF ty_master_row WITH DEFAULT KEY.
 
-    "! Quét toàn bộ object R3TR của TR (kèm Task con) và tính badge.
     CLASS-METHODS scan_tr
       IMPORTING
         iv_trkorr        TYPE trkorr
@@ -33,7 +30,6 @@ CLASS zcl_scort_tr_cmp_query DEFINITION
       RETURNING
         VALUE(rt_rows)   TYPE tt_master.
 
-    "! Badge của 1 object: Active hash vs SRC_HASH ở Target.
     CLASS-METHODS status_of_object
       IMPORTING
         iv_object_type TYPE trobjtype
@@ -61,7 +57,6 @@ CLASS zcl_scort_tr_cmp_query DEFINITION
       RETURNING
         VALUE(rt_e071) TYPE tt_e071.
 
-    "! LIMU REPS/… → R3TR PROG/… (SE09 "Report Source Code" thường là LIMU)
     CLASS-METHODS normalize_e071_object
       IMPORTING
         iv_pgmid  TYPE e071-pgmid
@@ -201,8 +196,6 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
     rs_filter-compare_status = CONV char20(
       zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'COMPARESTATUS' ) ).
 
-    " SPEC: mặc định chỉ mở Compare khi TR đã Release.
-    " Dev có thể nới bằng filter ReleasedOnly eq ''.
     rs_filter-released_only = abap_true.
     IF lv_sql CS 'RELEASEDONLY'.
       lv_flag = zcl_scort_query_utl=>value_of( iv_sql = lv_sql iv_field = 'RELEASEDONLY' ).
@@ -222,7 +215,6 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " SE09: "Report Source Code" / class includes… thường ghi LIMU trên E071
     IF iv_pgmid = 'LIMU'.
       ev_pgmid = 'R3TR'.
       CASE iv_object.
@@ -250,7 +242,6 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
     DATA lv_object TYPE e071-object.
     DATA lv_ok TYPE abap_bool.
 
-    " Parent + task: lấy cả R3TR và LIMU (không chỉ R3TR)
     SELECT * FROM e071
       WHERE trkorr = @iv_trkorr
         AND ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
@@ -302,7 +293,9 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
 
     IF zcl_scort_l_reader=>is_supported( iv_object_type ) = abap_false.
       rs_row-compare_status = 'NOT_SUPPORTED'.
-      rs_row-message        = 'Object type not supported'.
+      rs_row-message        = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>obj_type_not_supported
+                                iv_attr1    = CONV #( iv_object_type ) ).
       RETURN.
     ENDIF.
 
@@ -311,14 +304,18 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
                iv_object_name = iv_object_name ).
     IF ls_ori-found = abap_false.
       rs_row-compare_status = 'SOURCE_MISSING'.
-      rs_row-message        = ls_ori-message.
+      rs_row-message        = COND #(
+        WHEN ls_ori-message IS NOT INITIAL THEN ls_ori-message
+        ELSE zcm_scort=>get_text_by_key(
+               is_t100_key = zcm_scort=>source_not_found
+               iv_attr1    = CONV #( iv_object_type )
+               iv_attr2    = CONV #( iv_object_name ) ) ).
       RETURN.
     ENDIF.
 
     rs_row-origin_hash  = ls_ori-hash.
     rs_row-origin_lines = ls_ori-line_count.
 
-    " ZCL_SCORT_T_READER has no IV_SERVER_ID on S40 (ZA05_SCORT_T is single-tenant)
     ls_tgt = zcl_scort_t_reader=>read_current(
                iv_object_type = iv_object_type
                iv_object_name = iv_object_name ).
@@ -333,23 +330,37 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
       rs_row-compare_status = 'NEW_AT_TARGET'.
       rs_row-message        = COND #(
         WHEN ls_tgt-message IS NOT INITIAL THEN ls_tgt-message
-        ELSE 'Chưa có trong ZA05_SCORT_T — lần Apply đầu' ).
+        ELSE zcm_scort=>get_text_by_key(
+               is_t100_key = zcm_scort=>target_initial_apply
+               iv_attr1    = CONV #( iv_object_type )
+               iv_attr2    = CONV #( iv_object_name ) ) ).
       CLEAR rs_row-target_hash.
       RETURN.
     ENDIF.
 
     IF ls_tgt-found = abap_false.
       rs_row-compare_status = 'BAD_HEX'.
-      rs_row-message        = ls_tgt-message.
+      rs_row-message        = COND #(
+        WHEN ls_tgt-message IS NOT INITIAL THEN ls_tgt-message
+        ELSE zcm_scort=>get_text_by_key(
+               is_t100_key = zcm_scort=>target_bad_hex
+               iv_attr1    = CONV #( iv_object_type )
+               iv_attr2    = CONV #( iv_object_name ) ) ).
       RETURN.
     ENDIF.
 
     IF ls_ori-hash = rs_row-target_hash.
       rs_row-compare_status = 'IDENTICAL'.
-      rs_row-message        = 'Hash trùng nhau'.
+      rs_row-message        = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>hashes_identical
+                                iv_attr1    = CONV #( iv_object_type )
+                                iv_attr2    = CONV #( iv_object_name ) ).
     ELSE.
       rs_row-compare_status = 'DIFFERENT'.
-      rs_row-message        = 'Hash khác nhau'.
+      rs_row-message        = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>hashes_different
+                                iv_attr1    = CONV #( iv_object_type )
+                                iv_attr2    = CONV #( iv_object_name ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -367,7 +378,9 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
     IF sy-subrc <> 0.
       ls_row-trkorr         = iv_trkorr.
       ls_row-compare_status = 'SOURCE_MISSING'.
-      ls_row-message        = 'Không tìm thấy TR trong E070'.
+      ls_row-message        = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>tr_e070_not_found
+                                iv_attr1    = CONV #( iv_trkorr ) ).
       APPEND ls_row TO rt_rows.
       RETURN.
     ENDIF.
@@ -375,17 +388,21 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
     IF iv_released_only = abap_true AND lv_status <> 'R'.
       ls_row-trkorr         = iv_trkorr.
       ls_row-compare_status = 'NOT_SUPPORTED'.
-      ls_row-message        = |TR status={ lv_status } — chưa Release, không mở Compare|.
+      ls_row-message        = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>tr_not_released
+                                iv_attr1    = CONV #( iv_trkorr )
+                                iv_attr2    = CONV #( lv_status ) ).
       APPEND ls_row TO rt_rows.
       RETURN.
     ENDIF.
 
     lt_e071 = collect_e071( iv_trkorr ).
     IF lt_e071 IS INITIAL.
-      " Released nhưng không có R3TR (chỉ LIMU / TR rỗng) — báo rõ, không im lặng
       ls_row-trkorr         = iv_trkorr.
       ls_row-compare_status = 'SOURCE_MISSING'.
-      ls_row-message        = 'TR không có object so Compare được (R3TR/LIMU→PROG/CLAS/…) trong E071'.
+      ls_row-message        = zcm_scort=>get_text_by_key(
+                                is_t100_key = zcm_scort=>tr_no_comparable_objs
+                                iv_attr1    = CONV #( iv_trkorr ) ).
       APPEND ls_row TO rt_rows.
       RETURN.
     ENDIF.

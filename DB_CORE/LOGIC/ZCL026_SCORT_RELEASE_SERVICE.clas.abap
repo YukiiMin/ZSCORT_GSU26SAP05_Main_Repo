@@ -17,9 +17,12 @@ ENDCLASS.
 CLASS zcl026_scort_release_service IMPLEMENTATION.
 
   METHOD process_release.
+    DATA lv_apply_ok  TYPE abap_bool.
+    DATA lv_apply_msg TYPE string.
+    DATA lv_reason    TYPE string.
+
     ev_success = abap_false.
 
-    " 1. Đọc thông tin từ bảng E070 để xác định loại Request
     SELECT SINGLE trkorr, strkorr, trstatus FROM e070
       WHERE trkorr = @iv_trkorr
       INTO @DATA(ls_e070).
@@ -30,17 +33,14 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Tự động xác định Request Type
     ev_request_type = COND #( WHEN ls_e070-strkorr IS NOT INITIAL THEN 'TASK' ELSE 'REQUEST' ).
     ev_status       = ls_e070-trstatus.
 
-    " 2. Kiểm tra nếu đã Released trước đó
     IF ls_e070-trstatus = 'R'.
       ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>tr_already_released iv_attr1 = CONV #( iv_trkorr ) ).
       RETURN.
     ENDIF.
 
-    " 3. Gọi Function Module chuẩn của SAP để Release (Không dính dáng tới Target Apply)
     CALL FUNCTION 'TR_RELEASE_REQUEST'
       EXPORTING
         iv_trkorr                  = iv_trkorr
@@ -64,66 +64,57 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
 
     DATA(lv_fm_subrc) = sy-subrc.
     IF lv_fm_subrc = 0 OR lv_fm_subrc = 10.
-      " Đọc lại E070 — FM đôi khi trả 0 nhưng status chưa R (task còn mở, export chưa xong…)
       SELECT SINGLE trstatus FROM e070 WHERE trkorr = @iv_trkorr INTO @ev_status.
       IF ev_status = 'R'.
         ev_success = abap_true.
         IF ev_request_type = 'TASK'.
-          ev_message = |Release thành công Task { iv_trkorr }. Object đã merge về TR Cha { ls_e070-strkorr }.|.
+          ev_message = zcm_scort=>get_text_by_key(
+                         is_t100_key = zcm_scort=>task_released_success
+                         iv_attr1    = CONV #( iv_trkorr )
+                         iv_attr2    = CONV #( ls_e070-strkorr ) ).
         ELSE.
-          ev_message = |Release thành công Transport Request { iv_trkorr }.|.
-          " Tự động Apply to Target sau khi TR Cha Release thành công
-          DATA lv_apply_ok  TYPE abap_bool.
-          DATA lv_apply_msg TYPE string.
+          ev_message = zcm_scort=>get_text_by_key(
+                         is_t100_key = zcm_scort=>tr_released_success
+                         iv_attr1    = CONV #( iv_trkorr ) ).
           zcl026_scort_target_apply=>apply_to_target(
             EXPORTING iv_parent_trkorr = iv_trkorr
             IMPORTING ev_success       = lv_apply_ok
                       ev_message       = lv_apply_msg ).
           IF lv_apply_ok = abap_true.
-            ev_message = ev_message && | (Apply to Target: OK)|.
+            ev_message = |{ ev_message } (Target Apply: OK)|.
           ELSE.
-            ev_message = ev_message && | (Apply to Target LỖI: { lv_apply_msg })|.
+            ev_message = |{ ev_message } (Target Apply: { lv_apply_msg })|.
           ENDIF.
         ENDIF.
       ELSE.
         ev_success = abap_false.
-        ev_message = |Release { iv_trkorr } chưa hoàn tất (status={ ev_status }, FM subrc={ lv_fm_subrc }). Kiểm tra task còn mở / SE09.|.
+        ev_message = zcm_scort=>get_text_by_key(
+                       is_t100_key = zcm_scort=>release_incomplete
+                       iv_attr1    = CONV #( iv_trkorr )
+                       iv_attr2    = CONV #( ev_status )
+                       iv_attr3    = CONV #( lv_fm_subrc ) ).
       ENDIF.
-
     ELSE.
       ev_success = abap_false.
-      " Map theo EXCEPTIONS ở CALL FUNCTION phía trên (không phải số chuẩn SAP toàn cục)
       CASE lv_fm_subrc.
-        WHEN 1.
-          ev_message = |Release { iv_trkorr }: CTS init failed|.
-        WHEN 2.
-          ev_message = |Release { iv_trkorr }: locked (enqueue) — thử lại / unlock SE03|.
-        WHEN 3.
-          ev_message = |Release { iv_trkorr }: no authorization|.
-        WHEN 4.
-          ev_message = |Release { iv_trkorr }: invalid request|.
-        WHEN 5.
-          ev_message = |Release { iv_trkorr }: already released|.
-        WHEN 6.
-          ev_message = |Release { iv_trkorr }: cannot repeat yet|.
-        WHEN 7.
-          ev_message = |Release { iv_trkorr }: object check error — Activate object (SE38/SE80), sửa syntax, rồi Release lại. Xem log SE09|.
-        WHEN 8.
-          ev_message = |Release { iv_trkorr }: object conversion error|.
-        WHEN 9.
-          ev_message = |Release { iv_trkorr }: model check error|.
-        WHEN 10.
-          " không vào đây (coi là success phía trên)
-          ev_message = |Release { iv_trkorr }: released with warning|.
-        WHEN 11.
-          ev_message = |Release { iv_trkorr }: released with error — xem export log SE09|.
-        WHEN 12.
-          ev_message = |Release { iv_trkorr }: information to display (chạy SE09 Release để xem chi tiết)|.
-        WHEN 13.
-          ev_message = |Release { iv_trkorr }: cancelled|.
-        WHEN OTHERS.
-          ev_message = |Release { iv_trkorr } failed (subrc { lv_fm_subrc })|.
+        WHEN 1.  lv_reason = 'CTS init failed'.
+        WHEN 2.  lv_reason = 'Object locked (enqueue)'.
+        WHEN 3.  lv_reason = 'No authorization'.
+        WHEN 4.  lv_reason = 'Invalid request'.
+        WHEN 5.  lv_reason = 'Already released'.
+        WHEN 6.  lv_reason = 'Cannot repeat yet'.
+        WHEN 7.  lv_reason = 'Object check error'.
+        WHEN 8.  lv_reason = 'Object conversion error'.
+        WHEN 9.  lv_reason = 'Model check error'.
+        WHEN 11. lv_reason = 'Released with error'.
+        WHEN 12. lv_reason = 'Information to display'.
+        WHEN 13. lv_reason = 'Cancelled'.
+        WHEN OTHERS. lv_reason = |Subrc { lv_fm_subrc }|.
       ENDCASE.
+      ev_message = zcm_scort=>get_text_by_key(
+                     is_t100_key = zcm_scort=>release_failed
+                     iv_attr1    = CONV #( iv_trkorr )
+                     iv_attr2    = lv_reason ).
     ENDIF.
   ENDMETHOD.
 

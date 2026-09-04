@@ -1,9 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_L_READER
-*"* Read Active Source on Origin (DEV)
-*"*   PROG / CLAS / INTF / FUNC / FUGR
-*"*   DTEL / DOMA / TABL / DDLS / BDEF  (via DDDDLSRC & DDIF)
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_l_reader DEFINITION
   PUBLIC
   FINAL
@@ -349,7 +343,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     CLEAR: et_lines, ev_ok.
     lv_dclname = iv_name.
 
-    " 1. Standard SAP ACM table: ACMDCLSRC
     TRY.
         SELECT SINGLE source FROM ('ACMDCLSRC')
           WHERE dclname = @lv_dclname AND as4local = 'A'
@@ -363,7 +356,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         CLEAR lv_source.
     ENDTRY.
 
-    " 2. Dynamic query with CL_ACM_DCL_HANDLER_FACTORY fallback
     IF lv_source IS INITIAL.
       TRY.
           DATA lo_handler TYPE REF TO object.
@@ -395,7 +387,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    " 3. Fallback to DDDDLSRC
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ddddlsrc
@@ -430,7 +421,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     CLEAR: et_lines, ev_ok.
     lv_name = iv_name.
 
-    " 1. Try DDLXSRC_SRC with field DDLXNAME
     TRY.
         SELECT SINGLE source FROM ('DDLXSRC_SRC')
           WHERE ddlxname = @lv_name AND as4local = 'A'
@@ -444,7 +434,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         CLEAR lv_source.
     ENDTRY.
 
-    " 1b. Try DDLXSRC_SRC with field METADATANAME
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ('DDLXSRC_SRC')
@@ -460,7 +449,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    " 2. Try DDLXSRC
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ('DDLXSRC')
@@ -476,7 +464,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    " 3. Try CL_DDLX_ADT_OBJECT_PERSIST API
     IF lv_source IS INITIAL.
       TRY.
           DATA lo_persist TYPE REF TO object.
@@ -518,7 +505,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    " 4. Fallback to DDDDLSRC
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ddddlsrc
@@ -553,7 +539,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     CLEAR: et_lines, ev_ok.
     lv_name = iv_name.
 
-    " 1. ADT Persistence API
     TRY.
         DATA lo_persist TYPE REF TO object.
         DATA lo_model   TYPE REF TO object.
@@ -564,36 +549,120 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
         CREATE OBJECT lo_persist TYPE ('CL_BDEF_ADT_OBJECT_PERSIST').
         CREATE OBJECT lo_model   TYPE ('CL_BDEF_WB_OBJECT_DATA').
-        CREATE DATA lr_data TYPE ('CL_BDEF_WB_OBJECT_DATA=>TY_OBJECT_DATA').
-        ASSIGN lr_data->* TO <ls_data>.
+        TRY.
+            CREATE DATA lr_data TYPE ('CL_BDEF_WB_OBJECT_DATA=>TY_BDEF_OBJECT_DATA').
+          CATCH cx_root.
+            TRY.
+                CREATE DATA lr_data TYPE ('CL_BDEF_WB_OBJECT_DATA=>TY_OBJECT_DATA').
+              CATCH cx_root.
+            ENDTRY.
+        ENDTRY.
 
-        DATA(lv_obj_key) = CONV seu_objkey( lv_name ).
-        CALL METHOD lo_persist->('GET')
-          EXPORTING
-            p_object_key  = lv_obj_key
-            p_version     = 'A'
-          CHANGING
-            p_object_data = lo_model.
+        IF lr_data IS BOUND.
+          ASSIGN lr_data->* TO <ls_data>.
 
-        CALL METHOD lo_model->('GET_DATA')
-          IMPORTING
-            p_data = <ls_data>.
+          DATA(lv_obj_key) = CONV seu_objkey( lv_name ).
+          CALL METHOD lo_persist->('GET')
+            EXPORTING
+              p_object_key  = lv_obj_key
+              p_version     = 'A'
+            CHANGING
+              p_object_data = lo_model.
 
-        ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_data> TO <ls_content>.
-        IF sy-subrc = 0.
-          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
-        ENDIF.
-        IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
-          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
-        ENDIF.
-        IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
-          lv_source = <lv_src>.
+          CALL METHOD lo_model->('GET_DATA')
+            IMPORTING
+              p_data = <ls_data>.
+
+          ASSIGN COMPONENT 'CONTENT-SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
+          IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+            ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_data> TO <ls_content>.
+            IF sy-subrc = 0.
+              ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
+            ENDIF.
+          ENDIF.
+          IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+            ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
+          ENDIF.
+          IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
+            lv_source = <lv_src>.
+          ENDIF.
         ENDIF.
       CATCH cx_root.
         CLEAR lv_source.
     ENDTRY.
 
-    " 2. Dynamic DB table queries
+    IF lv_source IS INITIAL.
+      TRY.
+          DATA ls_wb_type TYPE wbobjtype.
+          DATA lo_wb_oper TYPE REF TO object.
+          DATA lo_wb_data TYPE REF TO object.
+
+          ls_wb_type-objtype_tr = 'BDEF'.
+          ls_wb_type-subtype_wb = 'BDO'.
+
+          CALL METHOD ('CL_WB_OBJECT_OPERATOR')=>('CREATE_INSTANCE')
+            EXPORTING
+              object_type = ls_wb_type
+              object_key  = lv_name
+            RECEIVING
+              result      = lo_wb_oper.
+
+          IF lo_wb_oper IS BOUND.
+            TRY.
+                CALL METHOD lo_wb_oper->('IF_WB_OBJECT_OPERATOR~READ')
+                  EXPORTING
+                    version        = 'A'
+                    data_selection = 'AL'
+                  IMPORTING
+                    eo_object_data = lo_wb_data.
+              CATCH cx_root.
+                CALL METHOD lo_wb_oper->('IF_WB_OBJECT_OPERATOR~READ')
+                  EXPORTING
+                    version        = 'I'
+                    data_selection = 'AL'
+                  IMPORTING
+                    eo_object_data = lo_wb_data.
+            ENDTRY.
+
+            IF lo_wb_data IS BOUND.
+              CLEAR lr_data.
+              TRY.
+                  CREATE DATA lr_data TYPE ('CL_BDEF_WB_OBJECT_DATA=>TY_BDEF_OBJECT_DATA').
+                CATCH cx_root.
+                  TRY.
+                      CREATE DATA lr_data TYPE ('CL_BDEF_WB_OBJECT_DATA=>TY_OBJECT_DATA').
+                    CATCH cx_root.
+                  ENDTRY.
+              ENDTRY.
+
+              IF lr_data IS BOUND.
+                ASSIGN lr_data->* TO <ls_data>.
+                CALL METHOD lo_wb_data->('GET_DATA')
+                  IMPORTING
+                    p_data = <ls_data>.
+
+                ASSIGN COMPONENT 'CONTENT-SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
+                IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+                  ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_data> TO <ls_content>.
+                  IF sy-subrc = 0.
+                    ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
+                  ENDIF.
+                ENDIF.
+                IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+                  ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
+                ENDIF.
+
+                IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
+                  lv_source = <lv_src>.
+                ENDIF.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+        CATCH cx_root.
+          CLEAR lv_source.
+      ENDTRY.
+    ENDIF.
+
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ('RSBDEFSRC')
@@ -603,7 +672,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    " 3. Fallback to DDDDLSRC
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ddddlsrc
@@ -637,47 +705,131 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     CLEAR: et_lines, ev_ok.
     lv_name = iv_name.
 
-    " 1. ADT Persistence API
     TRY.
-        DATA lo_persist TYPE REF TO object.
-        DATA lo_model   TYPE REF TO object.
+        DATA ls_wb_type TYPE wbobjtype.
+        DATA lo_wb_oper TYPE REF TO object.
+        DATA lo_wb_data TYPE REF TO object.
         DATA lr_data    TYPE REF TO data.
         FIELD-SYMBOLS <ls_data>    TYPE any.
         FIELD-SYMBOLS <ls_content> TYPE any.
         FIELD-SYMBOLS <lv_src>     TYPE any.
 
-        CREATE OBJECT lo_persist TYPE ('CL_SRVD_ADT_OBJECT_PERSIST').
-        CREATE OBJECT lo_model   TYPE ('CL_SRVD_WB_OBJECT_DATA').
-        CREATE DATA lr_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_OBJECT_DATA').
-        ASSIGN lr_data->* TO <ls_data>.
+        ls_wb_type-objtype_tr = 'SRVD'.
+        ls_wb_type-subtype_wb = 'SRV'.
 
-        DATA(lv_obj_key) = CONV seu_objkey( lv_name ).
-        CALL METHOD lo_persist->('GET')
+        CALL METHOD ('CL_WB_OBJECT_OPERATOR')=>('CREATE_INSTANCE')
           EXPORTING
-            p_object_key  = lv_obj_key
-            p_version     = 'A'
-          CHANGING
-            p_object_data = lo_model.
+            object_type = ls_wb_type
+            object_key  = lv_name
+          RECEIVING
+            result      = lo_wb_oper.
 
-        CALL METHOD lo_model->('GET_DATA')
-          IMPORTING
-            p_data = <ls_data>.
+        IF lo_wb_oper IS BOUND.
+          TRY.
+              CALL METHOD lo_wb_oper->('IF_WB_OBJECT_OPERATOR~READ')
+                EXPORTING
+                  version        = 'A'
+                  data_selection = 'AL'
+                IMPORTING
+                  eo_object_data = lo_wb_data.
+            CATCH cx_root.
+              CALL METHOD lo_wb_oper->('IF_WB_OBJECT_OPERATOR~READ')
+                EXPORTING
+                  version        = 'I'
+                  data_selection = 'AL'
+                IMPORTING
+                  eo_object_data = lo_wb_data.
+          ENDTRY.
 
-        ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_data> TO <ls_content>.
-        IF sy-subrc = 0.
-          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
-        ENDIF.
-        IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
-          ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
-        ENDIF.
-        IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
-          lv_source = <lv_src>.
+          IF lo_wb_data IS BOUND.
+            TRY.
+                CREATE DATA lr_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_SRVD_OBJECT_DATA').
+              CATCH cx_root.
+                TRY.
+                    CREATE DATA lr_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_OBJECT_DATA').
+                  CATCH cx_root.
+                ENDTRY.
+            ENDTRY.
+
+            IF lr_data IS BOUND.
+              ASSIGN lr_data->* TO <ls_data>.
+              CALL METHOD lo_wb_data->('GET_DATA')
+                IMPORTING
+                  p_data = <ls_data>.
+
+              ASSIGN COMPONENT 'CONTENT-SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
+              IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+                ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_data> TO <ls_content>.
+                IF sy-subrc = 0.
+                  ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
+                ENDIF.
+              ENDIF.
+              IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+                ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
+              ENDIF.
+
+              IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
+                lv_source = <lv_src>.
+              ENDIF.
+            ENDIF.
+          ENDIF.
         ENDIF.
       CATCH cx_root.
         CLEAR lv_source.
     ENDTRY.
 
-    " 2. Dynamic DB table queries
+    IF lv_source IS INITIAL.
+      TRY.
+          DATA lo_persist  TYPE REF TO object.
+          DATA lo_model    TYPE REF TO object.
+          DATA lr_adt_data TYPE REF TO data.
+          FIELD-SYMBOLS <ls_adt_data> TYPE any.
+
+          CREATE OBJECT lo_persist TYPE ('CL_SRVD_ADT_OBJECT_PERSIST').
+          CREATE OBJECT lo_model   TYPE ('CL_SRVD_WB_OBJECT_DATA').
+          TRY.
+              CREATE DATA lr_adt_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_SRVD_OBJECT_DATA').
+            CATCH cx_root.
+              TRY.
+                  CREATE DATA lr_adt_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_OBJECT_DATA').
+                CATCH cx_root.
+              ENDTRY.
+          ENDTRY.
+
+          IF lr_adt_data IS BOUND.
+            ASSIGN lr_adt_data->* TO <ls_adt_data>.
+            DATA(lv_obj_key) = CONV seu_objkey( lv_name ).
+            CALL METHOD lo_persist->('GET')
+              EXPORTING
+                p_object_key  = lv_obj_key
+                p_version     = 'A'
+              CHANGING
+                p_object_data = lo_model.
+
+            CALL METHOD lo_model->('GET_DATA')
+              IMPORTING
+                p_data = <ls_adt_data>.
+
+            ASSIGN COMPONENT 'CONTENT-SOURCE' OF STRUCTURE <ls_adt_data> TO <lv_src>.
+            IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+              ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_adt_data> TO <ls_content>.
+              IF sy-subrc = 0.
+                ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
+              ENDIF.
+            ENDIF.
+            IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
+              ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_adt_data> TO <lv_src>.
+            ENDIF.
+
+            IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
+              lv_source = <lv_src>.
+            ENDIF.
+          ENDIF.
+        CATCH cx_root.
+          CLEAR lv_source.
+      ENDTRY.
+    ENDIF.
+
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ('SRVD_SOURCE')
@@ -687,7 +839,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDTRY.
     ENDIF.
 
-    " 3. Fallback to DDDDLSRC
     IF lv_source IS INITIAL.
       TRY.
           SELECT SINGLE source FROM ddddlsrc

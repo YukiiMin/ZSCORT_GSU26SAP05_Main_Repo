@@ -3,12 +3,6 @@ CLASS zcl_scort_tr_tree_query DEFINITION
   FINAL
   CREATE PUBLIC.
 
-  "! Query Provider for Custom Entity ZCE_SCORT_TR_TREE.
-  "! Builds a 3-level virtual hierarchy tree from E070/E07T/E071:
-  "!   Level 0 (NodeType=TR)   : TR Request (E070 where strkorr IS INITIAL)
-  "!   Level 1 (NodeType=TASK) : TR Task    (E070 where strkorr = parent Trkorr)
-  "!   Level 2 (NodeType=OBJ)  : Objects    (E071 for each Task/TR)
-  "! NodeID = left-padded Trkorr+ObjName (max CHAR40, unique).
   PUBLIC SECTION.
     INTERFACES if_rap_query_provider.
 
@@ -62,8 +56,6 @@ ENDCLASS.
 CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
   METHOD if_rap_query_provider~select.
-    "-- Custom entity: MUST respect $top/$skip or SADL raises
-    "-- CX_RAP_QUERY_PAGE_SIZE_OVERRUN → CX_SADL_DUMP_APPL_MODEL_ERROR (ST22).
     DATA lv_trkorr    TYPE e070-trkorr.
     DATA lv_owner     TYPE e070-as4user.
     DATA lv_date_from TYPE d.
@@ -148,7 +140,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
         lv_total = lines( lt_result ).
 
-        " Paging — default cap 100 khi unlimited (tránh PAGE_SIZE_OVERRUN)
         TRY.
             lv_offset = CONV i( io_request->get_paging( )->get_offset( ) ).
             DATA(lv_ps) = io_request->get_paging( )->get_page_size( ).
@@ -196,12 +187,10 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD build_tree.
-    "-- B1: SELECT TR Parents (strkorr IS INITIAL = root TR)
     DATA lt_tr_parents TYPE TABLE OF e070.
     DATA lv_tr_pattern TYPE string.
     DATA lv_owner_pattern TYPE string.
 
-    " OData Contains gửi *…* — ABAP LIKE cần %…%. filter_low đã strip */% → bọc lại.
     IF iv_trkorr IS NOT INITIAL.
       lv_tr_pattern = iv_trkorr.
       REPLACE ALL OCCURRENCES OF '*' IN lv_tr_pattern WITH '%'.
@@ -224,7 +213,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       lv_owner_pattern = '%'.
     ENDIF.
 
-    " Chỉ SELECT field dùng — ORDER BY as4time mà không select → dump trên nhiều hệ.
     SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
       FROM e070
       WHERE strkorr = @space
@@ -236,7 +224,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
     IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
 
-    "-- Filter status & dates if requested
     IF iv_trstatus IS NOT INITIAL.
       DELETE lt_tr_parents WHERE trstatus <> iv_trstatus.
     ENDIF.
@@ -249,7 +236,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
     IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
 
-    "-- B1b: Get descriptions from E07T for all selected TRs
     DATA lt_tr_texts TYPE TABLE OF e07t.
     SELECT trkorr, langu, as4text
       FROM e07t
@@ -258,7 +244,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         AND langu  = @sy-langu
       INTO CORRESPONDING FIELDS OF TABLE @lt_tr_texts.
 
-    "-- B2: SELECT Tasks (strkorr = parent TR)
     DATA lt_tasks TYPE TABLE OF e070.
     SELECT trkorr, strkorr, as4user, as4date, trstatus
       FROM e070
@@ -266,7 +251,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       WHERE strkorr = @lt_tr_parents-trkorr
       INTO CORRESPONDING FIELDS OF TABLE @lt_tasks.
 
-    "-- B2b: SELECT Request Attributes from E070A (excluding SAPCOMPONENT)
     TYPES: BEGIN OF ty_attr,
              trkorr    TYPE e070-trkorr,
              attribute TYPE e070a-attribute,
@@ -283,7 +267,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         INTO CORRESPONDING FIELDS OF TABLE @lt_e070a.
     ENDIF.
 
-    "-- B3: SELECT Objects for all TRs and Tasks
     DATA lt_tr_keys TYPE TABLE OF e070.
     lt_tr_keys = lt_tr_parents.
     APPEND LINES OF lt_tasks TO lt_tr_keys.
@@ -486,7 +469,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       DELETE ADJACENT DUPLICATES FROM lt_parsed_objs COMPARING trkorr fold_type obj_name desc.
     ENDIF.
 
-    "-- B4: Build hierarchy
     DATA ls_node TYPE ty_node.
     DATA lv_current_type TYPE e071-object.
 
@@ -506,7 +488,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       IF sy-subrc = 0. ls_node-description = <txt>-as4text. ENDIF.
       APPEND ls_node TO rt_nodes.
 
-      "-- Level 1: Tasks under this TR
       LOOP AT lt_tasks ASSIGNING FIELD-SYMBOL(<task>)
           WHERE strkorr = <tr>-trkorr.
         CLEAR ls_node.
@@ -522,7 +503,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         ls_node-description    = 'Development/Correction'.
         APPEND ls_node TO rt_nodes.
 
-        "-- Level 2: Virtual Folders for Object Types, Level 3: Objects
         CLEAR lv_current_type.
 
         LOOP AT lt_parsed_objs ASSIGNING FIELD-SYMBOL(<obj>)
@@ -530,7 +510,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
           IF lv_current_type <> <obj>-fold_type.
             lv_current_type = <obj>-fold_type.
-            " Create FOLD node
             CLEAR ls_node.
             ls_node-node_id        = make_node_id(
               iv_trkorr   = <task>-trkorr
@@ -547,7 +526,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
             APPEND ls_node TO rt_nodes.
           ENDIF.
 
-          " Create OBJ node
           CLEAR ls_node.
           ls_node-node_id        = make_node_id(
             iv_trkorr   = <task>-trkorr
@@ -580,7 +558,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         ENDLOOP.
       ENDLOOP.
 
-      "-- Level 1: Object List of Request (objects directly under TR)
       CLEAR lv_current_type.
       DATA lv_has_tr_obj TYPE abap_bool.
       lv_has_tr_obj = abap_false.
@@ -656,7 +633,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         ENDLOOP.
       ENDIF.
 
-      "-- Level 1: Request Attributes (from E070A, excluding SAPCOMPONENT)
       DATA lv_has_attr TYPE abap_bool.
       lv_has_attr = abap_false.
       LOOP AT lt_e070a ASSIGNING FIELD-SYMBOL(<chk_attr>)
@@ -680,7 +656,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
 
         LOOP AT lt_e070a ASSIGNING FIELD-SYMBOL(<attr>)
             WHERE trkorr = <tr>-trkorr.
-          " Attribute folder (Level 2)
           CLEAR ls_node.
           ls_node-node_id        = make_node_id(
             iv_trkorr   = <tr>-trkorr
@@ -696,7 +671,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           ls_node-description    = ''.
           APPEND ls_node TO rt_nodes.
 
-          " Value leaf (Level 3 - matching SE09 screenshot 4)
           CLEAR ls_node.
           ls_node-node_id        = make_node_id(
             iv_trkorr   = <tr>-trkorr
@@ -730,8 +704,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD make_node_id.
-    "-- TR/TASK: NodeId = Trkorr (khớp FE ApplyToTarget key TrTree('S40K…')).
-    "-- OBJ: Trkorr + '_' + ObjName + '_' + Suffix (cắt 40).
     DATA lv TYPE string.
     IF iv_obj_name IS INITIAL.
       lv = CONV string( iv_trkorr ).

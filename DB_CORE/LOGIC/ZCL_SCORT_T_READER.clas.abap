@@ -1,7 +1,6 @@
 *"*---------------------------------------------------------------------*
 *"* Class: ZCL_SCORT_T_READER
-*"* Read Target from ZA05_SCORT_T (header) + ZA05_SCORT_T_SRC (GZIP).
-*"* current_version trên header; SOURCE_HEX + SRC_HASH trên T_SRC.
+*"* Target Repository Source Reader (ZA05_SCORT_T & ZA05_SCORT_T_SRC)
 *"*---------------------------------------------------------------------*
 CLASS zcl_scort_t_reader DEFINITION
   PUBLIC
@@ -85,7 +84,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     CONDENSE lv_obj_name.
 
     SELECT SINGLE current_version FROM za05_scort_t
-      WHERE pgmid    = @c_pgmid_r3tr
+      WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
         AND object   = @iv_object_type
         AND obj_name = @lv_obj_name
       INTO @lv_vers.
@@ -105,7 +104,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     " Header exists in za05_scort_t but current_version is initial/00000 -> fallback to max version in T_SRC
     IF lv_vers IS INITIAL OR lv_vers = '00000'.
       SELECT MAX( version_no ) FROM za05_scort_t_src
-        WHERE pgmid    = @c_pgmid_r3tr
+        WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
           AND object   = @iv_object_type
           AND obj_name = @lv_obj_name
         INTO @lv_max.
@@ -159,7 +158,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
 
     SELECT SINGLE source_hex, src_hash, src_trkorr
       FROM za05_scort_t_src
-      WHERE pgmid      = @c_pgmid_r3tr
+      WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
         AND object     = @iv_object_type
         AND obj_name   = @lv_obj_name
         AND version_no = @lv_vers
@@ -179,7 +178,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     rs_source-trkorr = lv_trkorr.
 
     SELECT SINGLE current_version FROM za05_scort_t
-      WHERE pgmid    = @c_pgmid_r3tr
+      WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
         AND object   = @iv_object_type
         AND obj_name = @lv_obj_name
       INTO @lv_cur.
@@ -194,7 +193,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " REQ3 util = GZIP binary UTF-8; REQ2 Apply (ZCL026) dùng compress_text → thử cả 2.
+    " Decompress source from binary HEX
     lv_text = zcl_scort_compression_utl=>decode_hex_to_text( lv_hex ).
     IF lv_text IS INITIAL.
       TRY.
@@ -210,7 +209,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       rs_source-decompress_ok = abap_false.
       rs_source-hash_stored   = lv_hash.
       rs_source-is_new_target = abap_false.
-      rs_source-message       = |Decompress failed (vers { lv_vers }) — kiểm tra SOURCE_HEX từ Apply|.
+      rs_source-message       = |Decompress failed (vers { lv_vers })|.
       RETURN.
     ENDIF.
 
@@ -220,7 +219,6 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     rs_source-lines         = zcl_scort_hash_utl=>text_to_lines( lv_text ).
     rs_source-line_count    = lines( rs_source-lines ).
     rs_source-hash_stored   = lv_hash.
-    " Hash plain text — cùng Apply / CALCULATE_CHECKSUM (không hash blob GZIP)
     rs_source-hash_calc     = zcl_scort_hash_utl=>calculate_checksum( lv_text ).
     rs_source-message       = |OK ZA05 vers { lv_vers }, { rs_source-line_count } lines|.
   ENDMETHOD.
@@ -244,14 +242,14 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     lv_obj_name = CONV trobj_name( iv_object_name ).
 
     SELECT SINGLE current_version FROM za05_scort_t
-      WHERE pgmid    = @c_pgmid_r3tr
+      WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
         AND object   = @iv_object_type
         AND obj_name = @lv_obj_name
       INTO @lv_cur.
 
     SELECT version_no, src_hash, created_by, src_trkorr, src_preview
       FROM za05_scort_t_src
-      WHERE pgmid    = @c_pgmid_r3tr
+      WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
         AND object   = @iv_object_type
         AND obj_name = @lv_obj_name
       ORDER BY version_no DESCENDING

@@ -225,5 +225,22 @@ html, body {
   height: 100% !important;
 }
 
+/* ── Object Table & Responsive Cell Polish ───────────────── */
+#idObjectsTable .sapMText,
+#idObjectsTable .sapMObjIdentifier,
+#idObjectsTable .sapMObjIdentifierTitle {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
 
+/* Responsive ADT Form Diff container */
+#idAdtFormDiffContainer {
+  padding: 0.5rem;
+  box-sizing: border-box;
+}
 
+/* Prevent unwanted layout shifts in FCL mid column */
+.sapFCLMidColumn .sapMITBHead {
+  overflow-x: auto;
+}

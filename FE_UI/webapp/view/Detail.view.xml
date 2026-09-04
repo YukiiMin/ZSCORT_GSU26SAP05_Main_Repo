@@ -6,35 +6,39 @@
 
   <Page id="idDetailPage" showHeader="true" backgroundDesign="List">
     <customHeader>
-      <Bar>
-        <contentLeft>
-          <Button
-            icon="sap-icon://nav-back"
-            text="{i18n>navTrSearch}"
-            press=".onButtonNavBackPress"
-            type="Transparent"
-            tooltip="{i18n>navTrSearch}" />
-          <Title text="{i18n>masterTitle}: {detail>/trkorr}" class="sapUiTinyMarginBegin" />
-        </contentLeft>
-        <contentRight>
-          <Button text="Release TR" press=".onReleaseTrInDetail" type="Emphasized" icon="sap-icon://shipping-status" visible="{detail>/isUnreleased}" tooltip="Release TR to enable compare" />
-          <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Accept" tooltip="Apply to Target after compare (Released TR)" visible="{= !${detail>/isUnreleased} }" />
-          <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
-          <Button
-            icon="sap-icon://home"
-            type="Transparent"
-            press=".onButtonNavObjSearchPress"
-            tooltip="{i18n>navObjSearch}" />
-          <Button icon="sap-icon://decline" press=".onButtonCloseDetailPress" type="Transparent" tooltip="Close detail" />
-        </contentRight>
-      </Bar>
+      <OverflowToolbar>
+        <Button
+          icon="sap-icon://nav-back"
+          text="{i18n>navTrSearch}"
+          press=".onButtonNavBackPress"
+          type="Transparent"
+          tooltip="{i18n>navTrSearch}" />
+        <Title text="{i18n>masterTitle}: {detail>/trkorr}" level="H4" class="sapUiTinyMarginBegin" />
+        <ToolbarSpacer />
+        <Button text="Release TR" press=".onReleaseTrInDetail" type="Emphasized" icon="sap-icon://shipping-status" visible="{detail>/isUnreleased}" tooltip="Release TR to enable compare" />
+        <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Accept" icon="sap-icon://upload-to-cloud" tooltip="Apply to Target after compare (Released TR)" visible="{= !${detail>/isUnreleased} }" />
+        <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
+        <Button
+          icon="sap-icon://home"
+          type="Transparent"
+          press=".onButtonNavObjSearchPress"
+          tooltip="{i18n>navObjSearch}" />
+        <Button
+          icon="{= ${appView>/layout} === 'MidColumnFullScreen' ? 'sap-icon://exit-full-screen' : 'sap-icon://full-screen' }"
+          type="Transparent"
+          press=".onButtonFullScreenPress"
+          tooltip="{= ${appView>/layout} === 'MidColumnFullScreen' ? 'Exit Full Screen' : 'Full Screen' }" />
+        <Button icon="sap-icon://decline" press=".onButtonCloseDetailPress" type="Transparent" tooltip="Close detail" />
+      </OverflowToolbar>
     </customHeader>
 
     <content>
-      <VBox height="100%">
+      <VBox height="100%" fitContainer="true">
         <ObjectHeader
           title="{detail>/trkorr}"
-          intro="{i18n>currentManagingTr}">
+          intro="{i18n>currentManagingTr}"
+          responsive="true"
+          fullScreenOptimized="false">
           <attributes>
             <ObjectAttribute title="{i18n>colCreated}" text="{path: 'detail>/as4date', formatter: '.formatDate'}" />
             <ObjectAttribute title="Info" text="{detail>/message}" />
@@ -44,48 +48,55 @@
         <table:Table
           id="idObjectsTable"
           selectionMode="None"
-          visibleRowCount="12"
+          visibleRowCountMode="Auto"
+          minAutoRowCount="6"
+          rowHeight="36"
+          columnHeaderHeight="36"
           busy="{detail>/busy}"
           noData="{= ${detail>/message} || 'No data' }"
           rows="{path: 'detail>/objects'}">
 
+          <table:layoutData>
+            <FlexItemData growFactor="1" />
+          </table:layoutData>
+
           <table:columns>
-            <table:Column width="5rem">
+            <table:Column width="4.5rem" hAlign="Center">
               <Label text="{i18n>colType}" />
               <table:template>
                 <Text text="{detail>ObjectType}" />
               </table:template>
             </table:Column>
 
-            <table:Column>
+            <table:Column width="13rem">
               <Label text="{i18n>colObjName}" />
               <table:template>
-                <ObjectIdentifier title="{detail>ObjectName}" />
+                <ObjectIdentifier title="{detail>ObjectName}" titleActive="false" />
               </table:template>
             </table:Column>
 
-            <table:Column width="10rem">
+            <table:Column width="9rem">
               <Label text="{i18n>colPackage}" />
               <table:template>
-                <Text text="{= ${detail>PackageName} || ${detail>TadirDevclass} || '' }" />
+                <Text text="{= ${detail>PackageName} || ${detail>TadirDevclass} || '' }" wrapping="false" />
               </table:template>
             </table:Column>
 
             <table:Column width="8rem">
               <Label text="{i18n>authorLabel}" />
               <table:template>
-                <Text text="{= ${detail>Author} || ${detail>PersonResponsible} || ${detail>Owner} || '' }" />
+                <Text text="{= ${detail>Author} || ${detail>PersonResponsible} || ${detail>Owner} || '' }" wrapping="false" />
               </table:template>
             </table:Column>
 
-            <table:Column width="8rem">
+            <table:Column width="7.5rem">
               <Label text="{i18n>colCreated}" />
               <table:template>
-                <Text text="{path:'detail>Datum', formatter:'.formatDate'} {= ${detail>Datum} ? '' : (${detail>As4date} ? ${path:'detail>As4date', formatter:'.formatDate'} : '') }" />
+                <Text text="{path:'detail>Datum', formatter:'.formatDate'} {= ${detail>Datum} ? '' : (${detail>CreatedOn} ? ${path:'detail>CreatedOn', formatter:'.formatDate'} : (${detail>As4date} ? ${path:'detail>As4date', formatter:'.formatDate'} : '')) }" wrapping="false" />
               </table:template>
             </table:Column>
 
-            <table:Column width="10rem">
+            <table:Column width="8.5rem">
               <Label text="{i18n>colStatus}" />
               <table:template>
                 <ObjectStatus
@@ -95,14 +106,14 @@
               </table:template>
             </table:Column>
 
-            <table:Column width="10rem">
+            <table:Column width="6rem" hAlign="Center">
               <Label text="{i18n>colActions}" />
               <table:template>
-                <HBox>
+                <HBox justifyContent="Center">
                   <Button
-                    text="{i18n>btnCompare}"
                     tooltip="{i18n>openCompareTooltip}"
                     icon="sap-icon://compare-2"
+                    type="Transparent"
                     enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
                     press=".onButtonComparePress"
                     class="sapUiTinyMarginEnd" />

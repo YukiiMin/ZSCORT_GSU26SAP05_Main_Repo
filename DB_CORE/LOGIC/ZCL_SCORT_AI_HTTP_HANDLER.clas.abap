@@ -9,7 +9,7 @@ CLASS zcl_scort_ai_http_handler DEFINITION
   PRIVATE SECTION.
     TYPES:
       BEGIN OF ty_request_payload,
-        action      TYPE string, " SYNTAX | TRANSPORT
+        action      TYPE string,
         objectType  TYPE string,
         objectName  TYPE string,
         localCode   TYPE string,
@@ -32,7 +32,6 @@ CLASS zcl_scort_ai_http_handler IMPLEMENTATION.
 
     lv_method = server->request->get_header_field( name = '~request_method' ).
 
-    " Handle CORS Preflight (OPTIONS)
     IF lv_method = 'OPTIONS'.
       server->response->set_header_field( name = 'Access-Control-Allow-Origin'  value = '*' ).
       server->response->set_header_field( name = 'Access-Control-Allow-Methods' value = 'GET, POST, OPTIONS' ).
@@ -59,7 +58,6 @@ CLASS zcl_scort_ai_http_handler IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Parse request JSON using /ui2/cl_json or standard parser
     /ui2/cl_json=>deserialize(
       EXPORTING
         json = lv_body

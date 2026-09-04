@@ -47,7 +47,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
     DATA(lv_top)    = lo_paging->get_page_size( ).
     DATA(lv_skip)   = lo_paging->get_offset( ).
 
-    " 1. Extract Filter Ranges for SQL Push-Down
     TRY.
         DATA(lt_ranges) = io_request->get_filter( )->get_as_ranges( ).
         LOOP AT lt_ranges INTO DATA(ls_filter).
@@ -89,7 +88,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
       CATCH cx_root.
     ENDTRY.
 
-    " Restrict to supported Development Object whitelist when no explicit object type filter is specified
     IF lr_obj_type IS INITIAL.
       lr_obj_type = VALUE #(
         ( sign = 'I' option = 'EQ' low = 'PROG' )
@@ -117,7 +115,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
       ).
     ENDIF.
 
-    " 2. Fetch Local Objects (TADIR + ENLFDIR for Function Modules) with SQL Push-Down
     DATA(lv_fetch_r3tr) = abap_true.
     IF lr_pgmid IS NOT INITIAL AND 'R3TR' NOT IN lr_pgmid.
       lv_fetch_r3tr = abap_false.
@@ -146,7 +143,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " Fetch Function Modules (LIMU FUNC) from ENLFDIR
     DATA(lv_fetch_func) = abap_true.
     IF lr_pgmid IS NOT INITIAL AND 'LIMU' NOT IN lr_pgmid.
       lv_fetch_func = abap_false.
@@ -188,7 +184,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " 3. Fetch Target Objects with SQL Push-Down
     IF lr_obj_name IS NOT INITIAL OR lr_target_pkg IS NOT INITIAL.
       SELECT pgmid, object AS objecttype, obj_name AS objectname, devclass AS targetpackage, author AS targetauthor
         FROM za05_scort_t
@@ -210,7 +205,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
         INTO TABLE @lt_target.
     ENDIF.
 
-    " 4. Full 3-Key Merge-Sort (PGMID -> OBJECTTYPE -> OBJECTNAME)
     SORT lt_local BY pgmid objecttype objectname.
     SORT lt_target BY pgmid objecttype objectname.
 
@@ -283,7 +277,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
       APPEND ls_result TO lt_result.
     ENDWHILE.
 
-    " 5. Post-Merge Filtering for Cross-System and Computed Fields
     IF lr_status IS NOT INITIAL.
       DELETE lt_result WHERE existencestatus NOT IN lr_status.
     ENDIF.
@@ -300,7 +293,6 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
       DELETE lt_result WHERE targetauthor NOT IN lr_target_author.
     ENDIF.
 
-    " 6. Dynamic Column Sorting (Fiori Elements Header Sorting)
     DATA: lt_sort_criteria TYPE abap_sortorder_tab,
           ls_sort_criteria TYPE abap_sortorder.
 
@@ -321,12 +313,10 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
         SORT lt_result BY pgmid ASCENDING objecttype ASCENDING objectname ASCENDING.
     ENDTRY.
 
-    " 7. Return Total Number of Records
     IF io_request->is_total_numb_of_rec_requested( ).
       io_response->set_total_number_of_records( lines( lt_result ) ).
     ENDIF.
 
-    " 8. Windowed Paging
     IF io_request->is_data_requested( ).
       IF lv_skip > 0 OR lv_top > 0.
         DATA: lt_paged LIKE lt_result.

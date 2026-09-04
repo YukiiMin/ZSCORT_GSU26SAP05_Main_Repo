@@ -17,7 +17,7 @@
         <!-- Tab 1: Overview -->
         <IconTabFilter text="Overview" icon="sap-icon://hint">
           <VBox class="sapUiSmallMargin">
-            <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+            <layout:Grid defaultSpan="L12 M12 S12" class="sapUiNoContentPadding">
               <!-- General Data -->
               <VBox class="sapUiTinyMargin">
                 <Panel expandable="false" expanded="true" headerText="General Data" class="sapUiNoContentPadding">

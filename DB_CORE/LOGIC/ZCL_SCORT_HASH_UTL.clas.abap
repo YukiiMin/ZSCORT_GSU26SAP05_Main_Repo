@@ -1,8 +1,6 @@
 *"*---------------------------------------------------------------------*
 *"* Class: ZCL_SCORT_HASH_UTL
-*"* Checksum khớp REQ2 Apply:
-*"*   ZCL026_SCORT_TARGET_APPLY=>CALCULATE_CHECKSUM
-*"* = SHA1 trên raw SOURCE_CODE (không normalize / không bỏ dòng trống).
+*"* SHA1 Checksum & Source Text Utilities
 *"*---------------------------------------------------------------------*
 CLASS zcl_scort_hash_utl DEFINITION
   PUBLIC
@@ -13,14 +11,12 @@ CLASS zcl_scort_hash_utl DEFINITION
     TYPES ty_string_tab TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
     TYPES ty_hash       TYPE c LENGTH 40.
 
-    "! Alias giữ tên cũ — giờ = raw SHA1 (không normalize), khớp Apply.
     CLASS-METHODS normalize_and_hash
       IMPORTING
         it_lines       TYPE ty_string_tab
       RETURNING
         VALUE(rv_hash) TYPE ty_hash.
 
-    "! Giống ZCL026_SCORT_TARGET_APPLY=>CALCULATE_CHECKSUM
     CLASS-METHODS calculate_checksum
       IMPORTING
         iv_source          TYPE string
@@ -39,7 +35,6 @@ CLASS zcl_scort_hash_utl DEFINITION
       RETURNING
         VALUE(rv_text) TYPE string.
 
-    "! Tiền xử lý (Pre-Diff Adapter) xóa trailing spaces, CRLF và comment rác.
     CLASS-METHODS normalize_source
       IMPORTING
         it_lines        TYPE ty_string_tab
@@ -64,7 +59,6 @@ ENDCLASS.
 CLASS zcl_scort_hash_utl IMPLEMENTATION.
 
   METHOD lines_to_text.
-    " Khớp concat_lines_of( ... sep = newline ) bên Apply
     CLEAR rv_text.
     IF it_lines IS INITIAL.
       RETURN.
@@ -90,27 +84,9 @@ CLASS zcl_scort_hash_utl IMPLEMENTATION.
     DATA: lv_line TYPE string.
     CLEAR rt_lines.
     LOOP AT it_lines INTO lv_line.
-      " Loại bỏ CRLF sang LF (hoặc bỏ CR vì LOOP string tab đã chia theo newline)
       REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>cr_lf IN lv_line WITH cl_abap_char_utilities=>newline.
       REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>horizontal_tab IN lv_line WITH ` `.
-      
-      " Xóa khoảng trắng thừa ở cuối dòng (trailing spaces)
       REPLACE REGEX `\s+$` IN lv_line WITH ``.
-
-      " Bỏ qua các dòng trống
-      IF lv_line IS INITIAL.
-        CONTINUE.
-      ENDIF.
-      
-      DATA(lv_trim) = lv_line.
-      CONDENSE lv_trim.
-      " Bỏ qua các dòng comment rác (chỉ chứa * hoặc ")
-      IF lv_trim(1) = '*' OR lv_trim(1) = '"'.
-        IF strlen( lv_trim ) = 1.
-          CONTINUE.
-        ENDIF.
-      ENDIF.
-
       APPEND lv_line TO rt_lines.
     ENDLOOP.
   ENDMETHOD.
@@ -141,7 +117,6 @@ CLASS zcl_scort_hash_utl IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD normalize_and_hash.
-    " Không strip/trim — cùng blob mà Apply ghi vào CHECKSUM
     rv_hash = calculate_checksum( lines_to_text( it_lines ) ).
   ENDMETHOD.
 

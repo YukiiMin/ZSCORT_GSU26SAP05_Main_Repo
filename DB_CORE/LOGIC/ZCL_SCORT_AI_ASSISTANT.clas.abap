@@ -43,7 +43,7 @@ CLASS zcl_scort_ai_assistant DEFINITION
           iv_obj_name      TYPE csequence
           iv_local_code    TYPE string
           iv_target_code   TYPE string OPTIONAL
-          iv_lang          TYPE string DEFAULT space  " space = auto-detect from sy-langu
+          iv_lang          TYPE string DEFAULT space
           iv_mode          TYPE tv_mode DEFAULT c_mode_gemini_direct
           iv_model         TYPE string OPTIONAL
         RETURNING
@@ -57,7 +57,7 @@ CLASS zcl_scort_ai_assistant DEFINITION
           iv_obj_name      TYPE csequence
           iv_local_code    TYPE string
           iv_target_code   TYPE string OPTIONAL
-          iv_lang          TYPE string DEFAULT space  " space = auto-detect from sy-langu
+          iv_lang          TYPE string DEFAULT space
           iv_mode          TYPE tv_mode DEFAULT c_mode_gemini_direct
           iv_model         TYPE string OPTIONAL
         RETURNING
@@ -121,8 +121,6 @@ CLASS zcl_scort_ai_assistant DEFINITION
         RETURNING
           VALUE(rv_prompt) TYPE string,
 
-      """ Resolve user language to AI prompt instruction.
-      """ Priority: 1) iv_lang passed explicitly, 2) sy-langu of current SAP session.
       resolve_language
         IMPORTING
           iv_lang          TYPE string DEFAULT space
@@ -394,7 +392,6 @@ CLASS zcl_scort_ai_assistant IMPLEMENTATION.
                         '- You MUST provide `suggestion` containing a concrete, ready-to-use refactored code replacement following SAP Clean ABAP.' && lv_nl && lv_nl.
 
     IF lv_has_local = abap_true AND lv_has_tgt = abap_true.
-      " Scenario C: Both Local and Target exist -> Dual Separate Assessment & Comparison
       rv_prompt = 'You are a Principal SAP ABAP Compiler and Senior Static Code Analysis Auditor. ' && lv_lang_text && lv_nl && lv_nl &&
                   '## Task: Dual-Side ABAP Syntax, Code Quality & Comparative Audit' && lv_nl &&
                   'The object exists on BOTH Local (Active) and Target (Snapshot) systems.' && lv_nl &&
@@ -416,10 +413,10 @@ CLASS zcl_scort_ai_assistant IMPLEMENTATION.
                   '"better_side_reason":"In-depth technical explanation comparing Local vs Target code quality, readability, and performance.",' &&
                   '"best_version_recommendation":"Actionable recommendation on which version to keep and concrete refactoring steps to reach 100/100 score.",' &&
                   '"summary":"Comprehensive 3-5 sentence comparative audit summary.",' &&
-                  '"findings":[{"side":"LOCAL"|"TARGET"|"BOTH","type":"SYNTAX_ERROR"|"WARNING"|"BEST_PRACTICE","line_number":20,"line_or_snippet":"Line 20: [exact code snippet]","message":"detailed explanation","suggestion":"concrete Clean ABAP replacement code"}]}'.
+
+'"findings":[{"side":"LOCAL"|"TARGET"|"BOTH","type":"SYNTAX_ERROR"|"WARNING"|"BEST_PRACTICE","line_number":20,"line_or_snippet":"Line 20: [exact code snippet]","message":"detailed explanation","suggestion":"concrete Clean ABAP replacement code"}]}'.
 
     ELSEIF lv_has_local = abap_true AND lv_has_tgt = abap_false.
-      " Scenario A: Only Local exists
       rv_prompt = 'You are a Principal SAP ABAP Compiler and Senior Static Code Analysis Auditor. ' && lv_lang_text && lv_nl && lv_nl &&
                   '## Task: Deep ABAP Syntax & Clean Code Quality Audit (Local New Object)' && lv_nl &&
                   'This is a NEW object that exists ONLY on the LOCAL development system.' && lv_nl &&
@@ -439,7 +436,6 @@ CLASS zcl_scort_ai_assistant IMPLEMENTATION.
                   '"findings":[{"side":"LOCAL","type":"SYNTAX_ERROR"|"WARNING"|"BEST_PRACTICE","line_number":20,"line_or_snippet":"Line 20: [exact code snippet]","message":"detailed explanation","suggestion":"concrete Clean ABAP replacement code"}]}'.
 
     ELSE.
-      " Scenario B: Only Target exists
       rv_prompt = 'You are a Principal SAP ABAP Compiler and Senior Static Code Analysis Auditor. ' && lv_lang_text && lv_nl && lv_nl &&
                   '## Task: Deep ABAP Syntax & Clean Code Quality Audit (Target Baseline Object)' && lv_nl &&
                   'This object exists ONLY on the TARGET system (missing or deleted on Local).' && lv_nl &&
@@ -500,37 +496,31 @@ CLASS zcl_scort_ai_assistant IMPLEMENTATION.
 
 
   METHOD resolve_language.
-    """ Determine AI reply language.
-    """ Priority: 1) iv_lang from caller (FE override), 2) sy-langu from current SAP session.
     DATA: lv_iso TYPE string.
 
-    " Use FE-supplied lang code if explicitly provided
     IF iv_lang IS NOT INITIAL AND iv_lang <> space.
       lv_iso = to_lower( iv_lang ).
     ELSE.
-      " Auto-detect from SAP logon language (Fiori Launchpad / SAP GUI / RFC context)
-      " sy-langu is 1-char SAP language code per ISO 639 mapping
       CASE sy-langu.
-        WHEN 'E'. lv_iso = 'en'.  " English
-        WHEN 'V'. lv_iso = 'vi'.  " Vietnamese
-        WHEN 'D'. lv_iso = 'de'.  " German
-        WHEN 'J'. lv_iso = 'ja'.  " Japanese
-        WHEN 'C'. lv_iso = 'zh'.  " Chinese (Traditional)
-        WHEN 'M'. lv_iso = 'zh'.  " Chinese (Simplified)
-        WHEN 'F'. lv_iso = 'fr'.  " French
-        WHEN 'S'. lv_iso = 'es'.  " Spanish
-        WHEN 'P'. lv_iso = 'pt'.  " Portuguese
-        WHEN 'K'. lv_iso = 'ko'.  " Korean
-        WHEN 'I'. lv_iso = 'it'.  " Italian
-        WHEN 'N'. lv_iso = 'nl'.  " Dutch
-        WHEN 'R'. lv_iso = 'ru'.  " Russian
-        WHEN 'T'. lv_iso = 'tr'.  " Turkish
-        WHEN 'H'. lv_iso = 'th'.  " Thai
-        WHEN OTHERS. lv_iso = 'en'. " Default fallback
+        WHEN 'E'. lv_iso = 'en'.
+        WHEN 'V'. lv_iso = 'vi'.
+        WHEN 'D'. lv_iso = 'de'.
+        WHEN 'J'. lv_iso = 'ja'.
+        WHEN 'C'. lv_iso = 'zh'.
+        WHEN 'M'. lv_iso = 'zh'.
+        WHEN 'F'. lv_iso = 'fr'.
+        WHEN 'S'. lv_iso = 'es'.
+        WHEN 'P'. lv_iso = 'pt'.
+        WHEN 'K'. lv_iso = 'ko'.
+        WHEN 'I'. lv_iso = 'it'.
+        WHEN 'N'. lv_iso = 'nl'.
+        WHEN 'R'. lv_iso = 'ru'.
+        WHEN 'T'. lv_iso = 'tr'.
+        WHEN 'H'. lv_iso = 'th'.
+        WHEN OTHERS. lv_iso = 'en'.
       ENDCASE.
     ENDIF.
 
-    " Map ISO code to AI prompt language instruction
     CASE lv_iso.
       WHEN 'vi'. rv_lang_text = 'Tra loi HOAN TOAN bang tieng Viet (Vietnamese). Moi thuat ngu ky thuat ABAP/SAP giu nguyen tieng Anh nhung giai thich bang tieng Viet.'.
       WHEN 'de'. rv_lang_text = 'Antworte AUSSCHLIESSLICH auf Deutsch. Technische SAP/ABAP-Begriffe koennen auf Englisch belassen werden, Erklaerungen jedoch auf Deutsch.'.

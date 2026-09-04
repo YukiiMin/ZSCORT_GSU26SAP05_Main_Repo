@@ -273,6 +273,10 @@ sap.ui.define([
     onMonacoToggleSideBySideGit: function () {
       this._bSideGit = !this._bSideGit;
       if (this._oGitDiffHost) { this._oGitDiffHost.setSideBySide(this._bSideGit); }
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/sideBySideForm", this._bSideGit);
+      }
     },
 
     onCompareModeChange: function (oEvent) {
@@ -646,11 +650,22 @@ sap.ui.define([
         oApp.setProperty("/currentModule", "trSearch");
         this._oRouter.navTo("trSearch");
       } else {
-        oApp.setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
-        oApp.setProperty("/currentModule", "trSearch");
-        this._oRouter.navTo("detail", {
-          trkorr: oApp.getProperty("/currentTR") || "DUMMY"
-        });
+        var sTr = oApp.getProperty("/currentTR") || oApp.getProperty("/trkorr");
+        if (!sTr || sTr === "DUMMY") {
+          var oDetailModel = this.getOwnerComponent().getModel("detail");
+          sTr = oDetailModel && oDetailModel.getProperty("/trkorr");
+        }
+        if (sTr && sTr !== "DUMMY") {
+          oApp.setProperty("/layout", LayoutType.TwoColumnsMidExpanded);
+          oApp.setProperty("/currentModule", "detail");
+          this._oRouter.navTo("detail", {
+            trkorr: encodeURIComponent(sTr)
+          });
+        } else {
+          oApp.setProperty("/layout", LayoutType.OneColumn);
+          oApp.setProperty("/currentModule", "trSearch");
+          this._oRouter.navTo("trSearch");
+        }
       }
     },
 
