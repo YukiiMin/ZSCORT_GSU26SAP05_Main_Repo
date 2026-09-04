@@ -1,6 +1,8 @@
 *"*---------------------------------------------------------------------*
 *"* Class: ZCL_SCORT_L_READER
-*"* Read Active Source on Origin (DEV) — PROG / CLAS / INTF / FUNC / FUGR
+*"* Read Active Source on Origin (DEV)
+*"*   PROG / CLAS / INTF / FUNC / FUGR
+*"*   DTEL / DOMA / TABL / DDLS / BDEF  (via cl_wb_object)
 *"*---------------------------------------------------------------------*
 CLASS zcl_scort_l_reader DEFINITION
   PUBLIC
@@ -55,6 +57,18 @@ CLASS zcl_scort_l_reader DEFINITION
       IMPORTING iv_name TYPE sobj_name
       EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
+    CLASS-METHODS read_ddic_src
+      IMPORTING
+        iv_object TYPE trobjtype
+        iv_name   TYPE sobj_name
+      EXPORTING
+        et_lines  TYPE ty_string_tab
+        ev_ok     TYPE abap_bool.
+
+    CLASS-METHODS read_ddic_tabl_fallback
+      IMPORTING iv_name  TYPE sobj_name
+      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
+
 ENDCLASS.
 
 
@@ -62,7 +76,8 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
   METHOD is_supported.
     CASE iv_object_type.
-      WHEN 'PROG' OR 'CLAS' OR 'INTF' OR 'FUNC' OR 'FUGR'.
+      WHEN 'PROG' OR 'CLAS' OR 'INTF' OR 'FUNC' OR 'FUGR'
+        OR 'DTEL' OR 'DOMA' OR 'TABL' OR 'DDLS' OR 'BDEF'.
         rv_ok = abap_true.
       WHEN OTHERS.
         rv_ok = abap_false.
@@ -78,8 +93,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read_oo.
-    " CL_OO_SOURCE đã obsolete / method private trên nhiều hệ.
-    " Dùng CL_OO_FACTORY + IF_OO_CLIF_SOURCE (ADT/source-based).
     DATA lo_source TYPE REF TO if_oo_clif_source.
     DATA lt_src    TYPE rswsourcet.
     DATA lv_pool   TYPE programm.
@@ -103,7 +116,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         CLEAR et_lines.
     ENDTRY.
 
-    " Fallback: đọc class/interface pool include (=====CP / =====IP)
     CLEAR et_lines.
     TRY.
         IF iv_is_intf = abap_true.
@@ -128,7 +140,8 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read_func.
-    DATA lv_fname   TYPE rs38l-name. " RS38L-NAME — không dùng rs38l_incl-name
+    DATA lv_fname   TYPE rs38l-name.
+    DATA lv_group   TYPE rs38l-area.
     DATA lv_include TYPE programm.
     DATA lt_fm      TYPE STANDARD TABLE OF rssource WITH DEFAULT KEY.
     DATA lv_line    TYPE rssource.
@@ -136,18 +149,42 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     CLEAR: et_lines, ev_ok.
     lv_fname = iv_name.
 
-    " Ưu tiên: tìm include vật lý rồi READ REPORT
-    CALL FUNCTION 'FUNCTION_INCLUDE_INFO'
-      EXPORTING
-        funcname               = lv_fname
-      IMPORTING
-        include                = lv_include
-      EXCEPTIONS
-        function_not_exists    = 1
-        input_incomplete       = 2
-        no_function_include    = 3
-        OTHERS                 = 4.
-    IF sy-subrc = 0 AND lv_include IS NOT INITIAL.
+    TRY.
+        CALL FUNCTION 'FUNCTION_INCLUDE_INFO'
+          CHANGING
+            funcname            = lv_fname
+            group               = lv_group
+            include             = lv_include
+          EXCEPTIONS
+            function_not_exists = 1
+            include_not_exists  = 2
+            group_not_exists    = 3
+            no_selections       = 4
+            no_function_include = 5
+            OTHERS              = 6.
+        IF sy-subrc = 0 AND lv_include IS NOT INITIAL.
+          READ REPORT lv_include INTO et_lines.
+          IF sy-subrc = 0 AND et_lines IS NOT INITIAL.
+            ev_ok = abap_true.
+            RETURN.
+          ENDIF.
+        ENDIF.
+      CATCH cx_root.
+    ENDTRY.
+
+    SELECT SINGLE pname, include FROM tfdir
+      WHERE funcname = @lv_fname
+      INTO (@DATA(lv_pname), @DATA(lv_inc_num)).
+    IF sy-subrc = 0 AND lv_pname IS NOT INITIAL.
+      DATA(lv_inc_str) = |{ lv_inc_num ALPHA = IN }|.
+      IF strlen( lv_inc_str ) = 1.
+        lv_inc_str = |0{ lv_inc_str }|.
+      ENDIF.
+      IF lv_pname(4) = 'SAPL'.
+        lv_include = |L{ lv_pname+4 }U{ lv_inc_str }|.
+      ELSE.
+        lv_include = |{ lv_pname }U{ lv_inc_str }|.
+      ENDIF.
       READ REPORT lv_include INTO et_lines.
       IF sy-subrc = 0 AND et_lines IS NOT INITIAL.
         ev_ok = abap_true.
@@ -155,27 +192,27 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " Fallback: RPY_FUNCTIONMODULE_READ
     CLEAR et_lines.
-    CALL FUNCTION 'RPY_FUNCTIONMODULE_READ'
-      EXPORTING
-        functionname  = lv_fname
-      TABLES
-        source        = lt_fm
-      EXCEPTIONS
-        error_message = 1
-        OTHERS        = 2.
-    IF lt_fm IS INITIAL.
-      RETURN.
-    ENDIF.
-    LOOP AT lt_fm INTO lv_line.
-      APPEND CONV string( lv_line ) TO et_lines.
-    ENDLOOP.
-    ev_ok = abap_true.
+    TRY.
+        CALL FUNCTION 'RPY_FUNCTIONMODULE_READ'
+          EXPORTING
+            functionname  = lv_fname
+          TABLES
+            source        = lt_fm
+          EXCEPTIONS
+            error_message = 1
+            OTHERS        = 2.
+        IF sy-subrc = 0 AND lt_fm IS NOT INITIAL.
+          LOOP AT lt_fm INTO lv_line.
+            APPEND CONV string( lv_line ) TO et_lines.
+          ENDLOOP.
+          ev_ok = abap_true.
+        ENDIF.
+      CATCH cx_root.
+    ENDTRY.
   ENDMETHOD.
 
   METHOD read_fugr.
-    " Đọc include chính của Function Group: SAPL<name> hoặc L<name>TOP + UXX
     DATA lv_main TYPE programm.
     DATA lt_all  TYPE ty_string_tab.
     DATA lt_one  TYPE ty_string_tab.
@@ -189,7 +226,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       APPEND LINES OF lt_one TO lt_all.
     ENDIF.
 
-    " TOP include
     CLEAR lt_one.
     lv_main = |L{ iv_name }TOP|.
     read_prog( EXPORTING iv_name = CONV sobj_name( lv_main )
@@ -202,6 +238,101 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
     et_lines = lt_all.
+    ev_ok = abap_true.
+  ENDMETHOD.
+
+  METHOD read_ddic_src.
+    DATA lo_obj  TYPE REF TO cl_wb_object.
+    DATA lt_src  TYPE rswsourcet.
+    DATA lv_line TYPE string.
+
+    CLEAR: et_lines, ev_ok.
+
+    TRY.
+        lo_obj = cl_wb_object=>create_from_transport_key(
+                   p_object   = CONV seu_objt( iv_object )
+                   p_obj_name = CONV seu_name( iv_name ) ).
+        lo_obj->if_wb_object_operator~get_source(
+          IMPORTING p_source = lt_src ).
+        LOOP AT lt_src INTO lv_line.
+          APPEND CONV string( lv_line ) TO et_lines.
+        ENDLOOP.
+        IF et_lines IS NOT INITIAL.
+          ev_ok = abap_true.
+          RETURN.
+        ENDIF.
+      CATCH cx_root.
+        CLEAR et_lines.
+    ENDTRY.
+
+    IF iv_object = 'TABL'.
+      read_ddic_tabl_fallback( EXPORTING iv_name  = iv_name
+                               IMPORTING et_lines = et_lines ev_ok = ev_ok ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD read_ddic_tabl_fallback.
+    DATA lt_dfies  TYPE STANDARD TABLE OF dfies WITH DEFAULT KEY.
+    DATA lv_line   TYPE string.
+    DATA lv_tabcat TYPE string.
+
+    CLEAR: et_lines, ev_ok.
+
+    CALL FUNCTION 'DDIF_FIELDINFO_GET'
+      EXPORTING
+        tabname   = iv_name
+        fieldname = space
+        langu     = sy-langu
+      IMPORTING
+        x030l_wa  = DATA(ls_x030)
+      TABLES
+        dfies_tab = lt_dfies
+      EXCEPTIONS
+        not_found = 1
+        OTHERS    = 2.
+
+    IF sy-subrc <> 0 OR lt_dfies IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    SELECT SINGLE ddtext FROM dd02t
+      WHERE tabname = @iv_name AND ddlanguage = @sy-langu
+      INTO @DATA(lv_ddtext).
+
+    IF lv_ddtext IS INITIAL.
+      SELECT SINGLE ddtext FROM dd02t
+        WHERE tabname = @iv_name
+        INTO @lv_ddtext.
+    ENDIF.
+
+    CASE ls_x030-tabclass.
+      WHEN 'TRANSP'. lv_tabcat = 'TRANSPARENT'.
+      WHEN 'POOL'.   lv_tabcat = 'POOL'.
+      WHEN 'CLUSTER'. lv_tabcat = 'CLUSTER'.
+      WHEN 'INTTAB'. lv_tabcat = 'STRUCTURE'.
+      WHEN OTHERS.   lv_tabcat = ls_x030-tabclass.
+    ENDCASE.
+
+    APPEND |@EndUserText.label : '{ lv_ddtext }'| TO et_lines.
+    APPEND |@AbapCatalog.tableCategory : #{ lv_tabcat }| TO et_lines.
+    APPEND |define table { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
+
+    LOOP AT lt_dfies INTO DATA(ls_f).
+      DATA(lv_fnam)  = to_lower( CONV string( ls_f-fieldname ) ).
+      DATA(lv_rnam)  = to_lower( CONV string( ls_f-rollname ) ).
+      IF ls_f-keyflag = 'X'.
+        IF ls_f-notnull = 'X'.
+          lv_line = |  key { lv_fnam }{ REPEAT val = space occ = 30 - strlen( lv_fnam ) } : { lv_rnam } not null;|.
+        ELSE.
+          lv_line = |  key { lv_fnam }{ REPEAT val = space occ = 30 - strlen( lv_fnam ) } : { lv_rnam };|.
+        ENDIF.
+      ELSE.
+        lv_line = |  { lv_fnam }{ REPEAT val = space occ = 34 - strlen( lv_fnam ) } : { lv_rnam };|.
+      ENDIF.
+      APPEND lv_line TO et_lines.
+    ENDLOOP.
+
+    APPEND |}| TO et_lines.
     ev_ok = abap_true.
   ENDMETHOD.
 
@@ -236,6 +367,10 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       WHEN 'FUGR'.
         read_fugr( EXPORTING iv_name = CONV #( iv_object_name )
                    IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
+      WHEN 'DTEL' OR 'DOMA' OR 'TABL' OR 'DDLS' OR 'BDEF'.
+        read_ddic_src( EXPORTING iv_object = CONV #( iv_object_type )
+                                 iv_name   = CONV #( iv_object_name )
+                       IMPORTING et_lines  = lt_lines ev_ok = lv_ok ).
     ENDCASE.
 
     IF lv_ok = abap_false OR lt_lines IS INITIAL.
@@ -251,7 +386,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     rs_source-found      = abap_true.
     rs_source-lines      = lt_lines.
     rs_source-line_count = lines( lt_lines ).
-    " Cùng blob + SHA1 với ZCL026_SCORT_TARGET_APPLY (concat newline + calculate_checksum)
+    " Aligned SHA1 hash calculation with ZCL026_SCORT_TARGET_APPLY
     rs_source-text       = zcl_scort_hash_utl=>lines_to_text( lt_lines ).
     rs_source-hash       = zcl_scort_hash_utl=>calculate_checksum( rs_source-text ).
     rs_source-message    = |OK { rs_source-line_count } lines|.

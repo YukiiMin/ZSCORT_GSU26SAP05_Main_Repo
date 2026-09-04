@@ -136,6 +136,11 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
         ( ObjectType = 'INTF' Description = 'Interface' )
         ( ObjectType = 'FUNC' Description = 'Function Module' )
         ( ObjectType = 'FUGR' Description = 'Function Group' )
+        ( ObjectType = 'DTEL' Description = 'Data Element' )
+        ( ObjectType = 'DOMA' Description = 'Domain' )
+        ( ObjectType = 'TABL' Description = 'Database Table' )
+        ( ObjectType = 'DDLS' Description = 'CDS View Entity' )
+        ( ObjectType = 'BDEF' Description = 'Behavior Definition' )
       ).
       respond_typed( EXPORTING io_request = io_request io_response = io_response
                      CHANGING  ct_data = lt_otype ).
@@ -158,7 +163,79 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
         ( sign = 'I' option = 'EQ' low = 'CLAS' )
         ( sign = 'I' option = 'EQ' low = 'INTF' )
         ( sign = 'I' option = 'EQ' low = 'FUGR' )
+        ( sign = 'I' option = 'EQ' low = 'DTEL' )
+        ( sign = 'I' option = 'EQ' low = 'DOMA' )
+        ( sign = 'I' option = 'EQ' low = 'TABL' )
+        ( sign = 'I' option = 'EQ' low = 'DDLS' )
+        ( sign = 'I' option = 'EQ' low = 'BDEF' )
       ).
+
+      IF lv_type = 'FUNC'.
+        IF lv_name IS NOT INITIAL.
+          " 1) Exact Function Module
+          SELECT f~funcname AS obj_name, t~devclass, t~author
+            FROM enlfdir AS f
+            INNER JOIN tadir AS t
+              ON t~pgmid = 'R3TR' AND t~object = 'FUGR' AND t~obj_name = f~area
+              AND ( t~delflag IS NULL OR t~delflag = ' ' OR t~delflag = '' )
+            WHERE f~funcname = @lv_name AND f~active = 'X'
+            INTO TABLE @DATA(lt_funcs_exact)
+            UP TO 5 ROWS.
+          LOOP AT lt_funcs_exact INTO DATA(ls_fe).
+            CLEAR ls_oname.
+            ls_oname-ObjectType = 'FUNC'.
+            ls_oname-ObjectName = ls_fe-obj_name.
+            ls_oname-Devclass   = ls_fe-devclass.
+            ls_oname-Author     = ls_fe-author.
+            APPEND ls_oname TO lt_oname.
+          ENDLOOP.
+
+          " 2) Prefix LIKE
+          IF lt_oname IS INITIAL AND strlen( lv_name ) >= 2.
+            lv_like = |{ lv_name }%|.
+            SELECT f~funcname AS obj_name, t~devclass, t~author
+              FROM enlfdir AS f
+              INNER JOIN tadir AS t
+                ON t~pgmid = 'R3TR' AND t~object = 'FUGR' AND t~obj_name = f~area
+                AND ( t~delflag IS NULL OR t~delflag = ' ' OR t~delflag = '' )
+              WHERE f~funcname LIKE @lv_like AND f~active = 'X'
+              ORDER BY f~funcname
+              INTO TABLE @DATA(lt_funcs_like)
+              UP TO 100 ROWS.
+            LOOP AT lt_funcs_like INTO DATA(ls_fl).
+              CLEAR ls_oname.
+              ls_oname-ObjectType = 'FUNC'.
+              ls_oname-ObjectName = ls_fl-obj_name.
+              ls_oname-Devclass   = ls_fl-devclass.
+              ls_oname-Author     = ls_fl-author.
+              APPEND ls_oname TO lt_oname.
+            ENDLOOP.
+          ENDIF.
+        ELSE.
+          " Browse all Z/Y Function Modules
+          SELECT f~funcname AS obj_name, t~devclass, t~author
+            FROM enlfdir AS f
+            INNER JOIN tadir AS t
+              ON t~pgmid = 'R3TR' AND t~object = 'FUGR' AND t~obj_name = f~area
+              AND ( t~delflag IS NULL OR t~delflag = ' ' OR t~delflag = '' )
+            WHERE ( f~funcname LIKE 'Z%' OR f~funcname LIKE 'Y%' ) AND f~active = 'X'
+            ORDER BY f~funcname
+            INTO TABLE @DATA(lt_funcs_browse)
+            UP TO 100 ROWS.
+          LOOP AT lt_funcs_browse INTO DATA(ls_fb).
+            CLEAR ls_oname.
+            ls_oname-ObjectType = 'FUNC'.
+            ls_oname-ObjectName = ls_fb-obj_name.
+            ls_oname-Devclass   = ls_fb-devclass.
+            ls_oname-Author     = ls_fb-author.
+            APPEND ls_oname TO lt_oname.
+          ENDLOOP.
+        ENDIF.
+
+        respond_typed( EXPORTING io_request = io_request io_response = io_response
+                       CHANGING  ct_data = lt_oname ).
+        RETURN.
+      ENDIF.
 
       IF lv_name IS NOT INITIAL.
         " 1) Exact — ưu tiên khi FE validate / gõ đủ tên
