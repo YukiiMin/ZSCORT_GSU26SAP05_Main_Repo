@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
+ <asx:values>
+  <DDDDLSRC>
+   <DDLNAME>ZCE_SCORT_MATRIX</DDLNAME>
+   <DDLANGUAGE>E</DDLANGUAGE>
+   <DDTEXT>SCORT: Compare Matrix (Local vs Target) Custom Entity</DDTEXT>
+   <SOURCELEN>0</SOURCELEN>
+   <AUTHCHECK>N</AUTHCHECK>
+  </DDDDLSRC>
+ </asx:values>
+</asx:abap>

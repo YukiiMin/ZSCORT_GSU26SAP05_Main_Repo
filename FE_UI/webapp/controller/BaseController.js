@@ -4,8 +4,10 @@ sap.ui.define([
   "sap/m/MessageToast",
   "sap/f/library",
   "zscort/app/monaco/CodeHost",
-  "sap/ui/core/format/DateFormat"
-], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat) {
+  "sap/ui/core/format/DateFormat",
+  "zscort/app/util/AiReview",
+  "zscort/app/util/AiPanelRenderer"
+], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat, AiReview, AiPanelRenderer) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
@@ -265,9 +267,15 @@ sap.ui.define([
     },
 
     onButtonCopySourcePress: function () {
-      if (this._pendingSourceCode) {
+      var sCode = this._pendingSourceCode;
+      if (!sCode) {
+        var oView = this.getView();
+        var oM = oView.getModel("objSearch") || oView.getModel("detail") || this._app();
+        sCode = oM ? oM.getProperty("/viewSourceCode") : "";
+      }
+      if (sCode) {
         var el = document.createElement("textarea");
-        el.value = this._pendingSourceCode;
+        el.value = sCode;
         document.body.appendChild(el);
         el.select();
         document.execCommand("copy");
@@ -276,6 +284,104 @@ sap.ui.define([
       } else {
         MessageToast.show("No source code to copy.");
       }
+    },
+
+    onToggleSourceAiPanel: function () {
+      var oApp = this._app();
+      var bShow = !oApp.getProperty("/showSourceAiPanel");
+      oApp.setProperty("/showSourceAiPanel", bShow);
+      if (bShow) {
+        this._runSourceAiAudit();
+      }
+    },
+
+    onAiModelChange: function (oEvent) {
+      var sKey = oEvent.getParameter("selectedItem") ? oEvent.getParameter("selectedItem").getKey() : oEvent.getSource().getSelectedKey();
+      var oApp = this._app();
+      if (oApp) {
+        oApp.setProperty("/aiModel", sKey);
+      }
+      var oDetail = this.getOwnerComponent().getModel("detail");
+      if (oDetail) {
+        oDetail.setProperty("/aiModel", sKey);
+      }
+    },
+
+    onAiExecutionModeChange: function (oEvent) {
+      var sKey = oEvent.getParameter("item") ? oEvent.getParameter("item").getKey() : oEvent.getSource().getSelectedKey();
+      var oApp = this._app();
+      if (oApp) {
+        oApp.setProperty("/aiExecutionMode", sKey);
+      }
+      var oDetail = this.getOwnerComponent().getModel("detail");
+      if (oDetail) {
+        oDetail.setProperty("/aiExecutionMode", sKey);
+      }
+    },
+
+    onRunAiSideAudit: function () {
+      this._runSourceAiAudit();
+    },
+
+    onCloseAiSidePanel: function () {
+      this._app().setProperty("/showSourceAiPanel", false);
+    },
+
+    _runSourceAiAudit: function () {
+      var oApp = this._app();
+      var oView = this.getView();
+      var oM = oView.getModel("objSearch") || oView.getModel("detail") || oApp;
+      var sObjType = oM.getProperty("/viewSourceType") || "";
+      var sObjName = oM.getProperty("/viewSourceName") || "";
+      var sServerType = oM.getProperty("/viewSourceServer") || "L";
+      var sCode = this._pendingSourceCode || oM.getProperty("/viewSourceCode") || "";
+      var oMeta = oM.getProperty("/viewSourceMetaData") || {};
+      var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+      var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
+      var sMode = oApp.getProperty("/aiExecutionMode") || oM.getProperty("/aiExecutionMode") || "BE_SAP";
+      var sModel = oApp.getProperty("/aiModel") || oM.getProperty("/aiModel") || "gemini-3.5-flash";
+      var oDialog = this._oSourceDialog;
+
+      if (!sCode) {
+        MessageToast.show(oI18n.getText("aiReviewNoData") || "Source code not loaded yet.");
+        return;
+      }
+
+      var byId = function (sId) {
+        return Fragment.byId(oView.getId(), Fragment.createId("idSourceAiFrag", sId)) || Fragment.byId(oView.getId(), sId) || oView.byId(sId);
+      };
+
+      var oLoading = byId("idSideAiLoading");
+      if (oLoading) oLoading.setVisible(true);
+      var oError = byId("idSideAiError");
+      if (oError) oError.setVisible(false);
+      var oResultBox = byId("idSideAiResultBox");
+      if (oResultBox) oResultBox.setVisible(false);
+
+      var sLocalCode = sServerType === "T" ? "" : sCode;
+      var sTargetCode = sServerType === "T" ? sCode : "";
+      var oLocalMeta = sServerType === "T" ? {} : oMeta;
+      var oTargetMeta = sServerType === "T" ? oMeta : {};
+
+      AiReview.checkSyntaxAndQuality(
+        sObjType,
+        sObjName,
+        sLocalCode,
+        sTargetCode,
+        sLocale,
+        sMode,
+        oLocalMeta,
+        oTargetMeta,
+        sModel
+      ).then(function (oResult) {
+        AiPanelRenderer.render(byId, oResult, oI18n);
+      }).catch(function (oErr) {
+        if (oLoading) oLoading.setVisible(false);
+        if (oError) {
+          oError.setText(String(oErr && oErr.message ? oErr.message : oErr));
+          oError.setVisible(true);
+        }
+      });
     },
 
     formatDate: function (vDate) {

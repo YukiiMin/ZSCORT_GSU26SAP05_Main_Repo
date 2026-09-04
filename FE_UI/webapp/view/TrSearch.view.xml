@@ -12,14 +12,7 @@
     <customHeader>
       <Bar>
         <contentLeft>
-          <Button
-            id="idTrSearchBackButton"
-            icon="sap-icon://nav-back"
-            type="Transparent"
-            text="{i18n>navObjSearch}"
-            tooltip="Back to Object Search"
-            press=".onNavObjSearch" />
-          <Title text="{i18n>trSearchTitle}" class="sapUiTinyMarginBegin" />
+          <Title text="{i18n>trSearchTitle}" />
         </contentLeft>
         <contentMiddle>
           <SegmentedButton
@@ -175,7 +168,7 @@
                     </table:layoutData>
 
                     <table:columns>
-                      <table:Column width="22rem" filterProperty="Trkorr">
+                      <table:Column width="26rem" filterProperty="Trkorr">
                         <Label text="{i18n>colTrTaskObj}" />
                         <table:template>
                           <HBox alignItems="Center">
@@ -192,7 +185,7 @@
                               visible="{= ${trTree>TrStatus} === 'R' }" />
                             
                             <ObjectIdentifier
-                              title="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjName} : (${trTree>NodeType} === 'FOLD' ? ${trTree>ObjType} : ${trTree>Trkorr}) }" />
+                              title="{= ${trTree>NodeType} === 'OBJ' || ${trTree>NodeType} === 'ATTR' || ${trTree>NodeType} === 'COMM' ? ${trTree>ObjName} : (${trTree>NodeType} === 'FOLD' ? (${trTree>Description} || ${trTree>ObjName} || ${trTree>ObjType}) : ${trTree>Trkorr}) }" />
                           </HBox>
                         </table:template>
                       </table:Column>
@@ -200,7 +193,7 @@
                       <table:Column width="8rem" filterProperty="NodeType">
                         <Label text="{i18n>colType}" />
                         <table:template>
-                          <Text text="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjType} : (${trTree>NodeType} === 'FOLD' ? '' : ${trTree>NodeType}) }" />
+                          <Text text="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjType} : (${trTree>NodeType} === 'FOLD' || ${trTree>NodeType} === 'ATTR' || ${trTree>NodeType} === 'COMM' ? '' : ${trTree>NodeType}) }" />
                         </table:template>
                       </table:Column>
 

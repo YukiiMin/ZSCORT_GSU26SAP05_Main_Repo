@@ -304,7 +304,13 @@ sap.ui.define([
       if (!oCtx) { return; }
       var oNode = oCtx.getObject();
       if (oNode.NodeType === "OBJ" && oNode.ObjName && oNode.ObjType) {
-        this.navToCompare(oNode.ObjType, oNode.ObjName, "L", "BOTH");
+        var sType = oNode.ObjType;
+        if (sType === "METH" || sType === "CPUB" || sType === "CPRI" || sType === "CPRO" || sType === "CLSD") {
+          sType = "CLAS";
+        } else if (sType === "FUNC" && oNode.ObjName && (oNode.ObjName.indexOf("UXX") > 0 || oNode.ObjName.indexOf("TOP") > 0)) {
+          sType = "PROG";
+        }
+        this.navToCompare(sType, oNode.ObjName, "L", "BOTH");
       }
     },
 
@@ -313,7 +319,13 @@ sap.ui.define([
       if (!oCtx) { return; }
       var oNode = oCtx.getObject();
       if (oNode.NodeType === "OBJ" && oNode.ObjName && oNode.ObjType) {
-        this._openSourceDialog(oNode.ObjType, oNode.ObjName, "L", oNode);
+        var sType = oNode.ObjType;
+        if (sType === "METH" || sType === "CPUB" || sType === "CPRI" || sType === "CPRO" || sType === "CLSD") {
+          sType = "CLAS";
+        } else if (sType === "FUNC" && oNode.ObjName && (oNode.ObjName.indexOf("UXX") > 0 || oNode.ObjName.indexOf("TOP") > 0)) {
+          sType = "PROG";
+        }
+        this._openSourceDialog(sType, oNode.ObjName, "L", oNode);
       }
     },
 
@@ -553,6 +565,8 @@ sap.ui.define([
         case "TASK": return "sap-icon://task";
         case "FOLD": return "sap-icon://folder-blank";
         case "OBJ":  return "sap-icon://form";
+        case "ATTR": return "sap-icon://tag";
+        case "COMM": return "sap-icon://notes";
         default:     return "sap-icon://document";
       }
     },
@@ -563,6 +577,8 @@ sap.ui.define([
         case "TASK": return "#e9730c";
         case "FOLD": return "#d8b024";
         case "OBJ":  return "#188918";
+        case "ATTR": return "#8b5cf6";
+        case "COMM": return "#475569";
         default:     return "#6a6d70";
       }
     }

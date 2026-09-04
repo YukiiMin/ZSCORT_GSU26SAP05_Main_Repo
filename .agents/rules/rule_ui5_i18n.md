@@ -23,6 +23,7 @@ Additionally, standard `.properties` files in SAP tooling require ASCII encoding
 
 ### B. File Formatting & Unicode Escape Encoding
 - All `.properties` files must store accented/non-ASCII characters in `\uXXXX` Unicode Escape format (e.g. `T\u00ecm ki\u1ebfm` for `Tìm kiếm`).
+- **Strict 4-Hex Digits:** Every `\u` escape MUST have exactly 4 hexadecimal characters. Sequences like `\u305ず` (3 hex digits) cause an unrecoverable UI5 boot failure (`Error: Incomplete Unicode Escape '\u305'`).
 - File naming structure:
   - `i18n.properties` (Default / Fallback)
   - `i18n_en.properties` (English)

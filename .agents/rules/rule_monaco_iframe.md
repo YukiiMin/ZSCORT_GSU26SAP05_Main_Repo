@@ -29,3 +29,9 @@ To guarantee isolation and stability, Monaco MUST be loaded inside an isolated `
 ### 2.4 Model Lifecycle & Safe Diff Navigation (Monaco v0.52+)
 - **Set Before Dispose:** When updating diff models (`SET_DIFF`), always instantiate and assign the new models to `diffEditor.setModel({ original, modified })` BEFORE calling `dispose()` on previous models. This prevents `TextModel got disposed before DiffEditorWidget model got reset`.
 - **Safe Diff Navigation:** Guard `monaco.editor.createDiffNavigator` with type checks. Use `diffEditor.goToDiff('next' | 'previous')` as fallback when `diffNavigator` is unavailable.
+
+### 2.5 Single-Sided / Missing Source Rendering (`.no-diff` Mode)
+- **Pass Empty String:** When comparing objects where one side has no source code (`LOCAL_ONLY` or `TARGET_ONLY`), pass `""` for the missing side model.
+- **NEVER Insert Dummy Comments into Diff Models:** Inserting comment banners (e.g. `* NOT AVAILABLE ON TARGET`) causes Monaco to calculate line-by-line diffs against comment lines, turning entire files solid red and green.
+- **Toggle `.no-diff` CSS:** In `monaco_diff.html`, check `var bHasBoth = !!(sOrig.trim() && sMod.trim());`. When `!bHasBoth`, add `.no-diff` class to the container (`background: transparent !important` on `.line-delete`, `.line-insert`, `.ced-diff-editor-line-deleted`, etc., and hide diagonal hatching), and set `renderIndicators: false`.
+- **Status Tags:** Convey non-existence cleanly via toolbar status tags (e.g. `Local (Active) vs Target: Not in Snapshot (LOCAL_ONLY)`).

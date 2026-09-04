@@ -27,3 +27,12 @@ When writing, editing, or generating CDS Entities (`.asddls`), Projections (`.dd
 ## 4. Value Help & `additionalBinding` Target Element Alignment
 1. **Target Element Existence:** In `@Consumption.valueHelpDefinition: [{ entity: { name: '...', element: '...' }, additionalBinding: [...] }]`, every field referenced in `element` MUST exist as an active field/key in the target Value Help CDS entity.
 2. **Never Map Ghost Fields:** If the target entity only filters by `ObjectType` and `ObjectName`, do NOT map `ServerId` or other unexposed fields. Mismatched elements generate SAP Gateway activation warnings (`Annotated element ... not equal to element in view ...`) and broken OData Value Help metadata.
+
+## 5. TADIR Object Deletion Filtering (`DELFLAG`)
+1. **Always Filter `delflag`:** When querying `tadir` in CDS Entities or ABAP queries (e.g., `ZIR_SCORT_OBJ_L`, `ZIR_SCORT_OBJ_M`), ALWAYS add the condition:
+   ```abap
+   where pgmid = 'R3TR'
+     and ( delflag is null or delflag = ' ' or delflag = '' )
+   ```
+2. **Alignment with SE80 / Eclipse ADT:** SAP marks deleted objects in `TADIR` with `DELFLAG = 'X'` instead of hard-deleting the row immediately. Filtering out `DELFLAG = 'X'` prevents phantom/deleted objects from surfacing on the UI.
+

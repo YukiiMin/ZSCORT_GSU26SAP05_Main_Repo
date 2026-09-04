@@ -115,14 +115,7 @@
                   <Button id="idClearButton"
                     text="{i18n>clearBtn}"
                     type="Transparent"
-                    press=".onClearButtonPress"
-                    class="sapUiTinyMarginEnd" />
-                  <Button id="idNavTrReleaseButton"
-                    text="{i18n>btnNavTrRelease}"
-                    icon="sap-icon://shipping-status"
-                    type="Emphasized"
-                    press=".onButtonNavTrReleasePress"
-                    tooltip="Open TR Search, then open a TR for Release / Apply" />
+                    press=".onClearButtonPress" />
                 </HBox>
               </VBox>
 

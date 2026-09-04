@@ -46,6 +46,7 @@ define root view entity ZIR_SCORT_OBJ_M
       _SourceCode
 }
 where Local.pgmid = 'R3TR'
+  and ( Local.delflag is null or Local.delflag = ' ' or Local.delflag = '' )
 
 union all
 
@@ -55,6 +56,7 @@ select from za05_scort_t as Target
       on  Local.pgmid    = 'R3TR'
       and Local.object   = Target.object
       and Local.obj_name = Target.obj_name
+      and ( Local.delflag is null or Local.delflag = ' ' or Local.delflag = '' )
   association [0..1] to ZCR_SCORT_OBJ_SRC as _SourceCode
     on  _SourceCode.ObjectType  = $projection.ObjectType
     and _SourceCode.ObjectName  = $projection.ObjectName

@@ -20,7 +20,7 @@ define root view entity ZIR_SCORT_OBJ_L
 
       devclass    as PackageName,
       author      as PersonResponsible,
-      created_on as CreatedOn, // Resolves the unknown as4date error
+      created_on as CreatedOn,
 
       cast( 'L' as abap.char(1) ) as ServerType,
 
@@ -28,3 +28,4 @@ define root view entity ZIR_SCORT_OBJ_L
       _SourceCode
 }
 where pgmid = 'R3TR'
+  and ( delflag is null or delflag = ' ' or delflag = '' )

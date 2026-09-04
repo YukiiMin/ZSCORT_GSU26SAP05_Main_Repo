@@ -7,7 +7,9 @@ sap.ui.define([
   "zscort/app/monaco/DiffHost",
   "zscort/app/util/ValueHelp",
   "zscort/app/util/AiReview",
-  "sap/m/StandardListItem"
+  "zscort/app/util/AiPanelRenderer",
+  "sap/m/StandardListItem",
+  "sap/ui/core/Fragment"
 ], function (
   BaseController,
   JSONModel,
@@ -17,7 +19,9 @@ sap.ui.define([
   DiffHost,
   ValueHelp,
   AiReview,
-  StandardListItem
+  AiPanelRenderer,
+  StandardListItem,
+  Fragment
 ) {
   "use strict";
 
@@ -34,7 +38,6 @@ sap.ui.define([
 
     onInit: function () {
       this._oRouter = this.getOwnerComponent().getRouter();
-      this._bDirectMode = this.getView().getId().indexOf("compareMidView") > -1;
       this._oRouter.getRoute("objCompare").attachPatternMatched(this._onDetailMatched, this);
       this._oRouter.getRoute("trCompare").attachPatternMatched(this._onDetailMatched, this);
       this._oRouter.getRoute("compare").attachPatternMatched(this._onDetailMatched, this);
@@ -45,6 +48,7 @@ sap.ui.define([
       this._sName = "";
       this._bSideGit = true;
       this._bSideVers = true;
+      this._bDirectMode = false;
 
       this._app().setProperty("/currentModule", "compare");
     },
@@ -72,6 +76,23 @@ sap.ui.define([
     },
 
     _onDetailMatched: function (oEvent) {
+      var sRouteName = oEvent.getParameter("name");
+      var bDirectRoute = (sRouteName === "objCompare" || sRouteName === "trCompare");
+      this._bDirectMode = bDirectRoute;
+
+      var sViewId = this.getView().getId() || "";
+      var bIsMid = sViewId.indexOf("Mid") > -1 || sViewId.indexOf("mid") > -1;
+      var bIsEnd = sViewId.indexOf("compareView") > -1;
+
+      // If this instance is compareMidView but route is 3-column TR compare, ignore.
+      if (bIsMid && !bDirectRoute) {
+        return;
+      }
+      // If this instance is compareView (endColumn) but route is 2-column direct compare, ignore.
+      if (bIsEnd && bDirectRoute) {
+        return;
+      }
+
       var oArgs = oEvent.getParameter("arguments");
       if (!oArgs || !oArgs.objectType || !oArgs.objectName) { return; }
       this._sType = oArgs.objectType;
@@ -82,12 +103,29 @@ sap.ui.define([
       oDetailModel.setProperty("/ObjectName", this._sName);
       oDetailModel.setProperty("/versions", []);
       oDetailModel.setProperty("/showEditor", false);
+      oDetailModel.setProperty("/showGitAiPanel", false);
+      oDetailModel.setProperty("/showVersAiPanel", false);
       if (!oDetailModel.getProperty("/aiExecutionMode")) {
-        oDetailModel.setProperty("/aiExecutionMode", "FE_DIRECT");
+        oDetailModel.setProperty("/aiExecutionMode", "BE_SAP");
       }
 
       var oApp = this._app();
       oApp.setProperty("/layout", this._bDirectMode ? LayoutType.TwoColumnsMidExpanded : LayoutType.ThreeColumnsEndExpanded);
+
+      var oRoot = this.getOwnerComponent().getRootControl();
+      var oFcl = (oRoot && oRoot.byId && oRoot.byId("fcl")) || sap.ui.getCore().byId("container-zscort.app---appView--fcl");
+      if (oFcl) {
+        if (this._bDirectMode && typeof oFcl.toMidColumnPage === "function") {
+          oFcl.toMidColumnPage(this.getView());
+        } else if (!this._bDirectMode && typeof oFcl.toEndColumnPage === "function") {
+          oFcl.toEndColumnPage(this.getView());
+        }
+      }
+
+      var oTabBar = this.byId("idCompareIconTabBar");
+      if (oTabBar) {
+        oTabBar.setSelectedKey("gitReview");
+      }
 
       // Auto-load Tab 1 (Git Review) and Tab 2 (Versions)
       this._loadGitReviewSource();
@@ -102,34 +140,62 @@ sap.ui.define([
       var oObjUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.objService.uri.replace(/\/?$/, "/");
       var sUrlLocal = oObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq 'L' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "' and VersionNo eq '99998'");
       var sUrlTarget = oObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq 'T' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
+      var sUrlLocalMeta = oObjUri + "LocalObjects?$filter=" + encodeURIComponent("ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
+      var sUrlTargetMeta = oObjUri + "TargetObjects?$filter=" + encodeURIComponent("ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
 
-      this.byId("idDetailDynamicPage").setBusy(true);
+      var oDp = this.byId("idDetailDynamicPage");
+      if (oDp) oDp.setBusy(true);
 
       Promise.all([
         ValueHelp.fetchJson(sUrlLocal, 15000).catch(function() { return []; }),
-        ValueHelp.fetchJson(sUrlTarget, 15000).catch(function() { return []; })
+        ValueHelp.fetchJson(sUrlTarget, 15000).catch(function() { return []; }),
+        ValueHelp.fetchJson(sUrlLocalMeta, 10000).catch(function() { return []; }),
+        ValueHelp.fetchJson(sUrlTargetMeta, 10000).catch(function() { return []; })
       ]).then(function (aResults) {
         var oResLocal = (aResults[0] && aResults[0][0]) || { SourceCodeText: "" };
         var oResTarget = (aResults[1] && aResults[1][0]) || { SourceCodeText: "" };
+        that._oLocalMeta = (aResults[2] && aResults[2][0]) || {};
+        that._oTargetMeta = (aResults[3] && aResults[3][0]) || {};
 
-        that._ensureGitDiffHost();
+        var bTargetExists = !!(that._oTargetMeta && (that._oTargetMeta.ObjectName || that._oTargetMeta.ObjectType));
+        var bLocalExists = !!(that._oLocalMeta && (that._oLocalMeta.ObjectName || that._oLocalMeta.ObjectType));
+
+        var sTargetCode = (bTargetExists && oResTarget && oResTarget.SourceCodeText) ? oResTarget.SourceCodeText : "";
+        var sLocalCode = (bLocalExists && oResLocal && oResLocal.SourceCodeText) ? oResLocal.SourceCodeText : "";
+
+        var oDetailModel = that.getOwnerComponent().getModel("detail");
+        if (oDetailModel) {
+          oDetailModel.setProperty("/targetExists", !!sTargetCode);
+          oDetailModel.setProperty("/localExists", !!sLocalCode);
+        }
+
         var sLang = that._getMonacoLang();
         that._mGitModel = {
-          original: oResLocal.SourceCodeText || "",
-          modified: oResTarget.SourceCodeText || "",
+          original: sLocalCode,
+          modified: sTargetCode,
           language: sLang
         };
 
-        if (that._oGitDiffHost) {
-          that._oGitDiffHost.setModel(that._mGitModel).then(function () {
-            that.byId("idDetailDynamicPage").setBusy(false);
-            that._oGitDiffHost.setSideBySide(that._bSideGit);
-          });
-        } else {
-          that.byId("idDetailDynamicPage").setBusy(false);
-        }
+        var tryRender = function (iAttempt) {
+          iAttempt = iAttempt || 0;
+          that._ensureGitDiffHost();
+          if (that._oGitDiffHost) {
+            that._oGitDiffHost.setModel(that._mGitModel).then(function () {
+              var oDpInner = that.byId("idDetailDynamicPage");
+              if (oDpInner) oDpInner.setBusy(false);
+              that._oGitDiffHost.setSideBySide(that._bSideGit);
+            });
+          } else if (iAttempt < 25) {
+            setTimeout(function () { tryRender(iAttempt + 1); }, 80);
+          } else {
+            var oDpInner = that.byId("idDetailDynamicPage");
+            if (oDpInner) oDpInner.setBusy(false);
+          }
+        };
+        tryRender(0);
       }).catch(function (e) {
-        that.byId("idDetailDynamicPage").setBusy(false);
+        var oDpErr = that.byId("idDetailDynamicPage");
+        if (oDpErr) oDpErr.setBusy(false);
         MessageBox.error("Failed to load Git Review source.\n" + String(e));
       });
     },
@@ -164,6 +230,60 @@ sap.ui.define([
     onMonacoToggleSideBySideGit: function () {
       this._bSideGit = !this._bSideGit;
       if (this._oGitDiffHost) { this._oGitDiffHost.setSideBySide(this._bSideGit); }
+    },
+
+    onToggleGitAiPanel: function () {
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      var bShow = !oDetailModel.getProperty("/showGitAiPanel");
+      oDetailModel.setProperty("/showGitAiPanel", bShow);
+      if (bShow) {
+        this._runGitAiAudit();
+      }
+    },
+
+    _runGitAiAudit: function () {
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+      var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
+      var sMode = oDetailModel.getProperty("/aiExecutionMode") || "BE_SAP";
+      var sModel = oDetailModel.getProperty("/aiModel") || "gemini-3.5-flash";
+      var that = this;
+
+      var byId = function (sId) {
+        return that.byId(Fragment.createId("idGitAiFrag", sId)) || that.byId(sId);
+      };
+
+      var oLoading = byId("idSideAiLoading");
+      if (oLoading) oLoading.setVisible(true);
+      var oError = byId("idSideAiError");
+      if (oError) oError.setVisible(false);
+      var oResultBox = byId("idSideAiResultBox");
+      if (oResultBox) oResultBox.setVisible(false);
+
+      var sLocal = (this._mGitModel && this._mGitModel.original) || "";
+      var sTarget = (this._mGitModel && this._mGitModel.modified) || "";
+      var oLocalMeta = this._oLocalMeta || {};
+      var oTargetMeta = this._oTargetMeta || {};
+
+      AiReview.checkSyntaxAndQuality(
+        this._sType,
+        this._sName,
+        sLocal,
+        sTarget,
+        sLocale,
+        sMode,
+        oLocalMeta,
+        oTargetMeta,
+        sModel
+      ).then(function (oResult) {
+        AiPanelRenderer.render(byId, oResult, oI18n);
+      }).catch(function (oErr) {
+        if (oLoading) oLoading.setVisible(false);
+        if (oError) {
+          oError.setText(String(oErr && oErr.message ? oErr.message : oErr));
+          oError.setVisible(true);
+        }
+      });
     },
 
     // ==========================================
@@ -202,7 +322,64 @@ sap.ui.define([
       var oTable = this.byId("idVersionsTable");
       if (!oTable) { return; }
       var aIndices = oTable.getSelectedIndices();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/selectedVersionCount", aIndices.length);
+      }
       this.byId("btnCompare").setEnabled(aIndices.length === 2);
+    },
+
+    onViewVersionSourcePress: function () {
+      var oTable = this.byId("idVersionsTable");
+      var aIndices = oTable ? oTable.getSelectedIndices() : [];
+      if (aIndices.length !== 1) {
+        MessageToast.show(this._i18n("selectOneVersion") || "Please select 1 version to view source.");
+        return;
+      }
+      var oRowData = oTable.getContextByIndex(aIndices[0]).getObject();
+      this._openSingleVersionSource(oRowData);
+    },
+
+    onRowViewSourcePress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("detail");
+      if (!oCtx) return;
+      var oRowData = oCtx.getObject();
+      this._openSingleVersionSource(oRowData);
+    },
+
+    _openSingleVersionSource: function (oRowData) {
+      if (!oRowData) return;
+      var sServerType = oRowData.ServerType || "L";
+      var sVers = padVers(oRowData.VersionNo);
+      var sObjType = this._sType || oRowData.ObjectType;
+      var sObjName = this._sName || oRowData.ObjectName;
+      var that = this;
+
+      var oMeta = Object.assign({}, oRowData, {
+        ObjectType: sObjType,
+        ObjectName: sObjName,
+        ServerType: sServerType,
+        VersionNo: sVers
+      });
+
+      var sObjUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.objService.uri.replace(/\/?$/, "/");
+      var sUrl = sObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq '" + sServerType + "' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sVers + "'");
+
+      this._openSourceDialog(sObjType, sObjName, sServerType, oMeta);
+      ValueHelp.fetchJson(sUrl, 15000).then(function (aRes) {
+        var oItem = (aRes && aRes[0]) || { SourceCodeText: "" };
+        var sCode = oItem.SourceCodeText || "";
+        that._pendingSourceCode = sCode;
+        var oM = that.getView().getModel("detail") || that._app();
+        if (oM) {
+          oM.setProperty("/viewSourceCode", sCode);
+          oM.setProperty("/viewSourceHash", oItem.SrcHash || "V_" + sVers);
+          oM.setProperty("/viewSourceMessage", "Version " + that.formatVersionNo(sVers) + " loaded (" + (oItem.LineCount || sCode.split("\n").length) + " lines)");
+        }
+        that._renderCodeHost(sCode);
+      }).catch(function (e) {
+        MessageToast.show("Failed to load source for version " + sVers + ": " + e);
+      });
     },
 
     onComparePress: function () {
@@ -230,6 +407,9 @@ sap.ui.define([
       } else {
          oRight = oCtx2; oLeft = oCtx1;
       }
+
+      this._oVersLeftMeta = oLeft;
+      this._oVersRightMeta = oRight;
 
       var sTitleL = (oLeft.ServerType === 'L' ? 'Local ' : 'Target ') + this.formatVersionNo(oLeft.VersionNo);
       var sTitleR = (oRight.ServerType === 'L' ? 'Local ' : 'Target ') + this.formatVersionNo(oRight.VersionNo);
@@ -270,6 +450,76 @@ sap.ui.define([
       });
     },
 
+    onToggleVersAiPanel: function () {
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      var bShow = !oDetailModel.getProperty("/showVersAiPanel");
+      oDetailModel.setProperty("/showVersAiPanel", bShow);
+      if (bShow) {
+        this._runVersAiAudit();
+      }
+    },
+
+    _runVersAiAudit: function () {
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+      var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
+      var sMode = oDetailModel.getProperty("/aiExecutionMode") || "BE_SAP";
+      var sModel = oDetailModel.getProperty("/aiModel") || "gemini-3.5-flash";
+      var that = this;
+
+      var byId = function (sId) {
+        return that.byId(Fragment.createId("idVersAiFrag", sId)) || that.byId(sId);
+      };
+
+      var oLoading = byId("idSideAiLoading");
+      if (oLoading) oLoading.setVisible(true);
+      var oError = byId("idSideAiError");
+      if (oError) oError.setVisible(false);
+      var oResultBox = byId("idSideAiResultBox");
+      if (oResultBox) oResultBox.setVisible(false);
+
+      var sLeft = (this._mVersModel && this._mVersModel.original) || "";
+      var sRight = (this._mVersModel && this._mVersModel.modified) || "";
+      var oLeftMeta = this._oVersLeftMeta || {};
+      var oRightMeta = this._oVersRightMeta || {};
+
+      AiReview.checkSyntaxAndQuality(
+        this._sType,
+        this._sName,
+        sLeft,
+        sRight,
+        sLocale,
+        sMode,
+        oLeftMeta,
+        oRightMeta,
+        sModel
+      ).then(function (oResult) {
+        AiPanelRenderer.render(byId, oResult, oI18n);
+      }).catch(function (oErr) {
+        if (oLoading) oLoading.setVisible(false);
+        if (oError) {
+          oError.setText(String(oErr && oErr.message ? oErr.message : oErr));
+          oError.setVisible(true);
+        }
+      });
+    },
+
+    onRunAiSideAudit: function () {
+      var oTabBar = this.byId("idCompareIconTabBar");
+      var sKey = oTabBar ? oTabBar.getSelectedKey() : "gitReview";
+      if (sKey === "versionMgmt") {
+        this._runVersAiAudit();
+      } else {
+        this._runGitAiAudit();
+      }
+    },
+
+    onCloseAiSidePanel: function () {
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      oDetailModel.setProperty("/showGitAiPanel", false);
+      oDetailModel.setProperty("/showVersAiPanel", false);
+    },
+
     onMonacoPrevDiffVers: function () {
       if (this._oVersDiffHost) { this._oVersDiffHost.prevDiff(); }
     },
@@ -285,21 +535,31 @@ sap.ui.define([
     // HELPERS & LAYOUT
     // ==========================================
     _ensureGitDiffHost: function (bForceReattach) {
-      var oDom = this.byId("monacoGitContainer") ? this.byId("monacoGitContainer").getDomRef() : null;
+      var oBox = this.byId("monacoGitContainer");
+      var oDom = oBox ? oBox.getDomRef() : null;
+      if (!oDom) {
+        var sId = this.getView().createId("monacoGitContainer");
+        oDom = document.getElementById(sId) || document.querySelector('[id$="monacoGitContainer"]');
+      }
       if (!oDom) { return; }
       if (!this._oGitDiffHost) {
         this._oGitDiffHost = new DiffHost(oDom);
-      } else if (bForceReattach || !this._oGitDiffHost.isAttached()) {
+      } else if (bForceReattach || !this._oGitDiffHost.isAttached() || this._oGitDiffHost._el !== oDom) {
         this._oGitDiffHost.attachTo(oDom);
       }
     },
 
     _ensureVersDiffHost: function (bForceReattach) {
-      var oDom = this.byId("monacoVersContainer") ? this.byId("monacoVersContainer").getDomRef() : null;
+      var oBox = this.byId("monacoVersContainer");
+      var oDom = oBox ? oBox.getDomRef() : null;
+      if (!oDom) {
+        var sId = this.getView().createId("monacoVersContainer");
+        oDom = document.getElementById(sId) || document.querySelector('[id$="monacoVersContainer"]');
+      }
       if (!oDom) { return; }
       if (!this._oVersDiffHost) {
         this._oVersDiffHost = new DiffHost(oDom);
-      } else if (bForceReattach || !this._oVersDiffHost.isAttached()) {
+      } else if (bForceReattach || !this._oVersDiffHost.isAttached() || this._oVersDiffHost._el !== oDom) {
         this._oVersDiffHost.attachTo(oDom);
       }
     },
@@ -349,9 +609,43 @@ sap.ui.define([
       var sMode = oDetailModel ? oDetailModel.getProperty("/aiExecutionMode") : null;
       if (!sMode) {
         var oSb = this.byId("sbAiMode");
-        sMode = (oSb && oSb.getSelectedKey()) || "FE_DIRECT";
+        sMode = (oSb && oSb.getSelectedKey()) || "BE_SAP";
       }
       return sMode;
+    },
+
+    _getAiModel: function () {
+      var oDetailModel = this.getView().getModel("detail");
+      var sModel = oDetailModel ? oDetailModel.getProperty("/aiModel") : null;
+      if (!sModel) {
+        var oSb = this.byId("sbAiModel");
+        sModel = (oSb && oSb.getSelectedKey()) || "gemini-3.5-flash";
+      }
+      return sModel;
+    },
+
+    onAiModelChange: function (oEvent) {
+      var sKey = oEvent.getParameter("selectedItem") ? oEvent.getParameter("selectedItem").getKey() : oEvent.getSource().getSelectedKey();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/aiModel", sKey);
+      }
+      var oAppModel = this.getOwnerComponent().getModel("appView");
+      if (oAppModel) {
+        oAppModel.setProperty("/aiModel", sKey);
+      }
+    },
+
+    onAiExecutionModeChange: function (oEvent) {
+      var sKey = oEvent.getParameter("item") ? oEvent.getParameter("item").getKey() : oEvent.getSource().getSelectedKey();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/aiExecutionMode", sKey);
+      }
+      var oAppModel = this.getOwnerComponent().getModel("appView");
+      if (oAppModel) {
+        oAppModel.setProperty("/aiExecutionMode", sKey);
+      }
     },
 
     onAiSyntaxCheckPress: function () {
@@ -365,6 +659,7 @@ sap.ui.define([
 
       var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
       var sMode = this._getAiMode();
+      var sModel = this._getAiModel();
 
       this.byId("idAiLoading").setVisible(true);
       var sLoadKey = sMode === "BE_SAP" ? "aiSyntaxCheckingSap" : "aiSyntaxChecking";
@@ -384,7 +679,10 @@ sap.ui.define([
         this._mGitModel.original,
         this._mGitModel.modified,
         sLocale,
-        sMode
+        sMode,
+        this._oLocalMeta || {},
+        this._oTargetMeta || {},
+        sModel
       ).then(function (oResult) {
         that._renderSyntaxResult(oResult, oI18n);
       }).catch(function (oErr) {
@@ -468,9 +766,23 @@ sap.ui.define([
           }
           var sIcon = f.type === "SYNTAX_ERROR" ? "sap-icon://error" : (f.type === "WARNING" ? "sap-icon://alert" : "sap-icon://hint");
           var sSide = f.side ? "[" + f.side.toUpperCase() + "] " : "";
-          var sSnippet = f.line_or_snippet ? "[" + f.line_or_snippet + "] " : "";
-          var sTitle = sSide + sSnippet + (f.message || "");
-          var sDesc = f.suggestion ? "💡 Suggestion: " + f.suggestion : "";
+          var sLineNum = f.line_number ? "[Line " + f.line_number + "] " : "";
+          var sRawSnippet = (f.line_or_snippet || "").trim();
+
+          var sLoc = "";
+          if (sRawSnippet) {
+            if (sRawSnippet.indexOf("Line") === 0 || sRawSnippet.indexOf("Dòng") === 0 || sRawSnippet.indexOf("[Line") === 0 || sRawSnippet.indexOf("[Dòng") === 0) {
+              sLoc = (sRawSnippet.indexOf("[") === 0 ? sRawSnippet : "[" + sRawSnippet + "]") + " ";
+            } else {
+              sLoc = (sLineNum || "") + "[" + sRawSnippet.replace(/^\[|\]$/g, "") + "] ";
+            }
+          } else if (sLineNum) {
+            sLoc = sLineNum;
+          }
+
+          var sTitle = sSide + sLoc + (f.message || "");
+          var sSugPrefix = (oI18n && oI18n.getText("aiSuggestionPrefix")) || "💡 Cách sửa / Gợi ý Clean ABAP: ";
+          var sDesc = f.suggestion ? sSugPrefix + f.suggestion : "";
           oList.addItem(new StandardListItem({
             title: sTitle,
             description: sDesc,
@@ -494,6 +806,7 @@ sap.ui.define([
 
       var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
       var sMode = this._getAiMode();
+      var sModel = this._getAiModel();
 
       this.byId("idAiLoading").setVisible(true);
       var sLoadKey = sMode === "BE_SAP" ? "aiReviewAnalyzingSap" : "aiReviewAnalyzing";
@@ -513,7 +826,8 @@ sap.ui.define([
         this._mGitModel.original,
         this._mGitModel.modified,
         sLocale,
-        sMode
+        sMode,
+        sModel
       ).then(function (oResult) {
         that._renderTransportResult(oResult, oI18n);
       }).catch(function (oErr) {

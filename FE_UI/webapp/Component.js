@@ -50,11 +50,16 @@ sap.ui.define([
         actionButtonsInfo: {
           midColumn: { fullScreen: false },
           endColumn: { fullScreen: false }
-        }
+        },
+        aiModel: "gemini-3.5-flash",
+        aiExecutionMode: "BE_SAP"
       });
       var oMainModel = this.getModel();
       this.setModel(oAppModel, "appView");
-      this.setModel(new JSONModel({}), "detail");
+      this.setModel(new JSONModel({
+        aiModel: "gemini-3.5-flash",
+        aiExecutionMode: "BE_SAP"
+      }), "detail");
       var oObjModel = this.getModel("objModel");
       var oTrModel = this.getModel("trModel");
 

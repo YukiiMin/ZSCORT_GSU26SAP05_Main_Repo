@@ -90,8 +90,20 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
         AND obj_name = @lv_obj_name
       INTO @lv_vers.
 
-    " Header thiếu / current_version = 0 nhưng SE16N đã có T_SRC → lấy MAX version
-    IF sy-subrc <> 0 OR lv_vers IS INITIAL OR lv_vers = '00000'.
+    IF sy-subrc <> 0.
+      " Object does NOT exist in Target Repository header table (za05_scort_t)
+      rs_source-found         = abap_false.
+      rs_source-is_new_target = abap_true.
+      rs_source-message       = zcm_scort=>get_text_by_key(
+                                  is_t100_key = zcm_scort=>source_missing
+                                  iv_attr1    = CONV #( iv_object_type )
+                                  iv_attr2    = CONV #( lv_obj_name )
+                                  iv_attr3    = 'Target' ).
+      RETURN.
+    ENDIF.
+
+    " Header exists in za05_scort_t but current_version is initial/00000 -> fallback to max version in T_SRC
+    IF lv_vers IS INITIAL OR lv_vers = '00000'.
       SELECT MAX( version_no ) FROM za05_scort_t_src
         WHERE pgmid    = @c_pgmid_r3tr
           AND object   = @iv_object_type

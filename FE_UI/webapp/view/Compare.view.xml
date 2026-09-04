@@ -8,7 +8,7 @@
   xmlns:layout="sap.ui.layout"
   height="100%">
 
-  <f:DynamicPage id="idDetailDynamicPage" toggleHeaderOnTitleClick="false" class="sapUiNoContentPadding">
+  <f:DynamicPage id="idDetailDynamicPage" fitContent="true" toggleHeaderOnTitleClick="false" class="sapUiNoContentPadding">
     <f:title>
       <f:DynamicPageTitle>
         <f:heading>
@@ -25,37 +25,43 @@
       <IconTabBar id="idCompareIconTabBar" class="sapUiNoContentPadding" stretchContentHeight="true" select=".onTabSelect">
         <items>
           <!-- TAB 1: Git Review (Local vs Target) -->
-          <IconTabFilter key="gitReview" text="{i18n>tabGitReview}" icon="sap-icon://compare-2">
-            <layout:Splitter orientation="Vertical" width="100%" height="100%">
-              <VBox height="auto">
-                <layoutData>
-                  <layout:SplitterLayoutData size="auto" />
-                </layoutData>
-                <OverflowToolbar id="idGitReviewToolbar">
-                  <ObjectStatus text="{i18n>statusLocalActive}" state="Indication05" class="sapUiTinyMarginEnd" />
-                  <Title text="{i18n>lblVs}" />
-                  <ObjectStatus text="{i18n>statusTargetSnapshot}" state="Indication04" class="sapUiTinyMarginBegin" />
-                  <ToolbarSpacer />
-                  <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="{i18n>btnPrevDiff}" />
-                  <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffGit" tooltip="{i18n>btnNextDiff}" />
-                  <ToolbarSeparator />
-                  <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="{i18n>btnToggleDiffLayout}" />
-                  <ToolbarSeparator />
-                  <Button id="btnAiReview"
-                    icon="sap-icon://ai"
-                    text="{i18n>btnAiReview}"
-                    type="Emphasized"
-                    press=".onAiReviewPress"
-                    tooltip="{i18n>btnAiReviewTooltip}" />
-                </OverflowToolbar>
-              </VBox>
-              <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding">
-                <layoutData>
-                  <layout:SplitterLayoutData size="auto" />
-                </layoutData>
-                <!-- Monaco Git Diff Injected Here -->
-              </VBox>
-            </layout:Splitter>
+          <IconTabFilter key="gitReview" text="{i18n>tabGitReview}" icon="sap-icon://compare">
+            <VBox height="100%" width="100%" class="sapUiNoContentPadding" fitContainer="true">
+              <OverflowToolbar id="idGitReviewToolbar">
+                <ObjectStatus text="{= ${detail>/localExists} ? ${i18n>statusLocalActive} : ${i18n>lblLocalNotAvailable} }" state="{= ${detail>/localExists} ? 'Indication05' : 'None' }" class="sapUiTinyMarginEnd" />
+                <Title text="{i18n>lblVs}" />
+                <ObjectStatus text="{= ${detail>/targetExists} ? ${i18n>statusTargetSnapshot} : ${i18n>lblTargetNotAvailable} }" state="{= ${detail>/targetExists} ? 'Indication04' : 'Warning' }" class="sapUiTinyMarginBegin" />
+                <ToolbarSpacer />
+                <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="{i18n>btnPrevDiff}" />
+                <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffGit" tooltip="{i18n>btnNextDiff}" />
+                <ToolbarSeparator />
+                <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="{i18n>btnToggleDiffLayout}" />
+                <ToolbarSeparator />
+                <Button id="btnGitAiToggle"
+                  icon="sap-icon://ai"
+                  text="{i18n>btnAiReview}"
+                  type="{= ${detail>/showGitAiPanel} ? 'Emphasized' : 'Default' }"
+                  press=".onToggleGitAiPanel"
+                  tooltip="{i18n>btnAiReviewTooltip}" />
+              </OverflowToolbar>
+
+              <!-- Splitter: Left Monaco Diff + Right AI Review Panel -->
+              <layout:Splitter height="100%" width="100%">
+                <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding">
+                  <layoutData>
+                    <layout:SplitterLayoutData size="{= ${detail>/showGitAiPanel} ? '65%' : '100%' }" />
+                  </layoutData>
+                </VBox>
+
+                <!-- Right: AI Review Side Panel -->
+                <VBox id="idGitAiPanel" height="100%" visible="{detail>/showGitAiPanel}" fitContainer="true" class="sapUiNoContentPadding">
+                  <layoutData>
+                    <layout:SplitterLayoutData size="{= ${detail>/showGitAiPanel} ? '35%' : '0%' }" resizable="true" />
+                  </layoutData>
+                  <core:Fragment id="idGitAiFrag" fragmentName="zscort.app.view.AiSidePanel" type="XML" />
+                </VBox>
+              </layout:Splitter>
+            </VBox>
           </IconTabFilter>
 
           <!-- TAB 2: Version Management (ADT Style) -->
@@ -77,6 +83,7 @@
                     <OverflowToolbar>
                       <Title text="{i18n>selectTwoVersions}" />
                       <ToolbarSpacer />
+                      <Button id="btnViewSingleVers" icon="sap-icon://document-text" text="{i18n>btnViewVersionSource}" type="Transparent" press=".onViewVersionSourcePress" enabled="{= ${detail>/selectedVersionCount} === 1 }" />
                       <Button icon="sap-icon://refresh" text="{i18n>btnRefresh}" press=".onReloadVersions" type="Transparent" />
                       <Button id="btnCompare" icon="sap-icon://compare-2" text="{i18n>btnCompareSelected}" type="Emphasized" press=".onComparePress" enabled="false" />
                     </OverflowToolbar>
@@ -126,6 +133,13 @@
                         <Text text="{detail>Message}" wrapping="false" />
                       </table:template>
                     </table:Column>
+                    <!-- Action Column: View single version source -->
+                    <table:Column width="3.5rem" hAlign="Center">
+                      <Label text="" />
+                      <table:template>
+                        <Button icon="sap-icon://document-text" type="Transparent" tooltip="{i18n>btnViewVersionSource}" press=".onRowViewSourcePress" />
+                      </table:template>
+                    </table:Column>
                   </table:columns>
                 </table:Table>
               </VBox>
@@ -144,14 +158,31 @@
                   <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffVers" tooltip="{i18n>btnNextDiff}" />
                   <ToolbarSeparator />
                   <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideVers" tooltip="{i18n>btnToggleDiffLayout}" />
+                  <ToolbarSeparator />
+                  <Button id="btnVersAiToggle"
+                    icon="sap-icon://ai"
+                    text="{i18n>btnAiReview}"
+                    type="{= ${detail>/showVersAiPanel} ? 'Emphasized' : 'Default' }"
+                    press=".onToggleVersAiPanel"
+                    tooltip="{i18n>btnAiReviewTooltip}" />
                 </OverflowToolbar>
 
-                <VBox id="monacoVersContainer" width="100%" height="100%" visible="{detail>/showEditor}">
-                  <layoutData>
-                    <FlexItemData growFactor="1" />
-                  </layoutData>
-                  <!-- Monaco Version Diff Injected Here -->
-                </VBox>
+                <!-- Splitter: Left Monaco Version Diff + Right AI Review Panel -->
+                <layout:Splitter height="100%" width="100%">
+                  <VBox id="monacoVersContainer" width="100%" height="100%" class="sapUiNoContentPadding">
+                    <layoutData>
+                      <layout:SplitterLayoutData size="{= ${detail>/showVersAiPanel} ? '65%' : '100%' }" />
+                    </layoutData>
+                  </VBox>
+
+                  <!-- Right: AI Review Side Panel for Versions -->
+                  <VBox id="idVersAiPanel" height="100%" visible="{detail>/showVersAiPanel}" fitContainer="true" class="sapUiNoContentPadding">
+                    <layoutData>
+                      <layout:SplitterLayoutData size="{= ${detail>/showVersAiPanel} ? '35%' : '0%' }" resizable="true" />
+                    </layoutData>
+                    <core:Fragment id="idVersAiFrag" fragmentName="zscort.app.view.AiSidePanel" type="XML" />
+                  </VBox>
+                </layout:Splitter>
               </VBox>
             </layout:Splitter>
           </IconTabFilter>
@@ -164,14 +195,28 @@
                 <core:Icon src="sap-icon://ai" class="sapUiSmallMarginEnd" />
                 <Title text="{i18n>aiReviewTitle}" />
                 <ToolbarSpacer />
+                <Label text="{i18n>lblAiModel}:" class="sapUiTinyMarginEnd" />
+                <Select
+                  id="sbAiModel"
+                  selectedKey="{detail>/aiModel}"
+                  change=".onAiModelChange"
+                  tooltip="{i18n>aiSelectModelTooltip}"
+                  class="sapUiTinyMarginEnd"
+                  autoAdjustWidth="true">
+                  <core:Item key="gemini-3.5-flash" text="Gemini 3.5 Flash" />
+                  <core:Item key="gemini-3-flash" text="Gemini 3 Flash" />
+                  <core:Item key="gemini-2.5-flash" text="Gemini 2.5 Flash" />
+                  <core:Item key="gemini-2.5-flash-lite" text="Gemini 2.5 Flash Lite" />
+                  <core:Item key="antigravity" text="Antigravity" />
+                </Select>
                 <Label text="{i18n>lblAiMode}:" class="sapUiTinyMarginEnd" />
                 <SegmentedButton
                   id="sbAiMode"
-                  selectedKey="{detail>/aiExecutionMode}"
+                  selectedKey="{= ${detail>/aiExecutionMode} || 'BE_SAP' }"
                   class="sapUiTinyMarginEnd">
                   <items>
-                    <SegmentedButtonItem key="FE_DIRECT" text="{i18n>aiModeDirectClient}" tooltip="{i18n>aiModeDirectTooltip}" icon="sap-icon://cloud" />
                     <SegmentedButtonItem key="BE_SAP" text="{i18n>aiModeSapBackend}" tooltip="{i18n>aiModeSapTooltip}" icon="sap-icon://sap-logo-shape" />
+                    <SegmentedButtonItem key="FE_DIRECT" text="{i18n>aiModeDirectClient}" tooltip="{i18n>aiModeDirectTooltip}" icon="sap-icon://cloud" />
                   </items>
                 </SegmentedButton>
                 <ToolbarSeparator />

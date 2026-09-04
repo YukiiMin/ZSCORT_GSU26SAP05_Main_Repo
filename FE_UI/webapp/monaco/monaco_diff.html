@@ -16,6 +16,27 @@
             width: 100%;
             height: 100%;
         }
+        /* Hide all diff coloring and diagonal hatching when only 1 side has code */
+        .no-diff .monaco-diff-editor .line-delete,
+        .no-diff .monaco-diff-editor .char-delete,
+        .no-diff .monaco-diff-editor .line-insert,
+        .no-diff .monaco-diff-editor .char-insert,
+        .no-diff .monaco-diff-editor .ced-diff-editor-line-deleted,
+        .no-diff .monaco-diff-editor .ced-diff-editor-line-inserted,
+        .no-diff .monaco-diff-editor .diffOverview,
+        .no-diff .monaco-diff-editor .current-line-delete,
+        .no-diff .monaco-diff-editor .current-line-insert {
+            background: transparent !important;
+            background-color: transparent !important;
+        }
+        .no-diff .monaco-diff-editor .diagonal-fill {
+            background: #1e1e1e !important;
+            background-image: none !important;
+            display: none !important;
+        }
+        .no-diff .monaco-diff-editor .diffViewport {
+            display: none !important;
+        }
     </style>
 </head>
 <body>
@@ -57,9 +78,29 @@
             if (data.type === 'SET_DIFF') {
                 var oldOriginal = originalModel;
                 var oldModified = modifiedModel;
+                var container = document.getElementById('container');
 
-                originalModel = monaco.editor.createModel(data.original || '', data.language || 'abap');
-                modifiedModel = monaco.editor.createModel(data.modified || '', data.language || 'abap');
+                var sOrig = data.original || '';
+                var sMod = data.modified || '';
+                var bHasBoth = !!(sOrig.trim() && sMod.trim());
+
+                if (container) {
+                    if (!bHasBoth) {
+                        container.classList.add('no-diff');
+                    } else {
+                        container.classList.remove('no-diff');
+                    }
+                }
+
+                if (diffEditor) {
+                    diffEditor.updateOptions({
+                        renderIndicators: bHasBoth,
+                        renderOverviewRuler: bHasBoth
+                    });
+                }
+
+                originalModel = monaco.editor.createModel(sOrig, data.language || 'abap');
+                modifiedModel = monaco.editor.createModel(sMod, data.language || 'abap');
 
                 diffEditor.setModel({
                     original: originalModel,

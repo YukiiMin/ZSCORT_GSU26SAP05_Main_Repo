@@ -1,0 +1,137 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:layout="sap.ui.layout">
+  <VBox width="100%" height="100%" class="aiSidePanelContainer" fitContainer="true">
+    <!-- Header Toolbar -->
+    <OverflowToolbar design="Solid" class="sapUiTinyMarginBottom">
+      <core:Icon src="sap-icon://ai" color="#0070f2" />
+      <Title text="{i18n>aiSidePanelTitle}" level="H5" />
+      <ToolbarSpacer />
+      <Select
+        selectedKey="{= ${detail>/aiModel} || ${appView>/aiModel} || 'gemini-3.5-flash' }"
+        change=".onAiModelChange"
+        tooltip="{i18n>aiSelectModelTooltip}"
+        class="sapUiTinyMarginEnd"
+        autoAdjustWidth="true">
+        <core:Item key="gemini-3.5-flash" text="Gemini 3.5 Flash" />
+        <core:Item key="gemini-3-flash" text="Gemini 3 Flash" />
+        <core:Item key="gemini-2.5-flash" text="Gemini 2.5 Flash" />
+        <core:Item key="gemini-2.5-flash-lite" text="Gemini 2.5 Flash Lite" />
+        <core:Item key="antigravity" text="Antigravity" />
+      </Select>
+      <SegmentedButton
+        selectedKey="{= ${detail>/aiExecutionMode} || ${appView>/aiExecutionMode} || 'BE_SAP' }"
+        select=".onAiExecutionModeChange"
+        class="sapUiTinyMarginEnd">
+        <items>
+          <SegmentedButtonItem key="BE_SAP" text="{i18n>aiModeSapBackend}" tooltip="{i18n>aiModeSapTooltip}" icon="sap-icon://sap-logo-shape" />
+          <SegmentedButtonItem key="FE_DIRECT" text="{i18n>aiModeDirectClient}" tooltip="{i18n>aiModeDirectTooltip}" icon="sap-icon://cloud" />
+        </items>
+      </SegmentedButton>
+      <Button
+        icon="sap-icon://refresh"
+        type="Emphasized"
+        text="{i18n>btnAiRunAudit}"
+        press=".onRunAiSideAudit"
+        tooltip="{i18n>btnAiRunAuditTooltip}" />
+      <Button
+        icon="sap-icon://decline"
+        type="Transparent"
+        press=".onCloseAiSidePanel"
+        tooltip="{i18n>btnClose}" />
+    </OverflowToolbar>
+
+    <!-- Scrollable Body -->
+    <ScrollContainer vertical="true" horizontal="false" height="calc(100% - 48px)" class="sapUiTinyMarginBeginEnd">
+      
+      <!-- Loading State -->
+      <VBox id="idSideAiLoading" visible="false" alignItems="Center" justifyContent="Center" class="sapUiMediumMargin">
+        <BusyIndicator size="2.5rem" />
+        <Text id="idSideAiLoadingText" text="{i18n>aiSyntaxChecking}" class="sapUiSmallMarginTop" />
+      </VBox>
+
+      <!-- Error State -->
+      <MessageStrip
+        id="idSideAiError"
+        text=""
+        type="Error"
+        showIcon="true"
+        visible="false"
+        class="sapUiTinyMarginBottom" />
+
+      <!-- Main Result Box -->
+      <VBox id="idSideAiResultBox" visible="false">
+        
+        <!-- CARD 1: Metadata & Naming Convention Audit -->
+        <Panel expandable="true" expanded="true" headerText="{i18n>aiMetaNamingCardTitle}" class="sapUiTinyMarginBottom aiCardPanel">
+          <headerToolbar>
+            <Toolbar height="2.5rem">
+              <core:Icon src="sap-icon://tag" color="#e9730c" />
+              <Title text="{i18n>aiMetaNamingCardTitle}" level="H6" />
+              <ToolbarSpacer />
+              <ObjectStatus id="idSideMetaStatus" text="COMPLIANT" state="Success" class="sapUiTinyMarginEnd" />
+              <ObjectStatus id="idSideMetaScore" text="Score: 100/100" state="Information" />
+            </Toolbar>
+          </headerToolbar>
+          <content>
+            <VBox class="sapUiTinyMargin">
+              <List id="idSideMetaIssuesList" noDataText="{i18n>aiNoMetaIssues}" showSeparators="Inner">
+              </List>
+            </VBox>
+          </content>
+        </Panel>
+
+        <!-- CARD 2: Code Quality & Syntax Badges -->
+        <Panel expandable="true" expanded="true" class="sapUiTinyMarginBottom aiCardPanel">
+          <headerToolbar>
+            <Toolbar height="2.5rem">
+              <core:Icon src="sap-icon://syntax" color="#0070f2" />
+              <Title text="{i18n>aiCodeQualityCardTitle}" level="H6" />
+              <ToolbarSpacer />
+              <ObjectStatus id="idSideSyntaxStatus" text="PASSED" state="Success" class="sapUiTinyMarginEnd" />
+              <ObjectStatus id="idSideSyntaxScore" text="Score: 100/100" state="Information" />
+            </Toolbar>
+          </headerToolbar>
+          <content>
+            <VBox class="sapUiTinyMargin">
+              <!-- Sub badges -->
+              <HBox wrap="Wrap" alignItems="Center" class="sapUiTinyMarginBottom">
+                <ObjectStatus id="idSideCleanVerdict" text="Clean ABAP: Compliant" state="Success" class="sapUiSmallMarginEnd" />
+                <ObjectStatus id="idSideBetterSide" text="" state="Success" visible="false" />
+              </HBox>
+
+              <!-- Dual Comparison & Synthesis -->
+              <VBox id="idSideComparisonBox" visible="false" class="sapUiTinyMarginBottom">
+                <Title text="{i18n>aiComparisonTitle}" level="H6" class="sapUiTinyMarginBottom" />
+                <MessageStrip id="idSideBetterReason" text="" type="Information" showIcon="true" class="sapUiTinyMarginBottom" />
+                <MessageStrip id="idSideBestRecommendation" text="" type="Success" showIcon="true" />
+              </VBox>
+
+              <!-- Summary -->
+              <Title text="{i18n>aiSummaryTitle}" level="H6" class="sapUiTinyMarginTop" />
+              <Text id="idSideSummaryText" text="—" wrapping="true" class="sapUiTinyMarginTop" />
+            </VBox>
+          </content>
+        </Panel>
+
+        <!-- CARD 3: Detailed Findings & Code Replacement -->
+        <Panel expandable="true" expanded="true" class="sapUiTinyMarginBottom aiCardPanel">
+          <headerToolbar>
+            <Toolbar height="2.5rem">
+              <core:Icon src="sap-icon://inspection" color="#188918" />
+              <Title text="{i18n>aiFindingsTitle}" level="H6" />
+            </Toolbar>
+          </headerToolbar>
+          <content>
+            <VBox class="sapUiTinyMargin">
+              <List id="idSideFindingsList" noDataText="{i18n>aiNoSyntaxErrors}" showSeparators="All">
+              </List>
+            </VBox>
+          </content>
+        </Panel>
+
+      </VBox>
+    </ScrollContainer>
+  </VBox>
+</core:FragmentDefinition>
