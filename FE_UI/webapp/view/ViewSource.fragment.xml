@@ -39,9 +39,9 @@
           <IconTabFilter
             id="idViewSourceAdtFormFilter"
             key="adtForm"
-            text="{= ${appView>/viewSourceType} === 'MSAG' ? 'Messages' : (${appView>/viewSourceType} === 'DEVC' ? 'Package Details' : 'ADT Definition') }"
-            icon="{= ${appView>/viewSourceType} === 'MSAG' ? 'sap-icon://message-popup' : (${appView>/viewSourceType} === 'DEVC' ? 'sap-icon://folder' : 'sap-icon://form') }"
-            visible="{= ${appView>/viewSourceType} === 'DOMA' || ${appView>/viewSourceType} === 'DTEL' || ${appView>/viewSourceType} === 'MSAG' || ${appView>/viewSourceType} === 'DEVC' }">
+            text="{= ${appView>/viewSourceType} === 'MSAG' ? 'Messages' : (${appView>/viewSourceType} === 'DEVC' ? 'Package Details' : (${appView>/viewSourceType} === 'TTYP' ? 'Table Type Details' : 'ADT Definition')) }"
+            icon="{= ${appView>/viewSourceType} === 'MSAG' ? 'sap-icon://message-popup' : (${appView>/viewSourceType} === 'DEVC' ? 'sap-icon://folder' : (${appView>/viewSourceType} === 'TTYP' ? 'sap-icon://table-column' : 'sap-icon://form')) }"
+            visible="{= ${appView>/viewSourceType} === 'DOMA' || ${appView>/viewSourceType} === 'DTEL' || ${appView>/viewSourceType} === 'MSAG' || ${appView>/viewSourceType} === 'DEVC' || ${appView>/viewSourceType} === 'TTYP' }">
             <ScrollContainer height="100%" vertical="true">
               <VBox visible="{= ${appView>/viewSourceType} === 'DOMA' }">
                 <core:Fragment fragmentName="zscort.app.view.fragment.DomainForm" type="XML" />
@@ -54,6 +54,9 @@
               </VBox>
               <VBox visible="{= ${appView>/viewSourceType} === 'DEVC' }">
                 <core:Fragment fragmentName="zscort.app.view.fragment.PackageForm" type="XML" />
+              </VBox>
+              <VBox visible="{= ${appView>/viewSourceType} === 'TTYP' }">
+                <core:Fragment fragmentName="zscort.app.view.fragment.TableTypeForm" type="XML" />
               </VBox>
             </ScrollContainer>
           </IconTabFilter>

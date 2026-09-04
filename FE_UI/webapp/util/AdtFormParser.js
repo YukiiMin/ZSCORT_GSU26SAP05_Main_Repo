@@ -250,16 +250,23 @@ sap.ui.define([], function () {
       // Extract message entries: '001' : 'Text of message',
       var mBlock = sDdlText.match(/\{([\s\S]*?)\}/);
       if (mBlock && mBlock[1]) {
-        var rMsg = /'(\d{3})'\s*:\s*'((?:[^']|'')*)'/g;
+        var rMsg = /'(\d{3})'\s*:\s*'((?:[^']|'')*)'(?:\s*\/\*\s*selfExpl=(\w+)\s+user=([^\s*]+)?\s+date=(\d{8})?\s*\*\/)?/g;
         var mItem;
         while ((mItem = rMsg.exec(mBlock[1])) !== null) {
           var sText = mItem[2].replace(/''/g, "'");
+          var bSelf = mItem[3] ? mItem[3].toLowerCase() === "true" : false;
+          var sUser = mItem[4] && mItem[4] !== "INITIAL" && mItem[4] !== "0" ? mItem[4] : (oData.lastChangedBy || oData.responsible || "");
+          var sDateRaw = mItem[5];
+          var sDate = oData.lastChanged || "";
+          if (sDateRaw && /^\d{8}$/.test(sDateRaw) && sDateRaw !== "00000000") {
+            sDate = sDateRaw.slice(0, 4) + "-" + sDateRaw.slice(4, 6) + "-" + sDateRaw.slice(6, 8);
+          }
           oData.messages.push({
             number: mItem[1],
             text: sText,
-            selfExpl: false,
-            changedBy: oData.lastChangedBy || oData.responsible || "",
-            changedOn: oData.lastChanged || ""
+            selfExpl: bSelf,
+            changedBy: sUser,
+            changedOn: sDate
           });
         }
       }
@@ -372,6 +379,89 @@ sap.ui.define([], function () {
           role: sRole,
           indent: iLevel * 20
         });
+      }
+
+      return oData;
+    },
+
+    /**
+     * Parse TTYP DDL text into structured JSON model for ADT Form binding
+     * @param {string} sDdlText
+     * @returns {object}
+     */
+    parseTableType: function (sDdlText) {
+      if (!sDdlText || typeof sDdlText !== "string") {
+        return null;
+      }
+
+      var oData = {
+        name: "",
+        label: "",
+        rowType: "",
+        rowCategory: "Dictionary Type",
+        accessMode: "Standard Table",
+        initialRows: 0,
+        keyDefinition: "Standard Key",
+        keyCategory: "Non-Unique",
+        keyAlias: "",
+        keyComponents: []
+      };
+
+      var mName = sDdlText.match(/define\s+table\s+type\s+([a-zA-Z0-9_]+)/i);
+      if (mName) {
+        oData.name = mName[1].toUpperCase();
+      }
+
+      var mLabel = sDdlText.match(/@EndUserText\.label\s*:\s*'([^']*)'/i);
+      if (mLabel) {
+        oData.label = mLabel[1];
+      }
+
+      var mRowType = sDdlText.match(/@AbapCatalog\.tableType\.rowType\s*:\s*'([^']*)'/i);
+      if (mRowType) {
+        oData.rowType = mRowType[1].toUpperCase();
+      }
+
+      var mRowCat = sDdlText.match(/@AbapCatalog\.tableType\.rowCategory\s*:\s*'([^']*)'/i);
+      if (mRowCat) {
+        oData.rowCategory = mRowCat[1];
+      }
+
+      var mAccess = sDdlText.match(/@AbapCatalog\.tableType\.accessMode\s*:\s*'([^']*)'/i);
+      if (mAccess) {
+        oData.accessMode = mAccess[1];
+      }
+
+      var mInitRows = sDdlText.match(/@AbapCatalog\.tableType\.initialRows\s*:\s*(\d+)/i);
+      if (mInitRows) {
+        oData.initialRows = parseInt(mInitRows[1], 10);
+      }
+
+      var mKeyDef = sDdlText.match(/@AbapCatalog\.tableType\.primaryKey\.definition\s*:\s*'([^']*)'/i);
+      if (mKeyDef) {
+        oData.keyDefinition = mKeyDef[1];
+      }
+
+      var mKeyCat = sDdlText.match(/@AbapCatalog\.tableType\.primaryKey\.category\s*:\s*'([^']*)'/i);
+      if (mKeyCat) {
+        oData.keyCategory = mKeyCat[1];
+      }
+
+      var mKeyAlias = sDdlText.match(/@AbapCatalog\.tableType\.primaryKey\.alias\s*:\s*'([^']*)'/i);
+      if (mKeyAlias) {
+        oData.keyAlias = mKeyAlias[1];
+      }
+
+      // Extract key components: key fieldname;
+      var mBlock = sDdlText.match(/\{([\s\S]*?)\}/);
+      if (mBlock && mBlock[1]) {
+        var rKey = /key\s+([a-zA-Z0-9_]+);/gi;
+        var mKey;
+        while ((mKey = rKey.exec(mBlock[1])) !== null) {
+          oData.keyComponents.push({
+            fieldName: mKey[1].toUpperCase()
+          });
+        }
       }
 
       return oData;

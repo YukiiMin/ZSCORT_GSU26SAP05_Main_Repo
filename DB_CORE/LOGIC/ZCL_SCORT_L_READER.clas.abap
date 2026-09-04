@@ -99,6 +99,10 @@ CLASS zcl_scort_l_reader DEFINITION
       IMPORTING iv_name  TYPE sobj_name
       EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
+    CLASS-METHODS read_ddic_ttyp
+      IMPORTING iv_name  TYPE sobj_name
+      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
+
 ENDCLASS.
 
 
@@ -292,7 +296,10 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       WHEN 'SRVD'.
         read_srvd( EXPORTING iv_name  = iv_name
                    IMPORTING et_lines = et_lines ev_ok = ev_ok ).
-      WHEN 'TABL' OR 'VIEW' OR 'TTYP'.
+      WHEN 'TTYP'.
+        read_ddic_ttyp( EXPORTING iv_name  = iv_name
+                        IMPORTING et_lines = et_lines ev_ok = ev_ok ).
+      WHEN 'TABL' OR 'VIEW'.
         read_ddic_tabl_fallback( EXPORTING iv_name  = iv_name
                                  IMPORTING et_lines = et_lines ev_ok = ev_ok ).
       WHEN 'DTEL'.
@@ -699,11 +706,13 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read_srvd.
-    DATA lv_source TYPE string.
-    DATA lv_name   TYPE sobj_name.
+    DATA lv_source  TYPE string.
+    DATA lv_name    TYPE sobj_name.
+    DATA lv_obj_key TYPE seu_objkey.
 
     CLEAR: et_lines, ev_ok.
-    lv_name = iv_name.
+    lv_name    = iv_name.
+    lv_obj_key = lv_name.
 
     TRY.
         DATA ls_wb_type TYPE wbobjtype.
@@ -720,7 +729,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         CALL METHOD ('CL_WB_OBJECT_OPERATOR')=>('CREATE_INSTANCE')
           EXPORTING
             object_type = ls_wb_type
-            object_key  = lv_name
+            object_key  = lv_obj_key
           RECEIVING
             result      = lo_wb_oper.
 
@@ -780,74 +789,65 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
     IF lv_source IS INITIAL.
       TRY.
-          DATA lo_persist  TYPE REF TO object.
-          DATA lo_model    TYPE REF TO object.
-          DATA lr_adt_data TYPE REF TO data.
-          FIELD-SYMBOLS <ls_adt_data> TYPE any.
+          DATA lo_xco_srvd    TYPE REF TO object.
+          DATA lo_xco_content TYPE REF TO object.
+          DATA lt_xco_lines   TYPE ty_string_tab.
 
-          CREATE OBJECT lo_persist TYPE ('CL_SRVD_ADT_OBJECT_PERSIST').
-          CREATE OBJECT lo_model   TYPE ('CL_SRVD_WB_OBJECT_DATA').
-          TRY.
-              CREATE DATA lr_adt_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_SRVD_OBJECT_DATA').
-            CATCH cx_root.
-              TRY.
-                  CREATE DATA lr_adt_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_OBJECT_DATA').
-                CATCH cx_root.
-              ENDTRY.
-          ENDTRY.
+          CALL METHOD ('XCO_CP_SRVD')=>('FOR')
+            EXPORTING
+              iv_name = CONV #( lv_name )
+            RECEIVING
+              ro_srvd = lo_xco_srvd.
 
-          IF lr_adt_data IS BOUND.
-            ASSIGN lr_adt_data->* TO <ls_adt_data>.
-            DATA(lv_obj_key) = CONV seu_objkey( lv_name ).
-            CALL METHOD lo_persist->('GET')
-              EXPORTING
-                p_object_key  = lv_obj_key
-                p_version     = 'A'
-              CHANGING
-                p_object_data = lo_model.
+          IF lo_xco_srvd IS BOUND.
+            CALL METHOD lo_xco_srvd->('CONTENT')
+              RECEIVING
+                ro_content = lo_xco_content.
 
-            CALL METHOD lo_model->('GET_DATA')
-              IMPORTING
-                p_data = <ls_adt_data>.
+            IF lo_xco_content IS BOUND.
+              CALL METHOD lo_xco_content->('GET_SOURCE')
+                RECEIVING
+                  rt_source = lt_xco_lines.
 
-            ASSIGN COMPONENT 'CONTENT-SOURCE' OF STRUCTURE <ls_adt_data> TO <lv_src>.
-            IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
-              ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_adt_data> TO <ls_content>.
-              IF sy-subrc = 0.
-                ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
+              IF lt_xco_lines IS NOT INITIAL.
+                et_lines = lt_xco_lines.
+                ev_ok    = abap_true.
+                RETURN.
               ENDIF.
-            ENDIF.
-            IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
-              ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_adt_data> TO <lv_src>.
-            ENDIF.
-
-            IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
-              lv_source = <lv_src>.
             ENDIF.
           ENDIF.
         CATCH cx_root.
-          CLEAR lv_source.
       ENDTRY.
     ENDIF.
 
     IF lv_source IS INITIAL.
       TRY.
-          SELECT SINGLE source FROM ('SRVD_SOURCE')
+          DATA lv_srvd_text TYPE string.
+          SELECT SINGLE description FROM ('SRVD_RT_HEADER')
             WHERE srvd_name = @lv_name
-            INTO @lv_source.
-        CATCH cx_root.
-      ENDTRY.
-    ENDIF.
+            INTO @lv_srvd_text.
 
-    IF lv_source IS INITIAL.
-      TRY.
-          SELECT SINGLE source FROM ddddlsrc
-            WHERE ddlname = @lv_name AND as4local = 'A'
-            INTO @lv_source.
-          IF sy-subrc <> 0.
-            SELECT SINGLE source FROM ddddlsrc
-              WHERE ddlname = @lv_name
-              INTO @lv_source.
+          SELECT entity_name, alias_name FROM ('SRVD_RT_ENTITIES')
+            WHERE srvd_name = @lv_name
+            ORDER BY entity_name
+            INTO TABLE @DATA(lt_rt_entities).
+
+          IF sy-subrc = 0 AND lt_rt_entities IS NOT INITIAL.
+            CLEAR et_lines.
+            IF lv_srvd_text IS NOT INITIAL.
+              APPEND |@EndUserText.label: '{ lv_srvd_text }'| TO et_lines.
+            ENDIF.
+            APPEND |define service { lv_name } \{| TO et_lines.
+            LOOP AT lt_rt_entities INTO DATA(ls_ent).
+              IF ls_ent-alias_name IS NOT INITIAL.
+                APPEND |  expose { ls_ent-entity_name } as { ls_ent-alias_name };| TO et_lines.
+              ELSE.
+                APPEND |  expose { ls_ent-entity_name };| TO et_lines.
+              ENDIF.
+            ENDLOOP.
+            APPEND '}' TO et_lines.
+            ev_ok = abap_true.
+            RETURN.
           ENDIF.
         CATCH cx_root.
       ENDTRY.
@@ -863,6 +863,113 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       ENDIF.
       ev_ok = abap_true.
     ENDIF.
+  ENDMETHOD.
+
+  METHOD read_ddic_ttyp.
+    DATA ls_dd40v    TYPE dd40v.
+    DATA lt_dd42v    TYPE STANDARD TABLE OF dd42v WITH DEFAULT KEY.
+    DATA lv_ttypname TYPE ddobjname.
+    DATA lv_category TYPE string.
+    DATA lv_access   TYPE string.
+    DATA lv_keydef   TYPE string.
+    DATA lv_keykind  TYPE string.
+
+    CLEAR: et_lines, ev_ok.
+    lv_ttypname = iv_name.
+
+    CALL FUNCTION 'DDIF_TTYP_GET'
+      EXPORTING
+        name          = lv_ttypname
+        state         = 'A'
+        langu         = sy-langu
+      IMPORTING
+        dd40v_wa      = ls_dd40v
+      TABLES
+        dd42v_tab     = lt_dd42v
+      EXCEPTIONS
+        illegal_input = 1
+        OTHERS        = 2.
+
+    IF sy-subrc <> 0 OR ls_dd40v-typename IS INITIAL.
+      CALL FUNCTION 'DDIF_TTYP_GET'
+        EXPORTING
+          name          = lv_ttypname
+          langu         = sy-langu
+        IMPORTING
+          dd40v_wa      = ls_dd40v
+        TABLES
+          dd42v_tab     = lt_dd42v
+        EXCEPTIONS
+          illegal_input = 1
+          OTHERS        = 2.
+    ENDIF.
+
+    IF ls_dd40v-typename IS INITIAL.
+      RETURN.
+    ENDIF.
+
+    CASE ls_dd40v-rowkind.
+      WHEN 'D'.
+        lv_category = 'Built-in Type'.
+      WHEN 'R'.
+        lv_category = 'Reference Type'.
+      WHEN 'T'.
+        lv_category = 'Table Type'.
+      WHEN OTHERS.
+        lv_category = 'Dictionary Type'.
+    ENDCASE.
+
+    CASE ls_dd40v-accessmode.
+      WHEN 'S'.
+        lv_access = 'Sorted Table'.
+      WHEN 'H'.
+        lv_access = 'Hashed Table'.
+      WHEN 'I'.
+        lv_access = 'Index Table'.
+      WHEN 'A'.
+        lv_access = 'Any Table'.
+      WHEN OTHERS.
+        lv_access = 'Standard Table'.
+    ENDCASE.
+
+    CASE ls_dd40v-keydef.
+      WHEN 'L'.
+        lv_keydef = 'Line Type'.
+      WHEN 'K'.
+        lv_keydef = 'Key Components'.
+      WHEN 'F'.
+        lv_keydef = 'Default Key'.
+      WHEN OTHERS.
+        lv_keydef = 'Standard Key'.
+    ENDCASE.
+
+    CASE ls_dd40v-keykind.
+      WHEN 'U'.
+        lv_keykind = 'Unique'.
+      WHEN OTHERS.
+        lv_keykind = 'Non-Unique'.
+    ENDCASE.
+
+    IF ls_dd40v-ddtext IS NOT INITIAL.
+      APPEND |@EndUserText.label : '{ ls_dd40v-ddtext }'| TO et_lines.
+    ENDIF.
+    APPEND |@AbapCatalog.tableType.rowType : '{ ls_dd40v-rowtype }'| TO et_lines.
+    APPEND |@AbapCatalog.tableType.rowCategory : '{ lv_category }'| TO et_lines.
+    APPEND |@AbapCatalog.tableType.accessMode : '{ lv_access }'| TO et_lines.
+    APPEND |@AbapCatalog.tableType.initialRows : { ls_dd40v-occurs }| TO et_lines.
+    APPEND |@AbapCatalog.tableType.primaryKey.definition : '{ lv_keydef }'| TO et_lines.
+    APPEND |@AbapCatalog.tableType.primaryKey.category : '{ lv_keykind }'| TO et_lines.
+    IF ls_dd40v-keyalias IS NOT INITIAL.
+      APPEND |@AbapCatalog.tableType.primaryKey.alias : '{ ls_dd40v-keyalias }'| TO et_lines.
+    ENDIF.
+
+    APPEND |define table type { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
+    LOOP AT lt_dd42v INTO DATA(ls_k) WHERE fieldname IS NOT INITIAL.
+      APPEND |  key { to_lower( CONV string( ls_k-fieldname ) ) };| TO et_lines.
+    ENDLOOP.
+    APPEND '}' TO et_lines.
+
+    ev_ok = abap_true.
   ENDMETHOD.
 
   METHOD read_ddic_tabl_fallback.
@@ -1144,15 +1251,19 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         INTO @lv_stext.
     ENDIF.
 
-    SELECT msgnr, text FROM t100
-      WHERE arbgb = @lv_arbgb AND sprsl = @sy-langu
-      ORDER BY msgnr
+    SELECT t100~msgnr, t100~text, t100u~selfdef, t100u~name, t100u~datum
+      FROM t100
+      LEFT OUTER JOIN t100u ON t100u~arbgb = t100~arbgb AND t100u~msgnr = t100~msgnr
+      WHERE t100~arbgb = @lv_arbgb AND t100~sprsl = @sy-langu
+      ORDER BY t100~msgnr
       INTO TABLE @DATA(lt_t100).
 
     IF lt_t100 IS INITIAL.
-      SELECT msgnr, text FROM t100
-        WHERE arbgb = @lv_arbgb
-        ORDER BY msgnr
+      SELECT t100~msgnr, t100~text, t100u~selfdef, t100u~name, t100u~datum
+        FROM t100
+        LEFT OUTER JOIN t100u ON t100u~arbgb = t100~arbgb AND t100u~msgnr = t100~msgnr
+        WHERE t100~arbgb = @lv_arbgb
+        ORDER BY t100~msgnr
         INTO TABLE @lt_t100 UP TO 200 ROWS.
     ENDIF.
 
@@ -1178,10 +1289,16 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
     APPEND |define message class { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
     LOOP AT lt_t100 INTO DATA(ls_m).
-      DATA lv_text TYPE string.
+      DATA lv_text     TYPE string.
+      DATA lv_selfexpl TYPE string.
       lv_text = ls_m-text.
       REPLACE ALL OCCURRENCES OF `'` IN lv_text WITH `''`.
-      APPEND |  '{ ls_m-msgnr }' : '{ lv_text }',| TO et_lines.
+      IF ls_m-selfdef IS NOT INITIAL AND ls_m-selfdef <> ' '.
+        lv_selfexpl = 'true'.
+      ELSE.
+        lv_selfexpl = 'false'.
+      ENDIF.
+      APPEND |  '{ ls_m-msgnr }' : '{ lv_text }' /* selfExpl={ lv_selfexpl } user={ ls_m-name } date={ ls_m-datum } */,| TO et_lines.
     ENDLOOP.
     APPEND '}' TO et_lines.
 

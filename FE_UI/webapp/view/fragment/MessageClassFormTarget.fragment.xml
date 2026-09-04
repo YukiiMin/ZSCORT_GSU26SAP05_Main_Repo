@@ -55,11 +55,11 @@
           <Column width="auto">
             <Text text="Short Text" />
           </Column>
-          <Column width="6rem" hAlign="Center">
-            <Text text="Self-Expl." />
+          <Column width="8rem" hAlign="Center">
+            <Text text="Self Explanatory" />
           </Column>
-          <Column width="9rem">
-            <Text text="Last Changed By" />
+          <Column width="8rem">
+            <Text text="Last Changed" />
           </Column>
           <Column width="8rem">
             <Text text="Changed On" />
@@ -70,7 +70,7 @@
             <cells>
               <ObjectIdentifier title="{adtMsagTarget>number}" />
               <Text text="{adtMsagTarget>text}" />
-              <core:Icon src="sap-icon://accept" color="Positive" visible="{adtMsagTarget>selfExpl}" />
+              <CheckBox selected="{adtMsagTarget>selfExpl}" editable="false" />
               <Text text="{adtMsagTarget>changedBy}" />
               <Text text="{adtMsagTarget>changedOn}" />
             </cells>

@@ -1,0 +1,109 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:layout="sap.ui.layout">
+  <VBox class="sapUiMediumMargin" fitContainer="true">
+
+    <!-- Title Header — ADT Eclipse format: "Table Type: NAME" -->
+    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+      <core:Icon src="sap-icon://table-column" size="1.25rem" color="#e6600d" class="sapUiTinyMarginEnd" />
+      <Title text="Table Type: {adtTtypTarget>/name}" level="H3" class="sapUiTinyMarginEnd" />
+      <Text text="({adtTtypTarget>/label})" class="sapUiTinyMarginBegin" visible="{= !!${adtTtypTarget>/label} }" />
+    </HBox>
+
+    <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+
+      <!-- Left Column: Row Type + Key Overview -->
+      <VBox>
+        <!-- Row Type Panel -->
+        <Panel expandable="false" expanded="true" headerText="Row Type" class="sapUiTinyMarginBottom">
+          <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+            <f:content>
+              <Label text="Category" />
+              <Input value="{adtTtypTarget>/rowCategory}" editable="false" width="100%" />
+
+              <Label text="Type Name" />
+              <HBox width="100%" alignItems="Center">
+                <Input value="{adtTtypTarget>/rowType}" editable="false" width="100%" class="sapUiTinyMarginEnd" />
+                <Button text="Browse..." enabled="false" />
+              </HBox>
+            </f:content>
+          </f:SimpleForm>
+        </Panel>
+
+        <!-- Key Overview Panel -->
+        <Panel expandable="false" expanded="true" headerText="Key Overview" class="sapUiTinyMarginBottom">
+          <VBox class="sapUiSmallMarginBottom sapUiTinyMarginBegin">
+            <Text text="Define primary and secondary keys" class="sapUiTinyMarginBottom textMuted" />
+            <List inset="false" class="sapUiNoMargin">
+              <StandardListItem
+                title="&lt;Primary Key&gt;"
+                icon="sap-icon://key"
+                type="Inactive" />
+              <StandardListItem
+                title="&lt;Secondary Keys&gt;"
+                icon="sap-icon://folder-blank"
+                type="Inactive" />
+            </List>
+          </VBox>
+        </Panel>
+      </VBox>
+
+      <!-- Right Column: Initialization and Access + Primary Key Details + Key Components -->
+      <VBox>
+        <!-- Initialization and Access Panel -->
+        <Panel expandable="false" expanded="true" headerText="Initialization and Access" class="sapUiTinyMarginBottom">
+          <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="5" labelSpanM="5" columnsL="1" columnsM="1">
+            <f:content>
+              <Label text="Initial Number of Rows" />
+              <Input value="{adtTtypTarget>/initialRows}" editable="false" width="100%" />
+
+              <Label text="Access" />
+              <Input value="{adtTtypTarget>/accessMode}" editable="false" width="100%" />
+            </f:content>
+          </f:SimpleForm>
+        </Panel>
+
+        <!-- Primary Key Details Panel -->
+        <Panel expandable="false" expanded="true" headerText="Primary Key Details" class="sapUiTinyMarginBottom">
+          <VBox class="sapUiTinyMarginBegin sapUiSmallMarginBottom">
+            <Text text="Specify key attributes" class="sapUiTinyMarginBottom textMuted" />
+            <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="5" labelSpanM="5" columnsL="1" columnsM="1">
+              <f:content>
+                <Label text="Key Definition" />
+                <Input value="{adtTtypTarget>/keyDefinition}" editable="false" width="100%" />
+
+                <Label text="Key Category" />
+                <Input value="{adtTtypTarget>/keyCategory}" editable="false" width="100%" />
+
+                <Label text="Alias" />
+                <Input value="{adtTtypTarget>/keyAlias}" editable="false" width="100%" />
+              </f:content>
+            </f:SimpleForm>
+          </VBox>
+        </Panel>
+
+        <!-- Key Components Panel -->
+        <Panel expandable="false" expanded="true" headerText="Key Components" class="sapUiTinyMarginBottom">
+          <Table items="{adtTtypTarget>/keyComponents}" noDataText="&lt;Enter new value&gt;" inset="false" class="sapUiNoMargin">
+            <columns>
+              <Column>
+                <Text text="Key Component" />
+              </Column>
+            </columns>
+            <items>
+              <ColumnListItem>
+                <cells>
+                  <Text text="{adtTtypTarget>fieldName}" />
+                </cells>
+              </ColumnListItem>
+            </items>
+          </Table>
+        </Panel>
+      </VBox>
+
+    </layout:Grid>
+
+  </VBox>
+</core:FragmentDefinition>

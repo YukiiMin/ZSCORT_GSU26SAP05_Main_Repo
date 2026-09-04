@@ -201,6 +201,12 @@ sap.ui.define([
             that.getView().setModel(new JSONModel(oDevcLocal), "adtDevc");
             that.getView().setModel(new JSONModel(oDevcTarget), "adtDevcTarget");
             oDetailModel.setProperty("/compareMode", "form");
+          } else if (that._sType === "TTYP") {
+            var oTtypLocal = AdtFormParser.parseTableType(sLocalCode);
+            var oTtypTarget = AdtFormParser.parseTableType(sTargetCode);
+            that.getView().setModel(new JSONModel(oTtypLocal), "adtTtyp");
+            that.getView().setModel(new JSONModel(oTtypTarget), "adtTtypTarget");
+            oDetailModel.setProperty("/compareMode", "form");
           } else {
             oDetailModel.setProperty("/compareMode", "text");
           }

@@ -105,6 +105,9 @@
                         <VBox visible="{= ${detail>/ObjectType} === 'DEVC' }">
                           <core:Fragment fragmentName="zscort.app.view.fragment.PackageForm" type="XML" />
                         </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'TTYP' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.TableTypeForm" type="XML" />
+                        </VBox>
                       </VBox>
 
                       <!-- Right Column: Target ADT Form -->
@@ -124,6 +127,9 @@
                         </VBox>
                         <VBox visible="{= ${detail>/ObjectType} === 'DEVC' }">
                           <core:Fragment fragmentName="zscort.app.view.fragment.PackageFormTarget" type="XML" />
+                        </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'TTYP' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.TableTypeFormTarget" type="XML" />
                         </VBox>
                       </VBox>
                     </layout:Grid>

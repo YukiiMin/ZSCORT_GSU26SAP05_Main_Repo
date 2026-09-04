@@ -217,6 +217,11 @@ sap.ui.define([
           if (that._oSourceDialog) {
             that._oSourceDialog.setModel(new JSONModel(oDevcData), "adtDevc");
           }
+        } else if (sObjType === "TTYP") {
+          var oTtypData = AdtFormParser.parseTableType(that._pendingSourceCode);
+          if (that._oSourceDialog) {
+            that._oSourceDialog.setModel(new JSONModel(oTtypData), "adtTtyp");
+          }
         }
 
         var oTabBar = Fragment.byId("idViewSourceDialog", "idViewSourceIconTabBar") ||
@@ -224,7 +229,7 @@ sap.ui.define([
         if (oTabBar && oTabBar.setSelectedKey) {
           if (bNotSupported) {
             oTabBar.setSelectedKey("metadata");
-          } else if (sObjType === "DOMA" || sObjType === "DTEL" || sObjType === "MSAG" || sObjType === "DEVC") {
+          } else if (sObjType === "DOMA" || sObjType === "DTEL" || sObjType === "MSAG" || sObjType === "DEVC" || sObjType === "TTYP") {
             oTabBar.setSelectedKey("adtForm");
           } else {
             oTabBar.setSelectedKey("source");
