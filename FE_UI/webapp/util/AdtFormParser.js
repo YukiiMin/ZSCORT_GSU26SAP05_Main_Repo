@@ -206,6 +206,7 @@ sap.ui.define([], function () {
         label: "",
         masterLanguage: "",
         responsible: "",
+        lastChangedBy: "",
         lastChanged: "",
         messages: []
       };
@@ -230,10 +231,15 @@ sap.ui.define([], function () {
         oData.responsible = mResp[1];
       }
 
+      var mLastUser = sDdlText.match(/@AbapCatalog\.messageClass\.lastChangedBy\s*:\s*'([^']*)'/i);
+      if (mLastUser) {
+        oData.lastChangedBy = mLastUser[1];
+      }
+
       var mLastChanged = sDdlText.match(/@AbapCatalog\.messageClass\.lastChanged\s*:\s*'([^']*)'/i);
       if (mLastChanged) {
         var sRaw = mLastChanged[1];
-        // T100A LASTUP is stored as YYYYMMDD — format to YYYY-MM-DD for display
+        // T100A LDATE is stored as YYYYMMDD — format to YYYY-MM-DD for display
         if (/^\d{8}$/.test(sRaw)) {
           oData.lastChanged = sRaw.slice(0, 4) + "-" + sRaw.slice(4, 6) + "-" + sRaw.slice(6, 8);
         } else {
@@ -252,7 +258,7 @@ sap.ui.define([], function () {
             number: mItem[1],
             text: sText,
             selfExpl: false,
-            changedBy: oData.responsible || "",
+            changedBy: oData.lastChangedBy || oData.responsible || "",
             changedOn: oData.lastChanged || ""
           });
         }

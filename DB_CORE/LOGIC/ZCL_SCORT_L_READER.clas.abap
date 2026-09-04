@@ -1123,15 +1123,16 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     DATA lv_arbgb      TYPE t100a-arbgb.
     DATA lv_masterlang TYPE t100a-masterlang.
     DATA lv_respuser   TYPE t100a-respuser.
-    DATA lv_lastupdate TYPE t100a-lastup.
+    DATA lv_lastuser   TYPE t100a-lastuser.
+    DATA lv_ldate      TYPE t100a-ldate.
     DATA lv_stext      TYPE t100t-stext.
 
     CLEAR: et_lines, ev_ok.
     lv_arbgb = iv_name.
 
-    SELECT SINGLE masterlang, respuser, lastup FROM t100a
+    SELECT SINGLE masterlang, respuser, lastuser, ldate FROM t100a
       WHERE arbgb = @lv_arbgb
-      INTO (@lv_masterlang, @lv_respuser, @lv_lastupdate).
+      INTO (@lv_masterlang, @lv_respuser, @lv_lastuser, @lv_ldate).
 
     SELECT SINGLE stext FROM t100t
       WHERE arbgb = @lv_arbgb AND sprsl = @sy-langu
@@ -1168,8 +1169,11 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     IF lv_respuser IS NOT INITIAL.
       APPEND |@AbapCatalog.messageClass.responsible : '{ lv_respuser }'| TO et_lines.
     ENDIF.
-    IF lv_lastupdate IS NOT INITIAL.
-      APPEND |@AbapCatalog.messageClass.lastChanged : '{ lv_lastupdate }'| TO et_lines.
+    IF lv_lastuser IS NOT INITIAL.
+      APPEND |@AbapCatalog.messageClass.lastChangedBy : '{ lv_lastuser }'| TO et_lines.
+    ENDIF.
+    IF lv_ldate IS NOT INITIAL.
+      APPEND |@AbapCatalog.messageClass.lastChanged : '{ lv_ldate }'| TO et_lines.
     ENDIF.
 
     APPEND |define message class { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
