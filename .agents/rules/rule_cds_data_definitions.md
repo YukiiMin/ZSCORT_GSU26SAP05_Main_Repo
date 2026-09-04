@@ -49,3 +49,20 @@ When writing, editing, or generating CDS Entities (`.asddls`), Projections (`.dd
    ```
 2. **Strict DDIC Data Element Casting:** In `UNION` branches, always use `cast( ... as <ddic_data_element> )` for literal keys to ensure 100% type uniformity across all union members.
 
+## 8. Literal List Operators (`IN` vs `OR`) in CDS View Entity WHERE Clauses
+1. **Never use literal `IN ( ... )` lists in CDS View Entities:** In ABAP CDS View Entities (`define view entity`), literal `IN ( 'VAL1', 'VAL2' )` lists are not supported across several SAP kernel / AS ABAP versions and trigger the syntax check error: `Unexpected word "in"`.
+2. **Mandatory Chained `OR` Comparisons:** Always use chained `OR` comparisons instead:
+   ```cds
+   where ( object = 'PROG' or object = 'CLAS' or object = 'INTF' )
+   ```
+
+## 9. Modern CDS/RAP Artifact Storage Architecture & Source Retrieval
+1. **DDDDLSRC is STRICTLY for DDLS:** Never query `DDDDLSRC` for modern CDS artifacts like Access Controls or Metadata Extensions.
+2. **Dedicated Storage Tables & Handlers:**
+   - **`DCLS` (Access Control):** Query table `ACMDCLSRC` (`dclname = @lv_name and as4local = 'A'`) with fallback to `CL_ACM_DCL_HANDLER_FACTORY`.
+   - **`DDLX` (Metadata Extension):** Query table `DDLXSRC_SRC` / `DDLXSRC` with fallback to `CL_DDLX_ADT_OBJECT_PERSIST`.
+   - **`BDEF` (Behavior Definition):** Query via `CL_BDEF_ADT_OBJECT_PERSIST` and `RSBDEFSRC`.
+   - **`SRVD` (Service Definition):** Query via `CL_SRVD_ADT_OBJECT_PERSIST` and `SRVD_SOURCE`.
+3. **Dynamic Table Queries:** When querying tables that may vary across NetWeaver/S4 releases, always wrap in dynamic SQL (`SELECT ... FROM ('TABLE_NAME')`) and `TRY... CATCH cx_root` to prevent ABAP syntax check errors.
+
+

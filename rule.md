@@ -20,6 +20,12 @@
   - When exposing associations in `UNION` / `UNION ALL`, the association MUST be defined identically (same target, cardinality, ON condition) across EVERY `SELECT` branch to prevent `The column ... is unknown` compiler errors.
   - Sub-objects (e.g. Function Modules `FUNC`) must strictly be typed with `key cast( 'LIMU' as pgmid ) as Pgmid`.
   - All fields specified in `@Consumption.valueHelpDefinition.additionalBinding.element` MUST strictly exist as exposed fields/keys in the target entity view to prevent ADT warnings and metadata breakage.
+  - NEVER use literal `IN ( ... )` lists in CDS View Entity `WHERE` clauses (triggers `Unexpected word "in"`). Always use chained `OR` comparisons (`object = 'PROG' or object = 'CLAS' ...`).
+  - `DDDDLSRC` is STRICTLY for `DDLS` (Data Definitions). Query `ACMDCLSRC` for `DCLS` (Access Control), `DDLXSRC_SRC`/`DDLXSRC` for `DDLX` (Metadata Extension), `RSBDEFSRC` for `BDEF`, and `SRVD_SOURCE` for `SRVD`. Wrap in dynamic SQL and `TRY... CATCH cx_root` for cross-release safety.
+- In SAP Development Objects Whitelist & UX:
+  - Whitelist strictly 22 core Development Objects; exclude internal metadata/system artifacts (`APIS`, `IWMO`, `IWSG`, `IWVB`, etc.).
+  - GUI-only objects (`TRAN`, `NROB`, `WAPA`, `SSFO`, `SHLP`) return `NOT_SUPPORTED` with empty source text; frontend defaults to `Metadata` tab with an informational `IllustratedMessage`.
+  - Composite structured objects (`MSAG`, `DEVC`, `DOMA`, `DTEL`) render dedicated ADT form tabs via `AdtFormParser.js`.
 - In RAP Custom Entity Query Providers & ABAP Logic:
   - When comparing heterogeneous object collections, ALWAYS sort and merge on the 3-key tuple `(pgmid, objecttype, objectname)`.
   - Push down filter ranges from `io_request->get_filter( )->get_as_ranges( )` to Open SQL `WHERE` clauses before fetching data; perform windowed paging (`offset`/`page_size`) strictly after sorting.
@@ -33,6 +39,7 @@
 - In UI5 Architecture & Navigation:
   - Maintain symmetrical action buttons across all views: use `sap-icon://document-text` for View Source, `sap-icon://compare-2` with `10rem` width for Compare.
   - Use central header `SegmentedButton` (`🔍 Object Search` | `🌿 TR Search`) for navigation; avoid scattering duplicate back/switch buttons in filter bars.
+  - Zero tolerance for `WrongParametersLinter` errors: explicitly pass parameters to BaseController methods (e.g. `this._getMonacoLang(this._sType)`), document optional parameters with JSDoc `[paramName]`, and never diverge method signatures in child controllers.
 - In Service Definitions (.srvd.asddls) & Service Bindings (.srvb):
   - ZERO comments allowed. Keep strictly to entity exposure statements (`expose ... as ...;`).
 - In Monaco Editor Integration:
