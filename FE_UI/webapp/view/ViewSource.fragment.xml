@@ -39,7 +39,7 @@
           <IconTabFilter
             id="idViewSourceAdtFormFilter"
             key="adtForm"
-            text="{= ${appView>/viewSourceType} === 'MSAG' ? 'Messages' : (${appView>/viewSourceType} === 'DEVC' ? 'Package Definition' : 'ADT Definition') }"
+            text="{= ${appView>/viewSourceType} === 'MSAG' ? 'Messages' : (${appView>/viewSourceType} === 'DEVC' ? 'Package Details' : 'ADT Definition') }"
             icon="{= ${appView>/viewSourceType} === 'MSAG' ? 'sap-icon://message-popup' : (${appView>/viewSourceType} === 'DEVC' ? 'sap-icon://folder' : 'sap-icon://form') }"
             visible="{= ${appView>/viewSourceType} === 'DOMA' || ${appView>/viewSourceType} === 'DTEL' || ${appView>/viewSourceType} === 'MSAG' || ${appView>/viewSourceType} === 'DEVC' }">
             <ScrollContainer height="100%" vertical="true">

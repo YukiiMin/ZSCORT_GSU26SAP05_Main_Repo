@@ -108,7 +108,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     CASE iv_object_type.
       WHEN 'PROG' OR 'CLAS' OR 'INTF' OR 'FUNC' OR 'FUGR'
         OR 'DTEL' OR 'DOMA' OR 'TABL' OR 'DDLS' OR 'BDEF'
-        OR 'DCLS' OR 'DDLX' OR 'SRVD' OR 'TTYP' OR 'VIEW'
+        OR 'DCLS' OR 'DDLX' OR 'SRVD' OR 'TTYP'
         OR 'MSAG' OR 'DEVC'.
         rv_ok = abap_true.
       WHEN OTHERS.
@@ -1123,14 +1123,15 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     DATA lv_arbgb      TYPE t100a-arbgb.
     DATA lv_masterlang TYPE t100a-masterlang.
     DATA lv_respuser   TYPE t100a-respuser.
+    DATA lv_lastupdate TYPE t100a-lastup.
     DATA lv_stext      TYPE t100t-stext.
 
     CLEAR: et_lines, ev_ok.
     lv_arbgb = iv_name.
 
-    SELECT SINGLE masterlang, respuser FROM t100a
+    SELECT SINGLE masterlang, respuser, lastup FROM t100a
       WHERE arbgb = @lv_arbgb
-      INTO (@lv_masterlang, @lv_respuser).
+      INTO (@lv_masterlang, @lv_respuser, @lv_lastupdate).
 
     SELECT SINGLE stext FROM t100t
       WHERE arbgb = @lv_arbgb AND sprsl = @sy-langu
@@ -1166,6 +1167,9 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
     IF lv_respuser IS NOT INITIAL.
       APPEND |@AbapCatalog.messageClass.responsible : '{ lv_respuser }'| TO et_lines.
+    ENDIF.
+    IF lv_lastupdate IS NOT INITIAL.
+      APPEND |@AbapCatalog.messageClass.lastChanged : '{ lv_lastupdate }'| TO et_lines.
     ENDIF.
 
     APPEND |define message class { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
@@ -1239,6 +1243,12 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       APPEND |@AbapCatalog.package.responsible : '{ ls_tdevc-as4user }'| TO et_lines.
     ENDIF.
     APPEND |@AbapCatalog.package.packageType : '{ lv_type }'| TO et_lines.
+    APPEND |@AbapCatalog.package.encapsulated : 'false'| TO et_lines.
+    IF ls_tdevc-korrflag = space.
+      APPEND |@AbapCatalog.package.noObjectAddition : 'true'| TO et_lines.
+    ELSE.
+      APPEND |@AbapCatalog.package.noObjectAddition : 'false'| TO et_lines.
+    ENDIF.
 
     APPEND |define package { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
 
@@ -1300,7 +1310,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         read_fugr( EXPORTING iv_name = CONV #( iv_object_name )
                    IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
       WHEN 'DTEL' OR 'DOMA' OR 'TABL' OR 'DDLS' OR 'BDEF'
-        OR 'DCLS' OR 'DDLX' OR 'SRVD' OR 'TTYP' OR 'VIEW'.
+        OR 'DCLS' OR 'DDLX' OR 'SRVD' OR 'TTYP'.
         read_ddic_src( EXPORTING iv_object = CONV #( iv_object_type )
                                  iv_name   = CONV #( iv_object_name )
                        IMPORTING et_lines  = lt_lines ev_ok = lv_ok ).

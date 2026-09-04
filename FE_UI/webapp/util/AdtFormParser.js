@@ -206,6 +206,7 @@ sap.ui.define([], function () {
         label: "",
         masterLanguage: "",
         responsible: "",
+        lastChanged: "",
         messages: []
       };
 
@@ -229,6 +230,17 @@ sap.ui.define([], function () {
         oData.responsible = mResp[1];
       }
 
+      var mLastChanged = sDdlText.match(/@AbapCatalog\.messageClass\.lastChanged\s*:\s*'([^']*)'/i);
+      if (mLastChanged) {
+        var sRaw = mLastChanged[1];
+        // T100A LASTUP is stored as YYYYMMDD — format to YYYY-MM-DD for display
+        if (/^\d{8}$/.test(sRaw)) {
+          oData.lastChanged = sRaw.slice(0, 4) + "-" + sRaw.slice(4, 6) + "-" + sRaw.slice(6, 8);
+        } else {
+          oData.lastChanged = sRaw;
+        }
+      }
+
       // Extract message entries: '001' : 'Text of message',
       var mBlock = sDdlText.match(/\{([\s\S]*?)\}/);
       if (mBlock && mBlock[1]) {
@@ -241,7 +253,7 @@ sap.ui.define([], function () {
             text: sText,
             selfExpl: false,
             changedBy: oData.responsible || "",
-            changedOn: ""
+            changedOn: oData.lastChanged || ""
           });
         }
       }
@@ -268,6 +280,8 @@ sap.ui.define([], function () {
         superPackage: "",
         responsible: "",
         packageType: "Development",
+        encapsulated: false,
+        noObjectAddition: false,
         subpackages: [],
         hierarchy: []
       };
@@ -310,6 +324,16 @@ sap.ui.define([], function () {
       var mType = sDdlText.match(/@AbapCatalog\.package\.packageType\s*:\s*'([^']*)'/i);
       if (mType) {
         oData.packageType = mType[1];
+      }
+
+      var mEnc = sDdlText.match(/@AbapCatalog\.package\.encapsulated\s*:\s*'([^']*)'/i);
+      if (mEnc) {
+        oData.encapsulated = mEnc[1].toLowerCase() === "true";
+      }
+
+      var mNoAdd = sDdlText.match(/@AbapCatalog\.package\.noObjectAddition\s*:\s*'([^']*)'/i);
+      if (mNoAdd) {
+        oData.noObjectAddition = mNoAdd[1].toLowerCase() === "true";
       }
 
       // Subpackages: subpackage name : 'description';

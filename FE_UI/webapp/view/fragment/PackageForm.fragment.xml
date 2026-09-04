@@ -4,8 +4,8 @@
   xmlns:f="sap.ui.layout.form"
   xmlns:layout="sap.ui.layout">
   <VBox class="sapUiMediumMargin" fitContainer="true">
-    
-    <!-- Title Header -->
+
+    <!-- Title Header — ADT Eclipse format: "Package: NAME" -->
     <HBox alignItems="Center" class="sapUiTinyMarginBottom">
       <core:Icon src="sap-icon://folder" size="1.25rem" color="#0a6ed1" class="sapUiTinyMarginEnd" />
       <Title text="Package: {adtDevc>/name}" level="H3" class="sapUiTinyMarginEnd" />
@@ -14,66 +14,72 @@
 
     <IconTabBar class="sapUiNoContentPadding" expandable="false">
       <items>
-        <!-- Tab 1: Overview -->
-        <IconTabFilter text="Overview" icon="sap-icon://hint">
+        <!-- Tab 1: Package Details (mirrors ADT Eclipse "Package Details" tab) -->
+        <IconTabFilter text="Package Details" icon="sap-icon://product" key="packageDetails">
           <VBox class="sapUiSmallMargin">
-            <layout:Grid defaultSpan="L12 M12 S12" class="sapUiNoContentPadding">
-              <!-- General Data -->
-              <VBox class="sapUiTinyMargin">
-                <Panel expandable="false" expanded="true" headerText="General Data" class="sapUiNoContentPadding">
-                  <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
-                    <f:content>
-                      <Label text="Package" />
-                      <Input value="{adtDevc>/name}" editable="false" width="100%" />
 
-                      <Label text="Short Description" />
-                      <Input value="{adtDevc>/label}" editable="false" width="100%" />
+            <!-- General Data -->
+            <VBox class="sapUiTinyMarginBottom">
+              <Panel expandable="false" expanded="true" headerText="General Data" class="sapUiNoContentPadding">
+                <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+                  <f:content>
+                    <Label text="Package" />
+                    <Input value="{adtDevc>/name}" editable="false" width="100%" />
 
-                      <Label text="Person Responsible" />
-                      <Input value="{adtDevc>/responsible}" editable="false" width="100%" />
-                    </f:content>
-                  </f:SimpleForm>
-                </Panel>
-              </VBox>
+                    <Label text="Short Description" />
+                    <Input value="{adtDevc>/label}" editable="false" width="100%" />
 
-              <!-- Software Component -->
-              <VBox class="sapUiTinyMargin">
-                <Panel expandable="false" expanded="true" headerText="Software Component" class="sapUiNoContentPadding">
-                  <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
-                    <f:content>
-                      <Label text="Software Component" />
-                      <Input value="{adtDevc>/softwareComponent}" editable="false" width="100%" />
+                    <Label text="Application Component" />
+                    <Input value="{adtDevc>/applicationComponent}" editable="false" width="100%" />
 
-                      <Label text="Application Component" />
-                      <Input value="{adtDevc>/applicationComponent}" editable="false" width="100%" />
+                    <Label text="Responsible" />
+                    <Input value="{adtDevc>/responsible}" editable="false" width="100%" />
+                  </f:content>
+                </f:SimpleForm>
+              </Panel>
+            </VBox>
 
-                      <Label text="Transport Layer" />
-                      <Input value="{adtDevc>/transportLayer}" editable="false" width="100%" />
-                    </f:content>
-                  </f:SimpleForm>
-                </Panel>
-              </VBox>
-            </layout:Grid>
+            <!-- Transport Properties (ADT Eclipse section) -->
+            <VBox class="sapUiTinyMarginBottom">
+              <Panel expandable="false" expanded="true" headerText="Transport Properties" class="sapUiNoContentPadding">
+                <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+                  <f:content>
+                    <Label text="Transport Layer" />
+                    <Input value="{adtDevc>/transportLayer}" editable="false" width="100%" />
 
-            <!-- Package Hierarchy info -->
-            <VBox class="sapUiTinyMarginTop">
-              <Panel expandable="false" expanded="true" headerText="Package Hierarchy" class="sapUiNoContentPadding">
-                <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="2" columnsM="2">
+                    <Label text="Software Component" />
+                    <Input value="{adtDevc>/softwareComponent}" editable="false" width="100%" />
+                  </f:content>
+                </f:SimpleForm>
+              </Panel>
+            </VBox>
+
+            <!-- Package Properties (ADT Eclipse right panel) -->
+            <VBox class="sapUiTinyMarginBottom">
+              <Panel expandable="false" expanded="true" headerText="Package Properties" class="sapUiNoContentPadding">
+                <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
                   <f:content>
                     <Label text="Superpackage" />
                     <Input value="{adtDevc>/superPackage}" editable="false" width="100%" />
 
                     <Label text="Package Type" />
                     <Input value="{adtDevc>/packageType}" editable="false" width="100%" />
+
+                    <Label text="Package Encapsulated" />
+                    <CheckBox selected="{adtDevc>/encapsulated}" editable="false" />
+
+                    <Label text="Adding Objects Not Possible" />
+                    <CheckBox selected="{adtDevc>/noObjectAddition}" editable="false" />
                   </f:content>
                 </f:SimpleForm>
               </Panel>
             </VBox>
+
           </VBox>
         </IconTabFilter>
 
         <!-- Tab 2: Subpackages -->
-        <IconTabFilter text="Subpackages" icon="sap-icon://folder-blank" count="{= ${adtDevc>/subpackages}.length }">
+        <IconTabFilter text="Subpackages" icon="sap-icon://folder-blank" count="{= ${adtDevc>/subpackages}.length }" key="subpackages">
           <VBox class="sapUiSmallMargin">
             <Table items="{adtDevc>/subpackages}" noDataText="No subpackages defined" inset="false" class="sapUiNoMargin">
               <headerToolbar>
@@ -107,12 +113,12 @@
         </IconTabFilter>
 
         <!-- Tab 3: Hierarchy -->
-        <IconTabFilter text="Hierarchy" icon="sap-icon://tree">
+        <IconTabFilter text="Hierarchy" icon="sap-icon://tree" key="hierarchy">
           <VBox class="sapUiSmallMargin">
             <Table items="{adtDevc>/hierarchy}" noDataText="Hierarchy not available" inset="false" class="sapUiNoMargin">
               <headerToolbar>
                 <Toolbar height="2.5rem">
-                  <Title text="Package Hierarchy Tree" level="H4" />
+                  <Title text="Package Hierarchy" level="H4" />
                 </Toolbar>
               </headerToolbar>
               <columns>
