@@ -245,7 +245,8 @@
                               tooltip="{i18n>openCompareTooltip}"
                               type="Default"
                               visible="{= ${trTree>NodeType} === 'OBJ' }"
-                              press=".onTreeObjCompare" />
+                              press=".onTreeObjCompare"
+                              class="sapUiTinyMarginEnd" />
                             <!-- View Source / Metadata for Object node -->
                             <Button
                               icon="sap-icon://document-text"

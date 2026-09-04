@@ -70,9 +70,16 @@
     }).join('\n');
   }
 
+  function _isCdsOrDdic(sType) {
+    var t = (sType || '').toUpperCase();
+    return t === 'DDLS' || t === 'DCLS' || t === 'BDEF' || t === 'TABL' || t === 'DTEL' || t === 'DOMA';
+  }
+
   // ─── PROMPT 1: SYNTAX & CODE QUALITY AUDIT ─────────────────────────────────
   function _buildSyntaxPrompt(sType, sName, sLocalCode, sTargetCode, sLang) {
     var sLangInstruct = _getLangInstruction(sLang)
+    var bCds = _isCdsOrDdic(sType)
+    var sCodeFence = bCds ? 'sql' : 'abap'
     var bHasLocal = !!(
       sLocalCode &&
       sLocalCode.trim() &&
@@ -89,40 +96,56 @@
 
     var sLineReq = [
       'CRITICAL INSTRUCTION FOR EACH FINDING:',
-      '- Every line in the code is numbered (e.g. "26: CONCATENATE...").',
+      '- Every line in the code is numbered (e.g. "26: ...").',
       '- You MUST provide `line_number` (integer, e.g. 26) pointing to the exact line in code.',
-      '- You MUST format `line_or_snippet` starting with "Line <line_number>: [exact code snippet]" (e.g. "Line 26: [CONCATENATE ...]").',
+      '- You MUST format `line_or_snippet` starting with "Line <line_number>: [exact code snippet]".',
       '- You MUST provide `message` explaining in detail why it is invalid or suboptimal.',
-      '- You MUST provide `suggestion` containing a concrete, ready-to-use refactored code replacement following SAP Clean ABAP.'
+      '- You MUST provide `suggestion` containing a concrete, ready-to-use refactored code replacement.'
     ].join('\n')
+
+    var sPersona = bCds
+      ? 'You are a Principal SAP Core Data Services (CDS), RAP Behavior Definition, and SAP DDIC Architect and Static Code Analysis Auditor. ' + sLangInstruct
+      : 'You are a Principal SAP ABAP Compiler and Senior Static Code Analysis Auditor. ' + sLangInstruct
+
+    var sFocusAreas = bCds
+      ? [
+          '## Focus Areas for Deep Audit (CDS / RAP / DDIC):',
+          '1. Syntax & Compilation: Valid annotations (@EndUserText, @AccessControl, etc.), matched curly braces { ... }, semicolon statement termination ;, valid data element casting cast(...). Note: CDS/BDEF use semicolons, NOT ABAP periods.',
+          '2. Data Modeling & Associations: Clean entity structure, identical association definitions across UNION branches, cardinality consistency, exposed fields integrity.',
+          '3. RAP Behavior Compliance: Entity actions, determinations, validations, strict mode compliance, draft enablement checks (if BDEF).',
+          '4. Performance & DB Pushdown: Join conditions, avoiding Cartesian products, index utilization for table definitions.',
+          '5. Comparative Quality: Assess which codebase (LOCAL vs TARGET) has higher quality, fewer violations, and cleaner modeling.'
+        ].join('\n')
+      : [
+          '## Focus Areas for Deep Audit:',
+          '1. Syntax & Compilation: Invalid keywords, missing periods, unmatched control structures (ENDIF, ENDLOOP, ENDMETHOD).',
+          '2. Obsolete Syntax: Detect obsolete constructs (CONCATENATE -> string templates |...|, MOVE TO, TABLES, FORM/PERFORM, OCCURS, RANGES).',
+          '3. Clean ABAP Standards: Inline declarations (DATA/FINAL), constructor expressions (VALUE, COND, REDUCE), DRY principle, Single Responsibility, modern OOP.',
+          '4. Performance & Reliability: SELECT in LOOP (N+1 queries), missing WHERE clauses, unchecked sy-subrc, unhandled exceptions.',
+          '5. Comparative Quality: Assess which codebase (LOCAL vs TARGET) has higher quality, fewer violations, and better architecture.'
+        ].join('\n')
 
     if (bHasLocal && bHasTarget) {
       return [
-        'You are a Principal SAP ABAP Compiler and Senior Static Code Analysis Auditor. ' +
-          sLangInstruct,
+        sPersona,
         '',
-        '## Task: Dual-Side ABAP Syntax, Code Quality & Comparative Audit',
+        '## Task: Dual-Side Syntax, Code Quality & Comparative Audit',
         'The object exists on BOTH Local (Active) and Target (Snapshot) systems.',
         'You MUST perform separate evaluations for Local Code AND Target Code, determine which side is better designed, and provide an expert best-practice synthesis to achieve optimal quality.',
         '',
         sLineReq,
         '',
-        '## Focus Areas for Deep Audit:',
-        '1. Syntax & Compilation: Invalid keywords, missing periods, unmatched control structures (ENDIF, ENDLOOP, ENDMETHOD).',
-        '2. Obsolete Syntax: Detect obsolete constructs (CONCATENATE -> string templates |...|, MOVE TO, TABLES, FORM/PERFORM, OCCURS, RANGES).',
-        '3. Clean ABAP Standards: Inline declarations (DATA/FINAL), constructor expressions (VALUE, COND, REDUCE), DRY principle, Single Responsibility, modern OOP.',
-        '4. Performance & Reliability: SELECT in LOOP (N+1 queries), missing WHERE clauses, unchecked sy-subrc, unhandled exceptions.',
-        '5. Comparative Quality: Assess which codebase (LOCAL vs TARGET) has higher quality, fewer violations, and better architecture.',
+        sFocusAreas,
         '',
         '## Object Info: ' + sType + ' ' + sName,
         '',
         '## Local Code (Active Version - Numbered Lines):',
-        '```abap',
+        '```' + sCodeFence,
         sNumberedLocal,
         '```',
         '',
         '## Target Code (Baseline Version - Numbered Lines):',
-        '```abap',
+        '```' + sCodeFence,
         sNumberedTarget,
         '```',
         '',
@@ -144,32 +167,27 @@
         '      "line_number": 20,',
         '      "line_or_snippet": "Line 20: [Exact code line or statement]",',
         '      "message": "Detailed explanation of the violation",',
-        '      "suggestion": "Concrete refactored code replacement according to Clean ABAP (e.g. Thay bằng: DATA(gt_sv) = VALUE tt_student( ... ).)"',
+        '      "suggestion": "Concrete refactored code replacement according to SAP best practices."' ,
         '    }',
         '  ]',
         '}',
       ].join('\n')
     } else if (bHasLocal && !bHasTarget) {
       return [
-        'You are a Principal SAP ABAP Compiler and Senior Static Code Analysis Auditor. ' +
-          sLangInstruct,
+        sPersona,
         '',
-        '## Task: Deep ABAP Syntax & Clean Code Quality Audit (Local New Object)',
+        '## Task: Deep Syntax & Clean Quality Audit (Local New Object)',
         'This is a NEW object that exists ONLY on the LOCAL development system.',
-        'Perform an exhaustive, audit-grade static analysis of the LOCAL code against SAP Clean ABAP guidelines and system stability.',
+        'Perform an exhaustive, audit-grade static analysis of the LOCAL code against SAP guidelines and system stability.',
         '',
         sLineReq,
         '',
-        '## Focus Areas for Deep Audit:',
-        '1. Syntax & Compilation: Invalid keywords, missing periods, unmatched control structures.',
-        '2. Obsolete Syntax: Detect obsolete constructs (CONCATENATE -> string templates |...|, MOVE TO, TABLES, FORM/PERFORM).',
-        '3. Clean ABAP Standards: Inline declarations (DATA/FINAL), constructor expressions (VALUE, COND, REDUCE), DRY principle.',
-        '4. Performance & Reliability: SELECT in LOOP, missing WHERE clauses, unchecked sy-subrc.',
+        sFocusAreas,
         '',
         '## Object Info: ' + sType + ' ' + sName,
         '',
         '## Local Code (Active Version - Numbered Lines):',
-        '```abap',
+        '```' + sCodeFence,
         sNumberedLocal || '(empty)',
         '```',
         '',
@@ -187,31 +205,27 @@
         '      "line_number": 20,',
         '      "line_or_snippet": "Line 20: [Exact code line or statement]",',
         '      "message": "Detailed explanation of the violation",',
-        '      "suggestion": "Concrete refactored code replacement according to Clean ABAP (e.g. Thay bằng: DATA(gt_sv) = VALUE tt_student( ... ).)"',
+        '      "suggestion": "Concrete refactored code replacement according to SAP best practices."' ,
         '    }',
         '  ]',
         '}',
       ].join('\n')
     } else {
       return [
-        'You are a Principal SAP ABAP Compiler and Senior Static Code Analysis Auditor. ' +
-          sLangInstruct,
+        sPersona,
         '',
-        '## Task: Deep ABAP Syntax & Clean Code Quality Audit (Target Baseline Object)',
+        '## Task: Deep Syntax & Clean Quality Audit (Target Baseline Object)',
         'This object exists ONLY on the TARGET system (missing or deleted on Local).',
-        'Perform an exhaustive static analysis of the TARGET code baseline against SAP Clean ABAP guidelines.',
+        'Perform an exhaustive static analysis of the TARGET code baseline against SAP guidelines.',
         '',
         sLineReq,
         '',
-        '## Focus Areas for Deep Audit:',
-        '1. Syntax & Compilation: Invalid keywords, missing periods, unmatched control structures.',
-        '2. Obsolete Syntax: Detect obsolete constructs (CONCATENATE -> string templates |...|, MOVE TO, TABLES).',
-        '3. Clean ABAP Standards: Modern OOP, constructor expressions, DRY principle.',
+        sFocusAreas,
         '',
         '## Object Info: ' + sType + ' ' + sName,
         '',
         '## Target Code (Baseline - Numbered Lines):',
-        '```abap',
+        '```' + sCodeFence,
         sNumberedTarget || '(empty)',
         '```',
         '',
@@ -229,7 +243,7 @@
         '      "line_number": 20,',
         '      "line_or_snippet": "Line 20: [Exact code line or statement]",',
         '      "message": "Detailed explanation of the violation",',
-        '      "suggestion": "Concrete refactored code replacement according to Clean ABAP (e.g. Thay bằng: DATA(gt_sv) = VALUE tt_student( ... ).)"',
+        '      "suggestion": "Concrete refactored code replacement according to SAP best practices."' ,
         '    }',
         '  ]',
         '}',
@@ -240,6 +254,25 @@
   // ─── PROMPT 2: TRANSPORT RECOMMENDATION & RISK ANALYSIS ────────────────────
   function _buildTransportPrompt(sType, sName, sLocalCode, sTargetCode, sLang) {
     var sLangInstruct = _getLangInstruction(sLang)
+    var bCds = _isCdsOrDdic(sType)
+    var sCodeFence = bCds ? 'sql' : 'abap'
+    var sDimensions = bCds
+      ? [
+          '## Evaluation Dimensions (CDS / RAP / DDIC):',
+          '1. Schema & Data Integrity: Incompatible field type/length changes, dropped primary keys, table conversion locks in production.',
+          '2. Interface & Dependency Breaking Changes: Exposed association alterations, removed elements breaking consumers, dependent CDS entities.',
+          '3. Release Risk: Overall production risk classification and transport feasibility.',
+          '4. Pre & Post-Import Precautions (Notes): Table activation sequence, database dictionary adjustments (SE14), buffer resets, CDS view cache invalidation.'
+        ].join('\n')
+      : [
+          '## Evaluation Dimensions:',
+          '1. Security & Compliance: AUTHORITY-CHECK before mutations, hardcoded credentials, SQL injection vulnerability.',
+          '2. Concurrency & Locks: Proper enqueue/dequeue locks before UPDATE/MODIFY, deadlocks prevention.',
+          '3. Interface & Dependency Breaking Changes: Public method signature alteration, parameter removal, incompatible type changes, missing dependent CDS/tables.',
+          '4. Release Risk: Overall production risk classification and transport feasibility.',
+          '5. Pre & Post-Import Precautions (Notes): Critical deployment notes, dependent TR sequences, manual SPRO configurations, cache/buffer resets, SICF activations, or regression testing steps.'
+        ].join('\n')
+
     return [
       'You are a Principal SAP Architect and Release Manager with 15+ years experience. ' +
         sLangInstruct,
@@ -247,22 +280,17 @@
       '## Task: Transport Recommendation & Comprehensive Risk Assessment',
       'Compare LOCAL vs TARGET code thoroughly to formulate an audit-grade Transport Decision for Apply to Target.',
       '',
-      '## Evaluation Dimensions:',
-      '1. Security & Compliance: AUTHORITY-CHECK before mutations, hardcoded credentials, SQL injection vulnerability.',
-      '2. Concurrency & Locks: Proper enqueue/dequeue locks before UPDATE/MODIFY, deadlocks prevention.',
-      '3. Interface & Dependency Breaking Changes: Public method signature alteration, parameter removal, incompatible type changes, missing dependent CDS/tables.',
-      '4. Release Risk: Overall production risk classification and transport feasibility.',
-      '5. Pre & Post-Import Precautions (Notes): Critical deployment notes, dependent TR sequences, manual SPRO configurations, cache/buffer resets, SICF activations, or regression testing steps.',
+      sDimensions,
       '',
       '## Object Info: ' + sType + ' ' + sName,
       '',
       '## Local Code (Source):',
-      '```abap',
+      '```' + sCodeFence,
       sLocalCode || '(empty — object does not exist on local system)',
       '```',
       '',
       '## Target Code (Destination):',
-      '```abap',
+      '```' + sCodeFence,
       sTargetCode || '(empty — object does not exist on target system)',
       '```',
       '',

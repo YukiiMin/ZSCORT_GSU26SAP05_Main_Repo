@@ -9,7 +9,8 @@ sap.ui.define([
   "zscort/app/util/AiReview",
   "zscort/app/util/AiPanelRenderer",
   "sap/m/StandardListItem",
-  "sap/ui/core/Fragment"
+  "sap/ui/core/Fragment",
+  "zscort/app/util/AdtFormParser"
 ], function (
   BaseController,
   JSONModel,
@@ -21,7 +22,8 @@ sap.ui.define([
   AiReview,
   AiPanelRenderer,
   StandardListItem,
-  Fragment
+  Fragment,
+  AdtFormParser
 ) {
   "use strict";
 
@@ -160,16 +162,57 @@ sap.ui.define([
         var bTargetExists = !!(that._oTargetMeta && (that._oTargetMeta.ObjectName || that._oTargetMeta.ObjectType));
         var bLocalExists = !!(that._oLocalMeta && (that._oLocalMeta.ObjectName || that._oLocalMeta.ObjectType));
 
-        var sTargetCode = (bTargetExists && oResTarget && oResTarget.SourceCodeText) ? oResTarget.SourceCodeText : "";
-        var sLocalCode = (bLocalExists && oResLocal && oResLocal.SourceCodeText) ? oResLocal.SourceCodeText : "";
+        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP"];
+        var bNotSupported = aNotSupportedTypes.indexOf(that._sType) !== -1 ||
+          (oResLocal && oResLocal.Message === "NOT_SUPPORTED");
+
+        var sTargetCode = (!bNotSupported && bTargetExists && oResTarget && oResTarget.SourceCodeText) ? oResTarget.SourceCodeText : "";
+        var sLocalCode = (!bNotSupported && bLocalExists && oResLocal && oResLocal.SourceCodeText) ? oResLocal.SourceCodeText : "";
 
         var oDetailModel = that.getOwnerComponent().getModel("detail");
         if (oDetailModel) {
+          oDetailModel.setProperty("/isNotSupported", bNotSupported);
           oDetailModel.setProperty("/targetExists", !!sTargetCode);
           oDetailModel.setProperty("/localExists", !!sLocalCode);
+
+          if (bNotSupported) {
+            oDetailModel.setProperty("/compareMode", "text");
+          } else if (that._sType === "DOMA") {
+            var oDomLocal = AdtFormParser.parseDomain(sLocalCode);
+            var oDomTarget = AdtFormParser.parseDomain(sTargetCode);
+            that.getView().setModel(new JSONModel(oDomLocal), "adtDomain");
+            that.getView().setModel(new JSONModel(oDomTarget), "adtDomainTarget");
+            oDetailModel.setProperty("/compareMode", "form");
+          } else if (that._sType === "DTEL") {
+            var oDtelLocal = AdtFormParser.parseDataElement(sLocalCode);
+            var oDtelTarget = AdtFormParser.parseDataElement(sTargetCode);
+            that.getView().setModel(new JSONModel(oDtelLocal), "adtDtel");
+            that.getView().setModel(new JSONModel(oDtelTarget), "adtDtelTarget");
+            oDetailModel.setProperty("/compareMode", "form");
+          } else if (that._sType === "MSAG") {
+            var oMsagLocal = AdtFormParser.parseMessageClass(sLocalCode);
+            var oMsagTarget = AdtFormParser.parseMessageClass(sTargetCode);
+            that.getView().setModel(new JSONModel(oMsagLocal), "adtMsag");
+            that.getView().setModel(new JSONModel(oMsagTarget), "adtMsagTarget");
+            oDetailModel.setProperty("/compareMode", "form");
+          } else if (that._sType === "DEVC") {
+            var oDevcLocal = AdtFormParser.parsePackage(sLocalCode);
+            var oDevcTarget = AdtFormParser.parsePackage(sTargetCode);
+            that.getView().setModel(new JSONModel(oDevcLocal), "adtDevc");
+            that.getView().setModel(new JSONModel(oDevcTarget), "adtDevcTarget");
+            oDetailModel.setProperty("/compareMode", "form");
+          } else {
+            oDetailModel.setProperty("/compareMode", "text");
+          }
         }
 
-        var sLang = that._getMonacoLang();
+        if (bNotSupported) {
+          var oDpInner = that.byId("idDetailDynamicPage");
+          if (oDpInner) oDpInner.setBusy(false);
+          return;
+        }
+
+        var sLang = that._getMonacoLang(that._sType);
         that._mGitModel = {
           original: sLocalCode,
           modified: sTargetCode,
@@ -230,6 +273,23 @@ sap.ui.define([
     onMonacoToggleSideBySideGit: function () {
       this._bSideGit = !this._bSideGit;
       if (this._oGitDiffHost) { this._oGitDiffHost.setSideBySide(this._bSideGit); }
+    },
+
+    onCompareModeChange: function (oEvent) {
+      var sKey = oEvent.getParameter("item") ? oEvent.getParameter("item").getKey() : oEvent.getSource().getSelectedKey();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/compareMode", sKey);
+      }
+      if (sKey === "text") {
+        var that = this;
+        setTimeout(function () {
+          that._ensureGitDiffHost(true);
+          if (that._mGitModel && that._oGitDiffHost) {
+            that._oGitDiffHost.setModel(that._mGitModel);
+          }
+        }, 50);
+      }
     },
 
     onToggleGitAiPanel: function () {
@@ -376,7 +436,7 @@ sap.ui.define([
           oM.setProperty("/viewSourceHash", oItem.SrcHash || "V_" + sVers);
           oM.setProperty("/viewSourceMessage", "Version " + that.formatVersionNo(sVers) + " loaded (" + (oItem.LineCount || sCode.split("\n").length) + " lines)");
         }
-        that._renderCodeHost(sCode);
+        that._renderCodeHost(sCode, sObjType);
       }).catch(function (e) {
         MessageToast.show("Failed to load source for version " + sVers + ": " + e);
       });
@@ -433,7 +493,7 @@ sap.ui.define([
         var oResRight = (aResults[1] && aResults[1][0]) || { SourceCodeText: "" };
 
         that._ensureVersDiffHost();
-        var sLang = that._getMonacoLang();
+        var sLang = that._getMonacoLang(that._sType);
         that._mVersModel = {
           original: oResLeft.SourceCodeText || "",
           modified: oResRight.SourceCodeText || "",
@@ -562,13 +622,6 @@ sap.ui.define([
       } else if (bForceReattach || !this._oVersDiffHost.isAttached() || this._oVersDiffHost._el !== oDom) {
         this._oVersDiffHost.attachTo(oDom);
       }
-    },
-
-    _getMonacoLang: function () {
-      var t = (this._sType || "").toUpperCase();
-      if (t === "PROG" || t === "CLAS" || t === "INTF" || t === "FUNC" || t === "FUGR") { return "abap"; }
-      if (t === "DDLS" || t === "DCLS") { return "sql"; }
-      return "plaintext";
     },
 
     onButtonFullScreenPress: function () {

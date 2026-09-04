@@ -1,0 +1,79 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:layout="sap.ui.layout">
+  <VBox class="sapUiMediumMargin" fitContainer="true">
+    
+    <!-- Title Header -->
+    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+      <core:Icon src="sap-icon://message-popup" size="1.25rem" color="#d15a0a" class="sapUiTinyMarginEnd" />
+      <Title text="Message Class: {adtMsagTarget>/name}" level="H3" class="sapUiTinyMarginEnd" />
+      <Text text="({adtMsagTarget>/label})" class="sapUiTinyMarginBegin" visible="{= !!${adtMsagTarget>/label} }" />
+    </HBox>
+
+    <!-- General Attributes -->
+    <VBox class="sapUiTinyMarginBottom">
+      <Panel expandable="false" expanded="true" headerText="Attributes" class="sapUiNoContentPadding">
+        <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="3" labelSpanM="3" columnsL="2" columnsM="2">
+          <f:content>
+            <core:Title text="General Information" />
+            <Label text="Original Language" />
+            <Input value="{adtMsagTarget>/masterLanguage}" editable="false" width="100%" />
+
+            <Label text="Responsible Person" />
+            <Input value="{adtMsagTarget>/responsible}" editable="false" width="100%" />
+
+            <core:Title text="Description" />
+            <Label text="Short Text" />
+            <Input value="{adtMsagTarget>/label}" editable="false" width="100%" />
+          </f:content>
+        </f:SimpleForm>
+      </Panel>
+    </VBox>
+
+    <!-- Section: Messages Table -->
+    <VBox class="sapUiTinyMarginTop">
+      <Panel expandable="false" expanded="true" headerText="Messages" class="sapUiNoContentPadding">
+        <headerToolbar>
+          <Toolbar height="2.5rem">
+            <Title text="Messages" level="H4" />
+            <ToolbarSpacer />
+            <ObjectStatus text="{= ${adtMsagTarget>/messages}.length + ' messages' }" state="Information" />
+          </Toolbar>
+        </headerToolbar>
+        <Table items="{adtMsagTarget>/messages}" noDataText="No messages defined" inset="false" class="sapUiNoMargin">
+          <columns>
+            <Column width="5rem">
+              <Text text="Number" />
+            </Column>
+            <Column width="auto">
+              <Text text="Short Text" />
+            </Column>
+            <Column width="6rem" hAlign="Center">
+              <Text text="Self-Expl." />
+            </Column>
+            <Column width="8rem">
+              <Text text="Changed By" />
+            </Column>
+            <Column width="8rem">
+              <Text text="Changed On" />
+            </Column>
+          </columns>
+          <items>
+            <ColumnListItem>
+              <cells>
+                <ObjectIdentifier title="{adtMsagTarget>number}" />
+                <Text text="{adtMsagTarget>text}" />
+                <core:Icon src="sap-icon://accept" color="Positive" visible="{adtMsagTarget>selfExpl}" />
+                <Text text="{adtMsagTarget>changedBy}" />
+                <Text text="{adtMsagTarget>changedOn}" />
+              </cells>
+            </ColumnListItem>
+          </items>
+        </Table>
+      </Panel>
+    </VBox>
+
+  </VBox>
+</core:FragmentDefinition>

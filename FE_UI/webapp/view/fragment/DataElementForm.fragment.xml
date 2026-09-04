@@ -1,0 +1,126 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:layout="sap.ui.layout">
+  <VBox class="sapUiMediumMargin" fitContainer="true">
+
+    <!-- Title / Breadcrumb Header -->
+    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+      <core:Icon src="sap-icon://tag" size="1.25rem" color="#e27c00" class="sapUiTinyMarginEnd" />
+      <Title text="Data Element: {adtDtel>/name}" level="H3" class="sapUiTinyMarginEnd" />
+      <Text text="({adtDtel>/label})" class="sapUiTinyMarginBegin" visible="{= !!${adtDtel>/label} }" />
+    </HBox>
+
+    <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+      <!-- Section: Data Type Information -->
+      <VBox class="sapUiTinyMargin">
+        <Panel expandable="false" expanded="true" headerText="Data Type Information" class="sapUiNoContentPadding">
+          <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+            <f:content>
+              <Label text="Category" />
+              <Input value="{adtDtel>/category}" editable="false" width="100%" />
+
+              <Label text="Type Name" />
+              <Input value="{adtDtel>/typeName}" editable="false" width="100%" />
+
+              <Label text="Data Type" />
+              <Input value="{adtDtel>/dataType}" editable="false" width="100%" />
+
+              <Label text="Length" />
+              <Input value="{adtDtel>/length}" editable="false" width="100%" />
+
+              <Label text="Decimals" visible="{= !!${adtDtel>/decimals} }" />
+              <Input value="{adtDtel>/decimals}" editable="false" width="100%" visible="{= !!${adtDtel>/decimals} }" />
+            </f:content>
+          </f:SimpleForm>
+        </Panel>
+      </VBox>
+
+      <!-- Section: Field Labels -->
+      <VBox class="sapUiTinyMargin">
+        <Panel expandable="false" expanded="true" headerText="Field Labels" class="sapUiNoContentPadding">
+          <Table inset="false" class="sapUiNoMargin">
+            <headerToolbar>
+              <Toolbar height="2.2rem">
+                <Text text="Field labels and maximum lengths" class="sapUiTinyMarginBegin" />
+              </Toolbar>
+            </headerToolbar>
+            <columns>
+              <Column width="25%">
+                <Text text="Label Type" />
+              </Column>
+              <Column width="20%">
+                <Text text="Max Len" />
+              </Column>
+              <Column width="55%">
+                <Text text="Text" />
+              </Column>
+            </columns>
+            <items>
+              <ColumnListItem>
+                <cells>
+                  <Text text="Short" />
+                  <ObjectNumber number="{adtDtel>/fieldLabels/short/length}" />
+                  <Input value="{adtDtel>/fieldLabels/short/text}" editable="false" />
+                </cells>
+              </ColumnListItem>
+              <ColumnListItem>
+                <cells>
+                  <Text text="Medium" />
+                  <ObjectNumber number="{adtDtel>/fieldLabels/medium/length}" />
+                  <Input value="{adtDtel>/fieldLabels/medium/text}" editable="false" />
+                </cells>
+              </ColumnListItem>
+              <ColumnListItem>
+                <cells>
+                  <Text text="Long" />
+                  <ObjectNumber number="{adtDtel>/fieldLabels/long/length}" />
+                  <Input value="{adtDtel>/fieldLabels/long/text}" editable="false" />
+                </cells>
+              </ColumnListItem>
+              <ColumnListItem>
+                <cells>
+                  <Text text="Heading" />
+                  <ObjectNumber number="{adtDtel>/fieldLabels/heading/length}" />
+                  <Input value="{adtDtel>/fieldLabels/heading/text}" editable="false" />
+                </cells>
+              </ColumnListItem>
+            </items>
+          </Table>
+        </Panel>
+      </VBox>
+    </layout:Grid>
+
+    <!-- Section: Additional Properties -->
+    <VBox class="sapUiTinyMarginTop">
+      <Panel expandable="false" expanded="true" headerText="Additional Properties" class="sapUiNoContentPadding">
+        <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+          <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+            <f:content>
+              <Label text="Search Help Name" />
+              <Input value="{adtDtel>/searchHelp/name}" editable="false" width="100%" placeholder="None" />
+
+              <Label text="Search Help Param" />
+              <Input value="{adtDtel>/searchHelp/parameter}" editable="false" width="100%" />
+
+              <Label text="Parameter ID" />
+              <Input value="{adtDtel>/parameterId}" editable="false" width="100%" placeholder="None" />
+            </f:content>
+          </f:SimpleForm>
+
+          <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+            <f:content>
+              <Label text="Change Document" />
+              <CheckBox selected="{adtDtel>/changeDocumentLogging}" editable="false" text="Change Document Logging" />
+
+              <Label text="Input History" />
+              <CheckBox selected="{adtDtel>/inputHistory}" editable="false" text="Input History" />
+            </f:content>
+          </f:SimpleForm>
+        </layout:Grid>
+      </Panel>
+    </VBox>
+
+  </VBox>
+</core:FragmentDefinition>

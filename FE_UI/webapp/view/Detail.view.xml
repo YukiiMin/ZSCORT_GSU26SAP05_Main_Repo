@@ -95,19 +95,20 @@
               </table:template>
             </table:Column>
 
-            <table:Column width="7rem">
+            <table:Column width="10rem">
               <Label text="{i18n>colActions}" />
               <table:template>
                 <HBox>
                   <Button
+                    text="{i18n>btnCompare}"
                     tooltip="{i18n>openCompareTooltip}"
                     icon="sap-icon://compare-2"
-                    type="Transparent"
                     enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
-                    press=".onButtonComparePress" />
+                    press=".onButtonComparePress"
+                    class="sapUiTinyMarginEnd" />
                   <Button
                     tooltip="{i18n>viewSourceTooltip}"
-                    icon="sap-icon://detail-view"
+                    icon="sap-icon://document-text"
                     type="Transparent"
                     enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
                     press=".onButtonViewSourcePress" />

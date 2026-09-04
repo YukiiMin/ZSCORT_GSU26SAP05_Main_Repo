@@ -6,8 +6,10 @@ sap.ui.define([
   "zscort/app/monaco/CodeHost",
   "sap/ui/core/format/DateFormat",
   "zscort/app/util/AiReview",
-  "zscort/app/util/AiPanelRenderer"
-], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat, AiReview, AiPanelRenderer) {
+  "zscort/app/util/AiPanelRenderer",
+  "sap/ui/model/json/JSONModel",
+  "zscort/app/util/AdtFormParser"
+], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat, AiReview, AiPanelRenderer, JSONModel, AdtFormParser) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
@@ -85,7 +87,7 @@ sap.ui.define([
       });
     },
 
-    _openSourceDialog: function (sObjType, sObjName, sServerType) {
+    _openSourceDialog: function (sObjType, sObjName, sServerType, oMetaData) {
       var oView = this.getView();
       var oApp = this._app();
       var oM = oView.getModel("objSearch") || oView.getModel("detail") || oApp;
@@ -104,8 +106,9 @@ sap.ui.define([
       setProp("viewSourceMessage", "Loading...");
       setProp("viewSourceHash", "");
       setProp("viewSourceCode", "");
-      setProp("viewSourceMetaData", arguments[3] || {}); // Store metadata passed by callers
+      setProp("viewSourceMetaData", oMetaData || {}); // Store metadata passed by callers
       this._pendingSourceCode = null;
+      this._pendingObjType = sObjType;
 
       if (!this._oSourceDialog) {
         Fragment.load({
@@ -124,6 +127,18 @@ sap.ui.define([
       }
     },
 
+    /**
+     * Get Monaco language identifier for a given object type.
+     * @param {string} [sObjType] Development Object Type (e.g. 'CLAS', 'TABL', 'DDLS')
+     * @returns {string} Monaco language ('abap' or 'sql')
+     */
+    _getMonacoLang: function (sObjType) {
+      var t = (sObjType || this._pendingObjType || this._sType || "").toUpperCase();
+      if (t === "PROG" || t === "CLAS" || t === "INTF" || t === "FUNC" || t === "FUGR") { return "abap"; }
+      if (t === "DDLS" || t === "DCLS" || t === "BDEF" || t === "DDLX" || t === "SRVD" || t === "TABL" || t === "DTEL" || t === "DOMA" || t === "TTYP" || t === "VIEW" || t === "MSAG" || t === "DEVC") { return "sql"; }
+      return "abap";
+    },
+
     _loadSourceCode: function (sObjType, sObjName, sServerType, oM) {
       var that = this;
       var oApp = this._app();
@@ -140,7 +155,7 @@ sap.ui.define([
         setProp("viewSourceMessage", "Mock data loaded");
         setProp("viewSourceHash", "MOCK_HASH_123");
         that._pendingSourceCode = "* Mock ABAP code\nREPORT z_test.";
-        that._renderCodeHost(that._pendingSourceCode);
+        that._renderCodeHost(that._pendingSourceCode, sObjType);
         return;
       }
 
@@ -150,14 +165,14 @@ sap.ui.define([
         setProp("viewSourceMessage", "Not available in Target (LOCAL_ONLY)");
         setProp("viewSourceHash", "");
         that._pendingSourceCode = "* ==========================================================================\n* NOT AVAILABLE ON TARGET SERVER\n* ==========================================================================\n*\n* Object: " + sObjType + " " + sObjName + "\n* Status: LOCAL_ONLY\n*\n* This object has NOT been released or applied to the Target repository yet.\n* Please release the associated Transport Request to create a snapshot on Target.\n* ==========================================================================";
-        that._renderCodeHost(that._pendingSourceCode);
+        that._renderCodeHost(that._pendingSourceCode, sObjType);
         return;
       }
       if (sServerType === "L" && oMetaData.ExistenceStatus === "TARGET_ONLY") {
         setProp("viewSourceMessage", "Not available in Local (TARGET_ONLY)");
         setProp("viewSourceHash", "");
         that._pendingSourceCode = "* ==========================================================================\n* NOT AVAILABLE ON LOCAL SERVER\n* ==========================================================================\n*\n* Object: " + sObjType + " " + sObjName + "\n* Status: TARGET_ONLY\n*\n* This object only exists in the Target repository snapshot and is not in TADIR.\n* ==========================================================================";
-        that._renderCodeHost(that._pendingSourceCode);
+        that._renderCodeHost(that._pendingSourceCode, sObjType);
         return;
       }
 
@@ -168,15 +183,62 @@ sap.ui.define([
       var oContext = oOdm.bindContext(sPath);
 
       oContext.requestObject().then(function (oData) {
-        setProp("viewSourceMessage", oData.Message || "OK");
-        setProp("viewSourceHash", oData.SrcHash || "");
-        that._pendingSourceCode = oData.SourceCodeText || "";
-        that._renderCodeHost(that._pendingSourceCode);
+        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP"];
+        var bNotSupported = aNotSupportedTypes.indexOf(sObjType) !== -1 || oData.Message === "NOT_SUPPORTED";
+
+        if (bNotSupported) {
+          setProp("viewSourceMessage", "NOT_SUPPORTED");
+          setProp("viewSourceHash", "");
+          that._pendingSourceCode = "";
+        } else {
+          setProp("viewSourceMessage", oData.Message || "OK");
+          setProp("viewSourceHash", oData.SrcHash || "");
+          that._pendingSourceCode = oData.SourceCodeText || "";
+        }
+        that._pendingObjType = sObjType;
+
+        if (sObjType === "DOMA") {
+          var oDomData = AdtFormParser.parseDomain(that._pendingSourceCode);
+          if (that._oSourceDialog) {
+            that._oSourceDialog.setModel(new JSONModel(oDomData), "adtDomain");
+          }
+        } else if (sObjType === "DTEL") {
+          var oDtelData = AdtFormParser.parseDataElement(that._pendingSourceCode);
+          if (that._oSourceDialog) {
+            that._oSourceDialog.setModel(new JSONModel(oDtelData), "adtDtel");
+          }
+        } else if (sObjType === "MSAG") {
+          var oMsagData = AdtFormParser.parseMessageClass(that._pendingSourceCode);
+          if (that._oSourceDialog) {
+            that._oSourceDialog.setModel(new JSONModel(oMsagData), "adtMsag");
+          }
+        } else if (sObjType === "DEVC") {
+          var oDevcData = AdtFormParser.parsePackage(that._pendingSourceCode);
+          if (that._oSourceDialog) {
+            that._oSourceDialog.setModel(new JSONModel(oDevcData), "adtDevc");
+          }
+        }
+
+        var oTabBar = Fragment.byId("idViewSourceDialog", "idViewSourceIconTabBar") ||
+          (that._oSourceDialog && that._oSourceDialog.getContent ? that._oSourceDialog.getContent()[0] : null);
+        if (oTabBar && oTabBar.setSelectedKey) {
+          if (bNotSupported) {
+            oTabBar.setSelectedKey("metadata");
+          } else if (sObjType === "DOMA" || sObjType === "DTEL" || sObjType === "MSAG" || sObjType === "DEVC") {
+            oTabBar.setSelectedKey("adtForm");
+          } else {
+            oTabBar.setSelectedKey("source");
+          }
+        }
+
+        if (!bNotSupported) {
+          that._renderCodeHost(that._pendingSourceCode, sObjType);
+        }
       }).catch(function (oErr) {
         setProp("viewSourceMessage", "Error: " + (oErr.message || oErr));
         setProp("viewSourceHash", "");
         that._pendingSourceCode = "/* Error loading source */";
-        that._renderCodeHost(that._pendingSourceCode);
+        that._renderCodeHost(that._pendingSourceCode, sObjType);
       });
 
       // Fetch metadata if it's missing (e.g. opened from TrSearch where we don't have Package/Author)
@@ -198,7 +260,7 @@ sap.ui.define([
 
     onDialogViewSourceAfterOpen: function () {
       if (this._pendingSourceCode !== null && this._pendingSourceCode !== undefined) {
-        this._renderCodeHost(this._pendingSourceCode);
+        this._renderCodeHost(this._pendingSourceCode, this._pendingObjType);
       }
     },
 
@@ -208,16 +270,17 @@ sap.ui.define([
       if (sKey === "source") {
         setTimeout(function () {
           if (that._pendingSourceCode !== null && that._pendingSourceCode !== undefined) {
-            that._renderCodeHost(that._pendingSourceCode);
+            that._renderCodeHost(that._pendingSourceCode, that._pendingObjType);
           }
         }, 50);
       }
     },
 
-    _renderCodeHost: function (sCode) {
+    _renderCodeHost: function (sCode, sObjType) {
       var that = this;
       var oDialog = this._oSourceDialog;
       var iAttempt = 0;
+      var sLang = this._getMonacoLang(sObjType);
 
       function tryRender() {
         iAttempt += 1;
@@ -246,7 +309,7 @@ sap.ui.define([
         } else if (!that._oCodeHost.isAttached() || that._oCodeHost._el !== el) {
           that._oCodeHost.attachTo(el);
         }
-        that._oCodeHost.setValue(sCode || "", "abap");
+        that._oCodeHost.setValue(sCode || "", sLang);
       }
 
       setTimeout(tryRender, 0);
@@ -258,6 +321,7 @@ sap.ui.define([
         this._oCodeHost = null;
       }
       this._pendingSourceCode = null;
+      this._pendingObjType = null;
     },
 
     onButtonCloseDialogPress: function () {

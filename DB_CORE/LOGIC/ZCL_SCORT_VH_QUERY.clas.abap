@@ -1,7 +1,6 @@
 *"*---------------------------------------------------------------------*
 *"* Class: ZCL_SCORT_VH_QUERY
-*"* Value Help (F4). Cover đầy đủ: data + count + sort + paging
-*"* → tránh "Query not fully covered" khi Preview Compare bấm Go.
+*"* Value Help query provider with paging, sorting, and count handling.
 *"*---------------------------------------------------------------------*
 CLASS zcl_scort_vh_query DEFINITION
   PUBLIC
@@ -33,7 +32,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
     TRY.
         select_dispatch( io_request = io_request io_response = io_response ).
       CATCH cx_root.
-        " Không set_data type sai (entity khác nhau) — chỉ cover count.
         TRY.
             io_response->set_total_number_of_records( 0 ).
           CATCH cx_root.
@@ -48,20 +46,17 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
     DATA lv_type   TYPE trobjtype.
     DATA lv_name   TYPE string.
     DATA lv_like   TYPE string.
-    DATA lv_tab    TYPE tabname.
     DATA lt_tadir  TYPE STANDARD TABLE OF tadir WITH DEFAULT KEY.
-    DATA lt_id     TYPE STANDARD TABLE OF char10 WITH DEFAULT KEY.
 
     TRY.
-        lv_entity = to_upper( CONV string( io_request->get_entity_id( ) ) ).
+        lv_entity = to_upper( io_request->get_entity_id( ) ).
       CATCH cx_root.
         CLEAR lv_entity.
     ENDTRY.
 
     lv_sql = zcl_scort_query_utl=>get_filter_sql( io_request ).
 
-    "===== VH Trkorr =====
-    " Exact / LIKE trước — tránh FE "Value does not exist" khi TR ngoài top 200.
+    " VH Trkorr
     IF lv_entity CS 'VH_TRKORR' OR lv_entity CS 'VHTRKORR'.
       DATA lt_trkorr TYPE STANDARD TABLE OF zc_scort_vh_trkorr WITH DEFAULT KEY.
       DATA ls_trkorr TYPE zc_scort_vh_trkorr.
@@ -73,14 +68,12 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       ENDIF.
 
       IF lv_pat IS NOT INITIAL.
-        " 1) Exact — cả request header lẫn task
         SELECT trkorr, trstatus, trfunction, as4user, as4date, strkorr
           FROM e070
           WHERE trkorr = @lv_pat
           INTO CORRESPONDING FIELDS OF TABLE @lt_e070
           UP TO 5 ROWS.
 
-        " 2) Prefix search trên header
         IF lt_e070 IS INITIAL AND strlen( lv_pat ) >= 3.
           lv_like = |{ lv_pat }%|.
           SELECT trkorr, trstatus, trfunction, as4user, as4date, strkorr
@@ -92,7 +85,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
             UP TO 100 ROWS.
         ENDIF.
       ELSE.
-        " Browse: 100 TR header gần nhất
         SELECT trkorr, trstatus, trfunction, as4user, as4date, strkorr
           FROM e070
           WHERE strkorr = @space
@@ -136,11 +128,23 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
         ( ObjectType = 'INTF' Description = 'Interface' )
         ( ObjectType = 'FUNC' Description = 'Function Module' )
         ( ObjectType = 'FUGR' Description = 'Function Group' )
-        ( ObjectType = 'DTEL' Description = 'Data Element' )
-        ( ObjectType = 'DOMA' Description = 'Domain' )
-        ( ObjectType = 'TABL' Description = 'Database Table' )
         ( ObjectType = 'DDLS' Description = 'CDS View Entity' )
         ( ObjectType = 'BDEF' Description = 'Behavior Definition' )
+        ( ObjectType = 'DCLS' Description = 'Access Control (CDS Role)' )
+        ( ObjectType = 'DDLX' Description = 'Metadata Extension' )
+        ( ObjectType = 'SRVD' Description = 'Service Definition' )
+        ( ObjectType = 'TABL' Description = 'Database Table / Structure' )
+        ( ObjectType = 'DTEL' Description = 'Data Element' )
+        ( ObjectType = 'DOMA' Description = 'Domain' )
+        ( ObjectType = 'TTYP' Description = 'Table Type' )
+        ( ObjectType = 'VIEW' Description = 'Database View' )
+        ( ObjectType = 'MSAG' Description = 'Message Class' )
+        ( ObjectType = 'DEVC' Description = 'Package' )
+        ( ObjectType = 'TRAN' Description = 'Transaction Code' )
+        ( ObjectType = 'NROB' Description = 'Number Range Object' )
+        ( ObjectType = 'WAPA' Description = 'BSP / Web Dynpro Application' )
+        ( ObjectType = 'SSFO' Description = 'Smart Form' )
+        ( ObjectType = 'SHLP' Description = 'Search Help' )
       ).
       respond_typed( EXPORTING io_request = io_request io_response = io_response
                      CHANGING  ct_data = lt_otype ).
@@ -148,14 +152,12 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
     ENDIF.
 
     "===== VH Object Name =====
-    " Exact trước → LIKE prefix (giống VH Trkorr). Browse Z*/Y* khi chỉ có Type.
     IF lv_entity CS 'VH_OBJ_NAME' OR lv_entity CS 'VHOBJNAME'.
       DATA lt_oname TYPE STANDARD TABLE OF zc_scort_vh_obj_name WITH DEFAULT KEY.
       DATA ls_oname TYPE zc_scort_vh_obj_name.
       DATA lt_types TYPE RANGE OF trobjtype.
 
-      lv_type = CONV trobjtype(
-        zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'OBJECTTYPE' ) ).
+      lv_type = zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'OBJECTTYPE' ).
       lv_name = zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'OBJECTNAME' ).
 
       lt_types = VALUE #(
@@ -168,11 +170,22 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
         ( sign = 'I' option = 'EQ' low = 'TABL' )
         ( sign = 'I' option = 'EQ' low = 'DDLS' )
         ( sign = 'I' option = 'EQ' low = 'BDEF' )
+        ( sign = 'I' option = 'EQ' low = 'DCLS' )
+        ( sign = 'I' option = 'EQ' low = 'DDLX' )
+        ( sign = 'I' option = 'EQ' low = 'SRVD' )
+        ( sign = 'I' option = 'EQ' low = 'TTYP' )
+        ( sign = 'I' option = 'EQ' low = 'VIEW' )
+        ( sign = 'I' option = 'EQ' low = 'MSAG' )
+        ( sign = 'I' option = 'EQ' low = 'DEVC' )
+        ( sign = 'I' option = 'EQ' low = 'TRAN' )
+        ( sign = 'I' option = 'EQ' low = 'NROB' )
+        ( sign = 'I' option = 'EQ' low = 'WAPA' )
+        ( sign = 'I' option = 'EQ' low = 'SSFO' )
+        ( sign = 'I' option = 'EQ' low = 'SHLP' )
       ).
 
       IF lv_type = 'FUNC'.
         IF lv_name IS NOT INITIAL.
-          " 1) Exact Function Module
           SELECT f~funcname AS obj_name, t~devclass, t~author
             FROM enlfdir AS f
             INNER JOIN tadir AS t
@@ -190,7 +203,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
             APPEND ls_oname TO lt_oname.
           ENDLOOP.
 
-          " 2) Prefix LIKE
           IF lt_oname IS INITIAL AND strlen( lv_name ) >= 2.
             lv_like = |{ lv_name }%|.
             SELECT f~funcname AS obj_name, t~devclass, t~author
@@ -212,7 +224,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
             ENDLOOP.
           ENDIF.
         ELSE.
-          " Browse all Z/Y Function Modules
           SELECT f~funcname AS obj_name, t~devclass, t~author
             FROM enlfdir AS f
             INNER JOIN tadir AS t
@@ -238,7 +249,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       ENDIF.
 
       IF lv_name IS NOT INITIAL.
-        " 1) Exact — ưu tiên khi FE validate / gõ đủ tên
         IF lv_type IS NOT INITIAL.
           SELECT * FROM tadir
             WHERE pgmid = 'R3TR' AND object = @lv_type AND obj_name = @lv_name
@@ -251,7 +261,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
             UP TO 5 ROWS.
         ENDIF.
 
-        " 2) LIKE prefix nếu chưa có exact
         IF lt_tadir IS INITIAL AND strlen( lv_name ) >= 2.
           lv_like = |{ lv_name }%|.
           IF lv_type IS NOT INITIAL.
@@ -269,7 +278,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
           ENDIF.
         ENDIF.
       ELSEIF lv_type IS NOT INITIAL.
-        " Browse theo Type — chỉ Z*/Y*
         SELECT * FROM tadir
           WHERE pgmid = 'R3TR'
             AND object = @lv_type
@@ -278,7 +286,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
           INTO TABLE @lt_tadir
           UP TO 100 ROWS.
       ENDIF.
-      " Không Type + không tên → rỗng
 
       LOOP AT lt_tadir INTO DATA(ls_t).
         CLEAR ls_oname.
@@ -384,7 +391,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
           ENDLOOP.
         ENDIF.
       ELSE.
-        " Browse: 100 users gần nhất (active)
         SELECT bname FROM usr02 WHERE gltgv <= @sy-datum
           ORDER BY bname INTO TABLE @DATA(lt_usr_browse) UP TO 100 ROWS.
         LOOP AT lt_usr_browse INTO DATA(lv_bname_br).
@@ -436,7 +442,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
           ENDLOOP.
         ENDIF.
       ELSE.
-        " Browse: chỉ Z*/Y* package
         SELECT p~devclass AS devclass, t~ctext AS ctext FROM tdevc AS p
           LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
           WHERE ( p~devclass LIKE 'Z%' OR p~devclass LIKE 'Y%' )
@@ -455,7 +460,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    "===== Unknown entity — vẫn cover =====
     DATA lt_fallback TYPE STANDARD TABLE OF zc_scort_vh_obj_type WITH DEFAULT KEY.
     respond_typed( EXPORTING io_request = io_request io_response = io_response
                    CHANGING  ct_data = lt_fallback ).
@@ -477,7 +481,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
 
     ASSIGN ct_data TO <lt_all>.
 
-    " Cover $orderby (best-effort — không dump nếu field lạ)
     TRY.
         lt_sort = io_request->get_sort_elements( ).
       CATCH cx_root.
@@ -486,7 +489,7 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
     IF lines( lt_sort ) > 0 AND lines( <lt_all> ) > 0.
       READ TABLE lt_sort INTO DATA(ls_sort) INDEX 1.
       IF sy-subrc = 0.
-        lv_field = to_upper( CONV string( ls_sort-element_name ) ).
+        lv_field = to_upper( ls_sort-element_name ).
         TRY.
             IF ls_sort-descending = abap_true.
               SORT <lt_all> BY (lv_field) DESCENDING.
@@ -498,14 +501,13 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " Cover paging ($skip / $top) — top <= 0 hoặc unlimited → trả hết
     TRY.
-        lv_skip = CONV i( io_request->get_paging( )->get_offset( ) ).
+        lv_skip = io_request->get_paging( )->get_offset( ).
       CATCH cx_root.
         lv_skip = 0.
     ENDTRY.
     TRY.
-        lv_top = CONV i( io_request->get_paging( )->get_page_size( ) ).
+        lv_top = io_request->get_paging( )->get_page_size( ).
       CATCH cx_root.
         lv_top = 0.
     ENDTRY.
@@ -523,7 +525,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    " Cover data + count — FE Preview thường xin cả hai
     TRY.
         lv_data_req = io_request->is_data_requested( ).
       CATCH cx_root.
@@ -542,7 +543,6 @@ CLASS zcl_scort_vh_query IMPLEMENTATION.
       io_response->set_total_number_of_records( CONV int8( lines( <lt_all> ) ) ).
     ENDIF.
 
-    " Một số request FE không set flag rõ — vẫn cover để tránh "not fully covered"
     IF lv_data_req = abap_false AND lv_count_req = abap_false.
       io_response->set_data( <lt_page> ).
       io_response->set_total_number_of_records( CONV int8( lines( <lt_all> ) ) ).

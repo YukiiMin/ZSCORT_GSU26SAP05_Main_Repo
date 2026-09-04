@@ -21,7 +21,7 @@
           text="{= ${appView>/viewSourceServer} === 'T' ? ${i18n>tabTarget} : ${i18n>tabLocal} }"
           state="{= ${appView>/viewSourceServer} === 'T' ? 'Information' : 'Success' }"
           class="sapUiTinyMarginEnd" />
-        <ObjectStatus text="{appView>/viewSourceMessage}" state="{= ${appView>/viewSourceHash} ? 'Success' : (${appView>/viewSourceMessage} === 'LOCAL_ONLY' || ${appView>/viewSourceMessage} === 'Not available in Target (LOCAL_ONLY)' ? 'Warning' : 'Error')}" class="sapUiTinyMarginEnd" />
+        <ObjectStatus text="{appView>/viewSourceMessage}" state="{= ${appView>/viewSourceHash} ? 'Success' : (${appView>/viewSourceMessage} === 'LOCAL_ONLY' || ${appView>/viewSourceMessage} === 'Not available in Target (LOCAL_ONLY)' ? 'Warning' : (${appView>/viewSourceMessage} === 'NOT_SUPPORTED' ? 'Information' : 'Error'))}" class="sapUiTinyMarginEnd" />
         <Button
           icon="sap-icon://ai"
           text="{i18n>btnAiReview}"
@@ -33,20 +33,48 @@
         <Button icon="sap-icon://decline" press=".onButtonCloseDialogPress" tooltip="{i18n>btnClose}" type="Transparent" />
       </Toolbar>
     </customHeader>
-
     <content>
       <IconTabBar id="idViewSourceIconTabBar" class="sapUiNoContentPadding" stretchContentHeight="true" select=".onDialogViewSourceTabSelect">
         <items>
+          <IconTabFilter
+            id="idViewSourceAdtFormFilter"
+            key="adtForm"
+            text="{= ${appView>/viewSourceType} === 'MSAG' ? 'Messages' : (${appView>/viewSourceType} === 'DEVC' ? 'Package Definition' : 'ADT Definition') }"
+            icon="{= ${appView>/viewSourceType} === 'MSAG' ? 'sap-icon://message-popup' : (${appView>/viewSourceType} === 'DEVC' ? 'sap-icon://folder' : 'sap-icon://form') }"
+            visible="{= ${appView>/viewSourceType} === 'DOMA' || ${appView>/viewSourceType} === 'DTEL' || ${appView>/viewSourceType} === 'MSAG' || ${appView>/viewSourceType} === 'DEVC' }">
+            <ScrollContainer height="100%" vertical="true">
+              <VBox visible="{= ${appView>/viewSourceType} === 'DOMA' }">
+                <core:Fragment fragmentName="zscort.app.view.fragment.DomainForm" type="XML" />
+              </VBox>
+              <VBox visible="{= ${appView>/viewSourceType} === 'DTEL' }">
+                <core:Fragment fragmentName="zscort.app.view.fragment.DataElementForm" type="XML" />
+              </VBox>
+              <VBox visible="{= ${appView>/viewSourceType} === 'MSAG' }">
+                <core:Fragment fragmentName="zscort.app.view.fragment.MessageClassForm" type="XML" />
+              </VBox>
+              <VBox visible="{= ${appView>/viewSourceType} === 'DEVC' }">
+                <core:Fragment fragmentName="zscort.app.view.fragment.PackageForm" type="XML" />
+              </VBox>
+            </ScrollContainer>
+          </IconTabFilter>
           <IconTabFilter key="source" text="{i18n>tabSourceCode}" icon="sap-icon://document-text">
             <layout:Splitter height="100%" width="100%">
-              <!-- Left: Monaco Code Editor -->
+              <!-- Left: Monaco Code Editor or Not Supported Notice -->
               <VBox height="100%" class="sapUiNoContentPadding" fitContainer="true">
                 <layoutData>
                   <layout:SplitterLayoutData size="{= ${appView>/showSourceAiPanel} ? '65%' : '100%' }" />
                 </layoutData>
-                <core:HTML
-                  preferDOM="true"
-                  content='&lt;div class=&quot;codeHost&quot; style=&quot;width:100%;height:100%;min-height:50vh;&quot;&gt;&lt;/div&gt;' />
+                <VBox visible="{= ${appView>/viewSourceMessage} === 'NOT_SUPPORTED' }" class="sapUiMediumMargin" alignItems="Center" justifyContent="Center" height="100%">
+                  <IllustratedMessage
+                    illustrationType="sapIllus-NoData"
+                    title="Source Code Not Supported"
+                    description="Source code / ADT detail view is not supported for {appView>/viewSourceType} (requires SAP GUI in ADT Eclipse). Please see the Metadata tab." />
+                </VBox>
+                <VBox visible="{= ${appView>/viewSourceMessage} !== 'NOT_SUPPORTED' }" height="100%" class="sapUiNoContentPadding" fitContainer="true">
+                  <core:HTML
+                    preferDOM="true"
+                    content='&lt;div class=&quot;codeHost&quot; style=&quot;width:100%;height:100%;min-height:50vh;&quot;&gt;&lt;/div&gt;' />
+                </VBox>
               </VBox>
 
               <!-- Right: AI Review Side Panel -->

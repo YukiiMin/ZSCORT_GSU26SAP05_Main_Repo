@@ -1,0 +1,90 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:layout="sap.ui.layout">
+  <VBox class="sapUiMediumMargin" fitContainer="true">
+    
+    <!-- Title / Breadcrumb Header -->
+    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+      <core:Icon src="sap-icon://bullet-chart" size="1.25rem" color="#0a6ed1" class="sapUiTinyMarginEnd" />
+      <Title text="Domain: {adtDomain>/name}" level="H3" class="sapUiTinyMarginEnd" />
+      <Text text="({adtDomain>/label})" class="sapUiTinyMarginBegin" visible="{= !!${adtDomain>/label} }" />
+    </HBox>
+
+    <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+      <!-- Section: Format -->
+      <VBox class="sapUiTinyMargin">
+        <Panel expandable="false" expanded="true" headerText="Format" class="sapUiNoContentPadding">
+          <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+            <f:content>
+              <Label text="Data Type" />
+              <Input value="{adtDomain>/dataType}" editable="false" width="100%" />
+
+              <Label text="Length" />
+              <Input value="{adtDomain>/length}" editable="false" width="100%" />
+            </f:content>
+          </f:SimpleForm>
+        </Panel>
+      </VBox>
+
+      <!-- Section: Output Characteristics -->
+      <VBox class="sapUiTinyMargin">
+        <Panel expandable="false" expanded="true" headerText="Output Characteristics" class="sapUiNoContentPadding">
+          <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+            <f:content>
+              <Label text="Output Length" />
+              <Input value="{adtDomain>/outputLength}" editable="false" width="100%" />
+
+              <Label text="Conversion Routine" />
+              <Input value="{adtDomain>/conversionRoutine}" editable="false" width="100%" />
+
+              <Label text="Case-sensitive" />
+              <CheckBox selected="{adtDomain>/caseSensitive}" editable="false" text="Case-sensitive" />
+            </f:content>
+          </f:SimpleForm>
+        </Panel>
+      </VBox>
+    </layout:Grid>
+
+    <!-- Section: Fixed Values -->
+    <VBox class="sapUiTinyMarginTop">
+      <Panel expandable="false" expanded="true" headerText="Fixed Values" class="sapUiNoContentPadding">
+        <headerToolbar>
+          <Toolbar height="2.5rem">
+            <Title text="Fixed Values" level="H4" />
+            <Text text="(Single fixed values or interval of values)" class="sapUiTinyMarginBegin" />
+            <ToolbarSpacer />
+            <ObjectStatus text="{= ${adtDomain>/fixedValues}.length + ' entries' }" state="Information" />
+          </Toolbar>
+        </headerToolbar>
+        <Table items="{adtDomain>/fixedValues}" noDataText="No fixed values defined" inset="false" class="sapUiNoMargin">
+          <columns>
+            <Column width="30%">
+              <Text text="Fixed Value" />
+            </Column>
+            <Column width="70%">
+              <Text text="Description" />
+            </Column>
+          </columns>
+          <items>
+            <ColumnListItem>
+              <cells>
+                <ObjectIdentifier title="{adtDomain>value}" />
+                <Text text="{adtDomain>description}" />
+              </cells>
+            </ColumnListItem>
+          </items>
+        </Table>
+      </Panel>
+    </VBox>
+
+    <!-- Section: Value Table -->
+    <VBox class="sapUiTinyMarginTop" visible="{= !!${adtDomain>/valueTable} }">
+      <Panel expandable="false" expanded="true" headerText="Value Table">
+        <Text text="Value Table for proposed foreign key check: {adtDomain>/valueTable}" class="sapUiTinyMargin" />
+      </Panel>
+    </VBox>
+
+  </VBox>
+</core:FragmentDefinition>

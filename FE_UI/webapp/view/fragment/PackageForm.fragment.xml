@@ -1,0 +1,144 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:f="sap.ui.layout.form"
+  xmlns:layout="sap.ui.layout">
+  <VBox class="sapUiMediumMargin" fitContainer="true">
+    
+    <!-- Title Header -->
+    <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+      <core:Icon src="sap-icon://folder" size="1.25rem" color="#0a6ed1" class="sapUiTinyMarginEnd" />
+      <Title text="Package: {adtDevc>/name}" level="H3" class="sapUiTinyMarginEnd" />
+      <Text text="({adtDevc>/label})" class="sapUiTinyMarginBegin" visible="{= !!${adtDevc>/label} }" />
+    </HBox>
+
+    <IconTabBar class="sapUiNoContentPadding" expandable="false">
+      <items>
+        <!-- Tab 1: Overview -->
+        <IconTabFilter text="Overview" icon="sap-icon://hint">
+          <VBox class="sapUiSmallMargin">
+            <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+              <!-- General Data -->
+              <VBox class="sapUiTinyMargin">
+                <Panel expandable="false" expanded="true" headerText="General Data" class="sapUiNoContentPadding">
+                  <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+                    <f:content>
+                      <Label text="Package" />
+                      <Input value="{adtDevc>/name}" editable="false" width="100%" />
+
+                      <Label text="Short Description" />
+                      <Input value="{adtDevc>/label}" editable="false" width="100%" />
+
+                      <Label text="Person Responsible" />
+                      <Input value="{adtDevc>/responsible}" editable="false" width="100%" />
+                    </f:content>
+                  </f:SimpleForm>
+                </Panel>
+              </VBox>
+
+              <!-- Software Component -->
+              <VBox class="sapUiTinyMargin">
+                <Panel expandable="false" expanded="true" headerText="Software Component" class="sapUiNoContentPadding">
+                  <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="1" columnsM="1">
+                    <f:content>
+                      <Label text="Software Component" />
+                      <Input value="{adtDevc>/softwareComponent}" editable="false" width="100%" />
+
+                      <Label text="Application Component" />
+                      <Input value="{adtDevc>/applicationComponent}" editable="false" width="100%" />
+
+                      <Label text="Transport Layer" />
+                      <Input value="{adtDevc>/transportLayer}" editable="false" width="100%" />
+                    </f:content>
+                  </f:SimpleForm>
+                </Panel>
+              </VBox>
+            </layout:Grid>
+
+            <!-- Package Hierarchy info -->
+            <VBox class="sapUiTinyMarginTop">
+              <Panel expandable="false" expanded="true" headerText="Package Hierarchy" class="sapUiNoContentPadding">
+                <f:SimpleForm editable="false" layout="ResponsiveGridLayout" labelSpanL="4" labelSpanM="4" columnsL="2" columnsM="2">
+                  <f:content>
+                    <Label text="Superpackage" />
+                    <Input value="{adtDevc>/superPackage}" editable="false" width="100%" />
+
+                    <Label text="Package Type" />
+                    <Input value="{adtDevc>/packageType}" editable="false" width="100%" />
+                  </f:content>
+                </f:SimpleForm>
+              </Panel>
+            </VBox>
+          </VBox>
+        </IconTabFilter>
+
+        <!-- Tab 2: Subpackages -->
+        <IconTabFilter text="Subpackages" icon="sap-icon://folder-blank" count="{= ${adtDevc>/subpackages}.length }">
+          <VBox class="sapUiSmallMargin">
+            <Table items="{adtDevc>/subpackages}" noDataText="No subpackages defined" inset="false" class="sapUiNoMargin">
+              <headerToolbar>
+                <Toolbar height="2.5rem">
+                  <Title text="Subpackages" level="H4" />
+                  <ToolbarSpacer />
+                  <ObjectStatus text="{= ${adtDevc>/subpackages}.length + ' subpackages' }" state="Information" />
+                </Toolbar>
+              </headerToolbar>
+              <columns>
+                <Column width="40%">
+                  <Text text="Package Name" />
+                </Column>
+                <Column width="60%">
+                  <Text text="Short Text" />
+                </Column>
+              </columns>
+              <items>
+                <ColumnListItem>
+                  <cells>
+                    <HBox alignItems="Center">
+                      <core:Icon src="sap-icon://folder" color="#0a6ed1" class="sapUiTinyMarginEnd" />
+                      <ObjectIdentifier title="{adtDevc>name}" />
+                    </HBox>
+                    <Text text="{adtDevc>description}" />
+                  </cells>
+                </ColumnListItem>
+              </items>
+            </Table>
+          </VBox>
+        </IconTabFilter>
+
+        <!-- Tab 3: Hierarchy -->
+        <IconTabFilter text="Hierarchy" icon="sap-icon://tree">
+          <VBox class="sapUiSmallMargin">
+            <Table items="{adtDevc>/hierarchy}" noDataText="Hierarchy not available" inset="false" class="sapUiNoMargin">
+              <headerToolbar>
+                <Toolbar height="2.5rem">
+                  <Title text="Package Hierarchy Tree" level="H4" />
+                </Toolbar>
+              </headerToolbar>
+              <columns>
+                <Column width="50%">
+                  <Text text="Package" />
+                </Column>
+                <Column width="50%">
+                  <Text text="Hierarchy Role" />
+                </Column>
+              </columns>
+              <items>
+                <ColumnListItem>
+                  <cells>
+                    <HBox alignItems="Center" class="sapUiTinyMarginBegin">
+                      <core:Icon src="{= ${adtDevc>level} === 0 ? 'sap-icon://open-folder' : (${adtDevc>level} === 1 ? 'sap-icon://folder' : 'sap-icon://folder-blank') }" color="{= ${adtDevc>level} === 1 ? '#0a6ed1' : '#6a6d70' }" class="sapUiTinyMarginEnd" />
+                      <Text text="{adtDevc>name}" />
+                    </HBox>
+                    <ObjectStatus text="{adtDevc>role}" state="{= ${adtDevc>level} === 1 ? 'Success' : 'Information' }" />
+                  </cells>
+                </ColumnListItem>
+              </items>
+            </Table>
+          </VBox>
+        </IconTabFilter>
+      </items>
+    </IconTabBar>
+
+  </VBox>
+</core:FragmentDefinition>

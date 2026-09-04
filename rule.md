@@ -17,7 +17,22 @@
 - In CDS & Data Definitions (.asddls, .ddls.asddls, .asbdef):
   - NEVER use `"` for comments (causes syntax errors). Use ONLY `/* ... */` block comments in English for section headers.
   - Do NOT write line-by-line explanatory or Vietnamese comments. Keep definitions clean and declarative.
+  - When exposing associations in `UNION` / `UNION ALL`, the association MUST be defined identically (same target, cardinality, ON condition) across EVERY `SELECT` branch to prevent `The column ... is unknown` compiler errors.
+  - Sub-objects (e.g. Function Modules `FUNC`) must strictly be typed with `key cast( 'LIMU' as pgmid ) as Pgmid`.
   - All fields specified in `@Consumption.valueHelpDefinition.additionalBinding.element` MUST strictly exist as exposed fields/keys in the target entity view to prevent ADT warnings and metadata breakage.
+- In RAP Custom Entity Query Providers & ABAP Logic:
+  - When comparing heterogeneous object collections, ALWAYS sort and merge on the 3-key tuple `(pgmid, objecttype, objectname)`.
+  - Push down filter ranges from `io_request->get_filter( )->get_as_ranges( )` to Open SQL `WHERE` clauses before fetching data; perform windowed paging (`offset`/`page_size`) strictly after sorting.
+  - Support dynamic UI5 column header sorting via `io_request->get_sort_elements( )` with `abap_sortorder_tab`.
+  - Substring offset calculations MUST be stored in an integer variable (`DATA(lv_off) = ...`) before calling `lv+lv_off(len)`. Never nest calculations inside offset brackets.
+  - Use `TYPES: BEGIN OF ty_...` for internal table structure definitions, never `DATA: BEGIN OF`.
+- In SAP CTS & Transport Request Hierarchy:
+  - Individual Function Modules (`FUNC`) do NOT exist in `TADIR`; always query `ENLFDIR` joined with `TADIR`.
+  - Always filter active objects with `( delflag IS NULL OR delflag = ' ' OR delflag = '' )` when reading `TADIR`.
+  - In SE09 TR trees: `LIMU METH` maps Class to `ObjName` and Method to `Description` (actions route to parent `CLAS`); ensure 100% unique `NodeId` across all hierarchy nodes.
+- In UI5 Architecture & Navigation:
+  - Maintain symmetrical action buttons across all views: use `sap-icon://document-text` for View Source, `sap-icon://compare-2` with `10rem` width for Compare.
+  - Use central header `SegmentedButton` (`🔍 Object Search` | `🌿 TR Search`) for navigation; avoid scattering duplicate back/switch buttons in filter bars.
 - In Service Definitions (.srvd.asddls) & Service Bindings (.srvb):
   - ZERO comments allowed. Keep strictly to entity exposure statements (`expose ... as ...;`).
 - In Monaco Editor Integration:
@@ -26,6 +41,9 @@
 - In AI Integration & SAP SICF REST Endpoints:
   - SICF service nodes require explicit `Handler List` class registration (`IF_HTTP_EXTENSION`), `Logon Data` configuration, and activation.
   - Frontend parsing must use a universal normalizer (`_normalizeAiResponse`) that unwraps Gemini envelopes (`candidates[0].content.parts[0].text`), strips markdown fences, and extracts JSON boundaries.
+- In Git Workflow & Version Control:
+  - NEVER execute `git push` or any remote publishing command unless explicitly and directly instructed by the user in their prompt.
+  - Local operations (`git status`, `git diff`, `git add`, `git commit`) are permitted to preserve local history, but remote push requires explicit user command.
 - For tasks requiring more than 3 steps, maintain a .agent_scratchpad.md file at the workspace root.
 - Structure of scratchpad:
   - Current Goal

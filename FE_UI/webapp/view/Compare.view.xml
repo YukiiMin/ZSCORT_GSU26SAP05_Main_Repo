@@ -28,29 +28,102 @@
           <IconTabFilter key="gitReview" text="{i18n>tabGitReview}" icon="sap-icon://compare">
             <VBox height="100%" width="100%" class="sapUiNoContentPadding" fitContainer="true">
               <OverflowToolbar id="idGitReviewToolbar">
-                <ObjectStatus text="{= ${detail>/localExists} ? ${i18n>statusLocalActive} : ${i18n>lblLocalNotAvailable} }" state="{= ${detail>/localExists} ? 'Indication05' : 'None' }" class="sapUiTinyMarginEnd" />
-                <Title text="{i18n>lblVs}" />
-                <ObjectStatus text="{= ${detail>/targetExists} ? ${i18n>statusTargetSnapshot} : ${i18n>lblTargetNotAvailable} }" state="{= ${detail>/targetExists} ? 'Indication04' : 'Warning' }" class="sapUiTinyMarginBegin" />
+                <ObjectStatus text="{= ${detail>/isNotSupported} ? 'NOT_SUPPORTED' : (${detail>/localExists} ? ${i18n>statusLocalActive} : ${i18n>lblLocalNotAvailable}) }" state="{= ${detail>/isNotSupported} ? 'Information' : (${detail>/localExists} ? 'Indication05' : 'None') }" class="sapUiTinyMarginEnd" />
+                <Title text="{i18n>lblVs}" visible="{= !${detail>/isNotSupported} }" />
+                <ObjectStatus text="{= ${detail>/targetExists} ? ${i18n>statusTargetSnapshot} : ${i18n>lblTargetNotAvailable} }" state="{= ${detail>/targetExists} ? 'Indication04' : 'Warning' }" class="sapUiTinyMarginBegin" visible="{= !${detail>/isNotSupported} }" />
                 <ToolbarSpacer />
-                <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="{i18n>btnPrevDiff}" />
-                <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffGit" tooltip="{i18n>btnNextDiff}" />
-                <ToolbarSeparator />
-                <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="{i18n>btnToggleDiffLayout}" />
-                <ToolbarSeparator />
+                <SegmentedButton
+                  id="btnCompareViewMode"
+                  selectedKey="{detail>/compareMode}"
+                  selectionChange=".onCompareModeChange"
+                  visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC') }">
+                  <items>
+                    <SegmentedButtonItem key="form" icon="sap-icon://form" text="ADT Form Diff" />
+                    <SegmentedButtonItem key="text" icon="sap-icon://document-text" text="Text DDL Diff" />
+                  </items>
+                </SegmentedButton>
+                <ToolbarSeparator visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC') }" />
+                <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="{i18n>btnPrevDiff}" visible="{= !${detail>/isNotSupported} }" />
+                <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffGit" tooltip="{i18n>btnNextDiff}" visible="{= !${detail>/isNotSupported} }" />
+                <ToolbarSeparator visible="{= !${detail>/isNotSupported} }" />
+                <Button icon="sap-icon://header" text="{i18n>btnSingleColumn}" type="Transparent" press=".onMonacoToggleSideBySideGit" tooltip="{i18n>btnToggleDiffLayout}" visible="{= !${detail>/isNotSupported} }" />
+                <ToolbarSeparator visible="{= !${detail>/isNotSupported} }" />
                 <Button id="btnGitAiToggle"
                   icon="sap-icon://ai"
                   text="{i18n>btnAiReview}"
                   type="{= ${detail>/showGitAiPanel} ? 'Emphasized' : 'Default' }"
                   press=".onToggleGitAiPanel"
-                  tooltip="{i18n>btnAiReviewTooltip}" />
+                  tooltip="{i18n>btnAiReviewTooltip}"
+                  visible="{= !${detail>/isNotSupported} }" />
               </OverflowToolbar>
 
-              <!-- Splitter: Left Monaco Diff + Right AI Review Panel -->
+              <!-- Splitter: Left Monaco Diff / ADT Form Diff + Right AI Review Panel -->
               <layout:Splitter height="100%" width="100%">
-                <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding">
+                <VBox width="100%" height="100%" class="sapUiNoContentPadding" fitContainer="true">
                   <layoutData>
                     <layout:SplitterLayoutData size="{= ${detail>/showGitAiPanel} ? '65%' : '100%' }" />
                   </layoutData>
+
+                  <!-- Not Supported Container -->
+                  <VBox visible="{detail>/isNotSupported}" class="sapUiMediumMargin" alignItems="Center" justifyContent="Center" height="100%">
+                    <IllustratedMessage
+                      illustrationType="sapIllus-NoData"
+                      title="Object Detail Not Supported"
+                      description="Source code / ADT detail view is not supported for {detail>/ObjectType} (requires SAP GUI in ADT Eclipse). Only metadata is available." />
+                  </VBox>
+
+                  <!-- Monaco Git Container -->
+                  <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding" visible="{= !${detail>/isNotSupported} &amp;&amp; ${detail>/compareMode} !== 'form' }" />
+
+                  <!-- ADT Form Diff Container -->
+                  <ScrollContainer
+                    id="idAdtFormDiffContainer"
+                    height="100%"
+                    width="100%"
+                    vertical="true"
+                    visible="{= !${detail>/isNotSupported} &amp;&amp; ${detail>/compareMode} === 'form' &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC') }">
+                    <layout:Grid defaultSpan="L6 M6 S12" class="sapUiNoContentPadding">
+                      <!-- Left Column: Local ADT Form -->
+                      <VBox class="sapUiSmallMargin">
+                        <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                          <ObjectStatus text="Local (Active)" state="Success" class="sapUiTinyMarginEnd" />
+                          <Title text="{detail>/ObjectType}: {detail>/ObjectName}" level="H4" />
+                        </HBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'DOMA' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.DomainForm" type="XML" />
+                        </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'DTEL' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.DataElementForm" type="XML" />
+                        </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'MSAG' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.MessageClassForm" type="XML" />
+                        </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'DEVC' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.PackageForm" type="XML" />
+                        </VBox>
+                      </VBox>
+
+                      <!-- Right Column: Target ADT Form -->
+                      <VBox class="sapUiSmallMargin">
+                        <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                          <ObjectStatus text="Target (Snapshot)" state="Warning" class="sapUiTinyMarginEnd" />
+                          <Title text="{detail>/ObjectType}: {detail>/ObjectName}" level="H4" />
+                        </HBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'DOMA' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.DomainFormTarget" type="XML" />
+                        </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'DTEL' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.DataElementFormTarget" type="XML" />
+                        </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'MSAG' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.MessageClassFormTarget" type="XML" />
+                        </VBox>
+                        <VBox visible="{= ${detail>/ObjectType} === 'DEVC' }">
+                          <core:Fragment fragmentName="zscort.app.view.fragment.PackageFormTarget" type="XML" />
+                        </VBox>
+                      </VBox>
+                    </layout:Grid>
+                  </ScrollContainer>
                 </VBox>
 
                 <!-- Right: AI Review Side Panel -->

@@ -69,18 +69,28 @@
                   placeholder="{i18n>allTypes}"
                   selectedKeys="{objSearch>/filterObjTypes}">
                   <items>
-                    <core:Item key="PROG"  text="PROG — Program/Report" />
+                    <core:Item key="PROG"  text="PROG — Program / Report" />
                     <core:Item key="CLAS"  text="CLAS — Class" />
                     <core:Item key="INTF"  text="INTF — Interface" />
                     <core:Item key="FUGR"  text="FUGR — Function Group" />
                     <core:Item key="FUNC"  text="FUNC — Function Module" />
-                    <core:Item key="TABL"  text="TABL — Database Table" />
+                    <core:Item key="DDLS"  text="DDLS — CDS View Entity" />
+                    <core:Item key="BDEF"  text="BDEF — Behavior Definition" />
+                    <core:Item key="DCLS"  text="DCLS — Access Control (CDS Role)" />
+                    <core:Item key="DDLX"  text="DDLX — Metadata Extension" />
+                    <core:Item key="SRVD"  text="SRVD — Service Definition" />
+                    <core:Item key="TABL"  text="TABL — Database Table / Structure" />
                     <core:Item key="DTEL"  text="DTEL — Data Element" />
                     <core:Item key="DOMA"  text="DOMA — Domain" />
-                    <core:Item key="DDLS"  text="DDLS — CDS View" />
-                    <core:Item key="BDEF"  text="BDEF — Behavior Definition" />
-                    <core:Item key="TRAN"  text="TRAN — Transaction" />
+                    <core:Item key="TTYP"  text="TTYP — Table Type" />
+                    <core:Item key="VIEW"  text="VIEW — Database View" />
+                    <core:Item key="MSAG"  text="MSAG — Message Class" />
                     <core:Item key="DEVC"  text="DEVC — Package" />
+                    <core:Item key="TRAN"  text="TRAN — Transaction Code" />
+                    <core:Item key="NROB"  text="NROB — Number Range Object" />
+                    <core:Item key="WAPA"  text="WAPA — BSP / Web Dynpro Application" />
+                    <core:Item key="SSFO"  text="SSFO — Smart Form" />
+                    <core:Item key="SHLP"  text="SHLP — Search Help" />
                   </items>
                 </MultiComboBox>
               </VBox>
@@ -276,15 +286,16 @@
                           <Text text="{path:'objSearch>CreatedOn', formatter:'.formatDate'}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="6rem">
+                      <table:Column width="10rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
-                            <Button icon="sap-icon://compare-2"
+                            <Button text="{i18n>btnCompare}"
+                              icon="sap-icon://compare-2"
                               tooltip="{i18n>openCompareTooltip}"
-                              type="Transparent"
-                              press=".onButtonOpenComparePress" />
-                            <Button icon="sap-icon://detail-view"
+                              press=".onButtonOpenComparePress"
+                              class="sapUiTinyMarginEnd" />
+                            <Button icon="sap-icon://document-text"
                               tooltip="{i18n>viewSourceTooltip}"
                               type="Transparent"
                               press=".onButtonViewSourcePress" />
@@ -389,16 +400,17 @@
                           <Text text="{objSearch>TargetAuthor}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="6rem">
+                      <table:Column width="10rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
-                            <Button icon="sap-icon://compare-2"
+                            <Button text="{i18n>btnCompare}"
+                              icon="sap-icon://compare-2"
                               tooltip="{i18n>openCompareTooltip}"
-                              type="Transparent"
                               visible="{= ${objSearch>ExistenceStatus} === 'BOTH' }"
-                              press=".onButtonOpenComparePress" />
-                            <Button icon="sap-icon://detail-view"
+                              press=".onButtonOpenComparePress"
+                              class="sapUiTinyMarginEnd" />
+                            <Button icon="sap-icon://document-text"
                               tooltip="{i18n>viewSourceTooltip}"
                               type="Transparent"
                               press=".onButtonViewSourcePress" />

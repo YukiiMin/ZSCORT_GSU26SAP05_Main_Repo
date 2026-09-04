@@ -66,9 +66,9 @@ FE_UI/
 #### CDS Entities
 | Object Name | Type | Source | Purpose |
 |---|---|---|---|
-| `ZIR_SCORT_OBJ_L` | Root View Entity | TADIR (pgmid='R3TR') | List objects on Local server |
+| `ZIR_SCORT_OBJ_L` | Root View Entity | TADIR (pgmid='R3TR') + ENLFDIR | List objects on Local server (supports R3TR and LIMU FUNC) |
 | `ZIR_SCORT_OBJ_T` | Root View Entity | ZA_SCORT_T | List objects on Target (simulated) |
-| `ZIR_SCORT_OBJ_M` | Root View Entity | TADIR LEFT JOIN ZA_SCORT_T | Compare matrix BOTH/LOCAL_ONLY/TARGET_ONLY |
+| `ZCE_SCORT_MATRIX` | Root Custom Entity | ZCL_SCORT_MATRIX_QUERY | Compare matrix BOTH/LOCAL_ONLY/TARGET_ONLY (Replaces legacy ZIR_SCORT_OBJ_M) |
 | `ZCR_SCORT_OBJ_SRC` | Root Custom Entity | ZCL_SCORT_R_SRC | Read source code & metadata |
 | `ZCE_SCORT_TR_TREE` | Root Custom Entity | ZCL_SCORT_TR_TREE_QUERY | TR hierarchy tree Lv0/1/2 |
 | `ZI_SCORT_TR_TREE_PARAM` | Abstract Entity | — | Filter params for TR Tree |
@@ -79,7 +79,6 @@ FE_UI/
 |---|---|---|
 | `ZIR_SCORT_OBJ_L` | ZIR_SCORT_OBJ_L | lock master; read only |
 | `ZIR_SCORT_OBJ_T` | ZIR_SCORT_OBJ_T | lock master; read only |
-| `ZIR_SCORT_OBJ_M` | ZIR_SCORT_OBJ_M | read only + action checkDiff |
 | `ZCE_SCORT_TR_TREE` | ZCE_SCORT_TR_TREE | read only |
 
 #### ABAP Classes (LOGIC)
@@ -89,13 +88,13 @@ FE_UI/
 | `ZCL_SCORT_L_READER` | Helper | Reads source code from Local SAP APIs |
 | `ZCL_SCORT_T_READER` | Helper | Reads compressed source from ZA_SCORT_T_SRC |
 | `ZCL_SCORT_COMPRESSION_UTL` | Utility (Stateless) | GZIP encode/decode source code |
+| `ZCL_SCORT_MATRIX_QUERY` | Query Provider | 3-key Merge-Sort (PGMID, OBJECTTYPE, OBJECTNAME), SQL push-down filtering, dynamic UI5 sorting, and paging for ZCE_SCORT_MATRIX |
 | `ZCL_SCORT_TR_TREE_QUERY` | Query Provider | Builds TR hierarchy tree from E070/E071/E07T |
 | `ZCL_SCORT_AI_ASSISTANT` | Utility / AI Service | Dual-action AI Assistant: Syntax audit + Transport recommendation (Gemini Key Rotation & SAP AI Core BTP Destination adapter) |
 | `ZCL_SCORT_AI_HTTP_HANDLER` | ICF HTTP Handler | REST Endpoint handler for /sap/bc/zscort_ai |
 | `ZCL026_SCORT_RELEASE_SERVICE` | Business Service | Direct TR release service (TR_RELEASE_REQUEST) using ZCM_SCORT messages |
 | `ZCL026_SCORT_TARGET_APPLY` | Business Service | Target apply snapshot & GZIP compression using ZCM_SCORT messages |
 | `ZCM_SCORT` | RAP Message Class (CLAS) | Official SAP RAP Message Class (IF_T100_MESSAGE, IF_ABAP_BEHV_MESSAGE) used across 8 classes |
-| `ZBP_IR_SCORT_OBJ_M` | Behavior Pool | CCIMP: checkDiff and aiReview actions |
 | `ZBP_IR_SCORT_OBJ_L` | Behavior Pool | CCIMP: read Local source via ZCL_SCORT_L_READER with ZCM_SCORT error handling |
 | `ZBP_IR_SCORT_OBJ_T` | Behavior Pool | CCIMP: read Target source via ZCL_SCORT_T_READER with ZCM_SCORT error handling |
 
@@ -123,7 +122,6 @@ FE_UI/
 |---|---|---|
 | `ZCR_SCORT_OBJ_L` | ZIR_SCORT_OBJ_L | Search/Filter Local objects — List Report |
 | `ZCR_SCORT_OBJ_T` | ZIR_SCORT_OBJ_T | Search/Filter Target objects — List Report |
-| `ZCR_SCORT_OBJ_M` | ZIR_SCORT_OBJ_M | Compare Matrix + checkDiff action |
 | `ZC_SCORT_TR_TREE` | ZCE_SCORT_TR_TREE | Tree Table UI (Lv0→Lv1→Lv2) |
 | `ZC_SCORT_TR_OBJ_SEARCH` | ZI_SCORT_TR_OBJ_SEARCH | Flat List Report for Object in TR |
 
@@ -132,14 +130,13 @@ FE_UI/
 |---|---|
 | `ZCR_SCORT_OBJ_L` | use readonly |
 | `ZCR_SCORT_OBJ_T` | use readonly |
-| `ZCR_SCORT_OBJ_M` | use readonly; use action checkDiff |
 | `ZC_SCORT_TR_TREE` | use readonly |
 | `ZC_SCORT_TR_OBJ_SEARCH` | use readonly |
 
 #### Service Definitions
 | Object Name | Exposes |
 |---|---|
-| `SD_SCORT_OBJ_SEARCH` | ZCR_SCORT_OBJ_L, ZCR_SCORT_OBJ_T, ZCR_SCORT_OBJ_M, ZCR_SCORT_OBJ_SRC |
+| `ZSD_SCORT_OBJ_SEARCH` | ZCR_SCORT_OBJ_L, ZCR_SCORT_OBJ_T, ZCE_SCORT_MATRIX (CompareMatrix), ZCR_SCORT_OBJ_SRC (SourceCodeView), Value Help views |
 | `SD_SCORT_TR_SEARCH` | ZC_SCORT_TR_TREE, ZC_SCORT_TR_OBJ_SEARCH |
 
 #### Service Bindings
@@ -151,11 +148,36 @@ FE_UI/
 ---
 
 ## Key Technical Decisions
-1. **ZIR_SCORT_OBJ_L** — 3 Keys: `PGMID`, `OBJECT`, `OBJ_NAME`; WHERE pgmid = 'R3TR' hardcoded.
-2. **ZIR_SCORT_OBJ_M** — Uses `with parameters P_ServerType : abap.char(1)` ('L' or 'T').
-3. **ZCR_SCORT_OBJ_SRC** — Custom Entity (not ZIR_); annotation `@ObjectModel.query.implementedBy: 'ZCL_SCORT_R_SRC'`.
-4. **ZCE_SCORT_TR_TREE** — Custom Entity; annotation `@ObjectModel.query.implementedBy: 'ZCL_SCORT_TR_TREE_QUERY'`.
+1. **ZIR_SCORT_OBJ_L** — 3 Keys: `PGMID`, `OBJECT`, `OBJ_NAME`. Tích hợp `UNION ALL` với `ENLFDIR` để hỗ trợ cả `R3TR` (TADIR) và `LIMU FUNC` (Function Modules).
+2. **ZCE_SCORT_MATRIX & ZCL_SCORT_MATRIX_QUERY** — Custom Entity thay thế cho `ZIR_SCORT_OBJ_M`. Loại bỏ hoàn toàn lỗi SADL Dump (`CX_SADL_DUMP_APPL_MODEL_ERROR`) trên `UNION ALL` có tham số, hỗ trợ thuật toán Merge-Sort 3 trục (`PGMID -> OBJECTTYPE -> OBJECTNAME`), đẩy bộ lọc xuống database (SQL Push-down) và hỗ trợ sort động trên header UI5.
+3. **ZCR_SCORT_OBJ_SRC** — Custom Entity; annotation `@ObjectModel.query.implementedBy: 'ABAP:ZCL_SCORT_R_SRC'`.
+4. **ZCE_SCORT_TR_TREE** — Custom Entity; annotation `@ObjectModel.query.implementedBy: 'ABAP:ZCL_SCORT_TR_TREE_QUERY'`.
 5. **ZCL_SCORT_COMPRESSION_UTL** — Stateless utility: `encode_source_to_hex` (GZIP compress) + `decode_hex_to_text` (GZIP decompress).
-6. **ZBP_IR_SCORT_OBJ_M** — Only Behavior Pool with real logic; calls `CL_ABAP_DIFF` in `checkDiff` action.
-7. **File format**: ABAPGit-style — each object has a code file + `.xml` metadata sidecar.
-8. **Service naming**: `SD_SCORT_...` for definitions, `UI_SCORT_..._O4` for bindings.
+6. **Code Diff & AI Review Architecture** — Thay thế các RAP Action cũ (`checkDiff`, `aiReview`) bằng Monaco Diff Editor trực tiếp trên UI5 và dịch vụ AI độc lập qua REST SICF Endpoint `/sap/bc/zscort_ai` (`ZCL_SCORT_AI_HTTP_HANDLER` -> `ZCL_SCORT_AI_ASSISTANT`) kèm failover trực tiếp tới Gemini API.
+7. **File format**: ABAPGit-style — mỗi object có 1 file code + file `.xml` metadata sidecar.
+8. **Service naming**: `ZSD_SCORT_...` cho definitions, `UI_SCORT_..._O4` cho bindings.
+
+---
+
+## Lịch sử kiến trúc & Lý do loại bỏ ZIR_SCORT_OBJ_M (Legacy Matrix)
+
+Nhóm đối tượng `ZIR_SCORT_OBJ_M` (bao gồm CDS View Entity, BDEF, Behavior Pool `ZBP_IR_SCORT_OBJ_M` và Projection `ZCR_SCORT_OBJ_M`) đã chính thức bị **LOẠI BỎ KHỎI HỆ THỐNG** vì các lý do kỹ thuật sau:
+
+1. **Lỗi SADL Engine Runtime Dump (`CX_SADL_DUMP_APPL_MODEL_ERROR`):**
+   - Ban đầu, `ZIR_SCORT_OBJ_M` được xây dựng bằng CDS View Entity với mệnh đề `UNION ALL` kết hợp parameter (`with parameters P_ServerType : abap.char(1)`).
+   - Khi expose qua OData V4, SADL Engine của SAP không thể phân tích cây biểu thức SQL (SQL Expression Tree) đối với các trường tính toán (`case when ... end as ExistenceStatus`) và các hàm lọc chuỗi OData (`startswith`, `contains`, v.v.). Điều này dẫn đến `HTTP 500 / RAISE_SHORTDUMP` ngay khi người dùng lọc dữ liệu.
+
+2. **Chuyển đổi sang RAP Custom Entity (`ZCE_SCORT_MATRIX`):**
+   - Thay vì ép SADL xử lý `UNION ALL` phức tạp ở database layer, hệ thống áp dụng kiến trúc chuẩn của SAP RAP cho các trường hợp đối soát dữ liệu đa nguồn: **Custom Entity + Query Provider** (`ZCL_SCORT_MATRIX_QUERY`).
+   - Query Provider thực hiện đọc dữ liệu tối thiểu qua SQL Push-down filter, sau đó thực thi thuật toán Merge-Sort 3 trục (`PGMID -> OBJECTTYPE -> OBJECTNAME`) trong bộ nhớ với độ phức tạp $O(N + M)$, loại bỏ 100% rủi ro SADL dump.
+
+3. **Hiện đại hóa Diff & AI Review:**
+   - Các action cũ `checkDiff` và `aiReview` trong `ZBP_IR_SCORT_OBJ_M` trước đây yêu cầu gọi qua RAP Action OData V4 với cấu trúc trả lời hạn chế.
+   - Kiến trúc mới tách bạch: Diff mã nguồn được hiển thị trực tiếp qua Monaco Diff Editor trên trình duyệt, còn AI Review được phục vụ qua REST Handler `/sap/bc/zscort_ai` với khả năng xoay tua key, đa ngôn ngữ (`sy-langu`) và linh hoạt chọn mô hình AI.
+
+4. **Danh sách các artifact đã xóa dọn dẹp:**
+   - `DB_CORE/CDS/ZIR_SCORT_OBJ_M.ddls.asddls` & `.ddls.xml`
+   - `DB_CORE/BDEF-Behavior_Definition/ZIR_SCORT_OBJ_M.bdef.asbdef` & `.bdef.xml`
+   - `DB_CORE/LOGIC/ZBP_IR_SCORT_OBJ_M.clas.abap`, `.clas.locals_imp.abap` & `.clas.xml`
+   - `API/PROJECTION_CDS/ZCR_SCORT_OBJ_M.ddls.asddls` & `.ddls.xml`
+   - `API/PROJECTION_BDEF/ZCR_SCORT_OBJ_M.bdef.asbdef` & `.bdef.xml`
