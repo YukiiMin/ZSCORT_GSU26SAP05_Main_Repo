@@ -29,3 +29,11 @@ description: SAP CTS Object Hierarchy, SE09 TR Tree Parity, and Object Search St
    - Always set `description = ''` on parent folder nodes (Level 1, Level 2) to eliminate cluttered duplicate text.
 5. **NodeId Uniqueness:**
    - Every node in the hierarchy must have a strictly unique `NodeId` by concatenating `Request`, `Task`, `ObjType`, `ObjName`, and `iv_suffix`.
+
+## 3. UI5 TR Tree State Persistence & Metadata Completeness
+1. **Parent TR State Preservation (No Dummy TR Resets):**
+   - Closing an object comparison dialog or clearing object-level sub-filters must NEVER reset the root Transport Request selection to dummy/fallback values.
+   - Controllers must cache active parent TR IDs in the view state model or route parameters and restore previous view state upon closing child dialogs.
+2. **Full Metadata Completeness for Tree Objects:**
+   - All development object nodes under TR tasks must reliably populate Package (`devclass`), Responsible Person (`author`), and Creation Date (`as4date`) from `TADIR` / `E070`.
+   - Ensure consistency between tree table columns and object metadata inspection dialogs so no fields appear blank in list view.

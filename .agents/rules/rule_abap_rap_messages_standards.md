@@ -8,15 +8,19 @@ When writing or refactoring SAP ABAP, RAP entities, and DDIC integration code, y
 
 ## 1. Message Handling in SAP RAP
 1. **No Ad-Hoc JSON Utility Classes:** NEVER build custom helper classes to format JSON success/error responses for SAP backend services.
-2. **T100 Message Class (`MSAG`):**
+2. **Zero Hardcoded Message Strings (Strict i18n Invariant):**
+   - NEVER return hardcoded string literals (e.g. `'Object type not supported'`, `'Chưa có version Target'`) in backend queries, actions, or services.
+   - ALL user-facing messages, comparison statuses, and error texts MUST be registered in T100 Message Class (`ZCM_SCORT.msag.xml`) and mapped to constants in `ZCM_SCORT.clas.abap`.
+   - Resolve messages dynamically via `zcm_scort=>get_text_by_key( is_t100_key = ... )` to ensure native translation support (`sy-langu`).
+3. **T100 Message Class (`MSAG`):**
    - Store under `DB_CORE/TEXTS/<NAME>.msag.xml`.
    - Use numbered messages (001, 002, ...) with placeholders (`&1` - `&4`).
-3. **RAP Message Class (`CLAS`):**
+4. **RAP Message Class (`CLAS`):**
    - Prefix: `ZCM_<COMPONENT>` (e.g. `ZCM_SCORT`).
    - Base Class: `cx_static_check`.
    - Required Interfaces: `if_t100_message`, `if_t100_dyn_msg`, `if_abap_behv_message`.
    - Define message key constants containing `msgid`, `msgno`, `attr1`, `attr2`, `attr3`, `attr4`.
-4. **Behavior Pool Message Dispatch:**
+5. **Behavior Pool Message Dispatch:**
    - Append to `reported-<entity>` using:
      ```abap
      APPEND VALUE #(
@@ -44,9 +48,11 @@ When writing or refactoring SAP ABAP, RAP entities, and DDIC integration code, y
 
 ## 4. ABAP Commenting Guidelines (English & Clean Code)
 1. **English Only:** Use ONLY English for all comments across ABAP backend code, DDIC objects, and RAP definitions.
-2. **Introductory / High-Level Only:** Only add high-level introductory comments, class/method headers, or ABAP Doc comments (`"! ...`).
-3. **No Explanatory Inline Comments:** Do NOT add line-by-line explanatory comments describing what standard code is doing. Code must remain clean and self-explanatory.
-4. **No Vietnamese in Source Code:** Never write Vietnamese comments or text inside ABAP backend source files. Multi-language texts must strictly go to Message Classes (`MSAG`) or UI i18n properties.
+2. **Zero Vietnamese in Source Code:** Never write Vietnamese comments, characters, or text literals inside ABAP backend source files. All user-facing texts must reside in `MSAG` or UI `i18n.properties`.
+3. **No Numbered Steps or Phase Labels:** NEVER include numbered comments (e.g., `" 1. Extract...`, `" 2. Fetch...`, `" Step 1...`, `" B1...`).
+4. **No Decorative Banners or ASCII Boxes:** Do NOT use comment boxes (`*"*---------------------*`) or divider lines.
+5. **No Explanatory Inline Comments:** Do NOT add line-by-line comments describing obvious operations (e.g., `" Parse request JSON`, `" Handle CORS`). Code must be clean, modular, and self-documenting.
+6. **Architectural Comments Only:** Comments are permissible ONLY when documenting architectural non-obvious workarounds or SAP kernel compatibility constraints.
 
 ## 5. Kernel Deep Structures & Dynamic Component Parsing
 1. **Release-Dependent Structures:** When interfacing with deep SAP kernel structures (such as `SVRS2_VERSIONABLE_OBJECT` in Version Management):
