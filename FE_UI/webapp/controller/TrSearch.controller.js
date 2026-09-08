@@ -17,16 +17,33 @@ sap.ui.define([
         filterDateFrom:  "",
         filterDateTo:    "",
         filterStatus:    "",
+        filterObjName:   "",
+        filterObjType:   "",
         filterFlatObjName: "",
         filterFlatObjType: "",
         activeTab:       "tree",
         busyTree:        false,
         busyFlat:        false,
         countFlat:       0,
+        flatRows:        [],
         noDataText:      "Enter search criteria and press Search"
       });
       oModel.setSizeLimit(100000);
       this.getView().setModel(oModel, "trSearch");
+
+      var oSavedSettings = null;
+      try {
+        oSavedSettings = JSON.parse(localStorage.getItem("scort_flat_table_cols") || "null");
+      } catch (e) { /* ignore */ }
+      var oSettingsModel = new JSONModel(oSavedSettings || {
+        showTrkorr: true,
+        showManagingTr: true,
+        showType: true,
+        showName: true,
+        showOwner: true,
+        showStatus: true
+      });
+      this.getView().setModel(oSettingsModel, "tableSettings");
 
       var oRouter = this.getOwnerComponent().getRouter();
       if (oRouter) {
@@ -41,9 +58,27 @@ sap.ui.define([
       this._app().setProperty("/currentModule", "trSearch");
     },
 
-    _onRouteMatched: function () {
+    _onRouteMatched: function (oEvent) {
       this._app().setProperty("/currentModule", "trSearch");
       this._ensureBeginVisible();
+
+      var oArgs = oEvent && oEvent.getParameter && oEvent.getParameter("arguments");
+      var oQuery = (oArgs && oArgs["?query"]) || {};
+      if (oQuery.objectName || oQuery.objectType) {
+        var oM = this.getView().getModel("trSearch");
+        if (oQuery.objectName) {
+          oM.setProperty("/filterObjName", oQuery.objectName);
+          oM.setProperty("/filterFlatObjName", oQuery.objectName);
+        }
+        if (oQuery.objectType) {
+          oM.setProperty("/filterObjType", oQuery.objectType);
+          oM.setProperty("/filterFlatObjType", oQuery.objectType);
+        }
+        if (oQuery.tab) {
+          oM.setProperty("/activeTab", oQuery.tab);
+        }
+        this.onSearch();
+      }
     },
 
     _ensureBeginVisible: function () {
@@ -73,9 +108,14 @@ sap.ui.define([
       var oM = this.getView().getModel("trSearch");
       var sTrk = (oM.getProperty("/filterTrkorr") || "").trim();
       var sOwn = (oM.getProperty("/filterOwner") || "").trim();
+      var sObj = (oM.getProperty("/filterObjName") || "").trim();
+      var sType = (oM.getProperty("/filterObjType") || "").trim();
+      var sFrom = (oM.getProperty("/filterDateFrom") || "").trim();
+      var sTo = (oM.getProperty("/filterDateTo") || "").trim();
+      var sStat = (oM.getProperty("/filterStatus") || "").trim();
 
-      if (!sTrk && !sOwn) {
-        sap.m.MessageBox.warning(this._getText("msgEnterTrOrOwner") || "Please enter at least Transport Request or Owner to limit search scope.");
+      if (!sTrk && !sOwn && !sObj && !sType && !sFrom && !sTo && !sStat) {
+        MessageBox.warning(this._getText("msgEnterFilterCriteria") || "Please enter at least one filter criterion (Transport Request, Owner, or Object Name).");
         return;
       }
 
@@ -102,8 +142,12 @@ sap.ui.define([
       oM.setProperty("/filterDateFrom",  "");
       oM.setProperty("/filterDateTo",    "");
       oM.setProperty("/filterStatus",    "");
+      oM.setProperty("/filterObjName",   "");
+      oM.setProperty("/filterObjType",   "");
       oM.setProperty("/filterFlatObjName", "");
       oM.setProperty("/filterFlatObjType", "");
+      oM.setProperty("/flatRows", []);
+      oM.setProperty("/countFlat", 0);
       this._bFlatLoaded = false;
     },
 
@@ -423,13 +467,13 @@ sap.ui.define([
       var oM = this.getView().getModel("trSearch");
       var that = this;
       var aParts = this._buildTrODataFilterParts();
-      var sFlatObjName = (oM.getProperty("/filterFlatObjName") || "").trim().replace(/\*/g, "");
-      var sFlatObjType = (oM.getProperty("/filterFlatObjType") || "").trim();
-      if (sFlatObjName) {
-        aParts.push("contains(ObjectName,'" + sFlatObjName.replace(/'/g, "''") + "')");
+      var sObjName = (oM.getProperty("/filterObjName") || oM.getProperty("/filterFlatObjName") || "").trim().replace(/\*/g, "");
+      var sObjType = (oM.getProperty("/filterObjType") || oM.getProperty("/filterFlatObjType") || "").trim();
+      if (sObjName) {
+        aParts.push("contains(ObjectName,'" + sObjName.replace(/'/g, "''") + "')");
       }
-      if (sFlatObjType) {
-        aParts.push("ObjectType eq '" + sFlatObjType.replace(/'/g, "''") + "'");
+      if (sObjType) {
+        aParts.push("ObjectType eq '" + sObjType.replace(/'/g, "''") + "'");
       }
       var sFilter = aParts.join(" and ");
       var sUrl = this._trServiceUri() + "TrObjectSearch" +
@@ -439,12 +483,7 @@ sap.ui.define([
       ValueHelp.fetchAllJson(sUrl, 60000).then(function (aData) {
         aData = aData || [];
         oM.setProperty("/countFlat", aData.length);
-        var oTbl = that.byId("tblFlat");
-        if (oTbl) {
-          var oFlatM = new JSONModel(aData);
-          oFlatM.setSizeLimit(100000);
-          oTbl.setModel(oFlatM, "trSearch");
-        }
+        oM.setProperty("/flatRows", aData);
         oM.setProperty("/busyFlat", false);
         that._bFlatLoaded = true;
         if (!aData.length) {
@@ -466,10 +505,59 @@ sap.ui.define([
         { Trkorr: "S40K900125", ObjectType: "CLAS", ObjectName: "ZCL_SCORT_R_SRC", Owner: "DEVELOPER", TrStatus: "D", CurrentManagingTr: "S40K900123" }
       ];
       oM.setProperty("/countFlat", aMock.length);
-      this.byId("tblFlat").setModel(new JSONModel(aMock), "trSearch");
+      oM.setProperty("/flatRows", aMock);
       oM.setProperty("/busyFlat", false);
       this._bFlatLoaded = true;
       MessageToast.show("Mock Flat List data loaded");
+    },
+
+    onOpenFlatTableSettings: function () {
+      if (!this._oFlatSettingsDialog) {
+        this._oFlatSettingsDialog = sap.ui.xmlfragment(
+          this.getView().getId(),
+          "zscort.app.view.fragment.FlatTableSettingsDialog",
+          this
+        );
+        this.getView().addDependent(this._oFlatSettingsDialog);
+      }
+      this._oFlatSettingsDialog.open();
+    },
+
+    onApplyFlatTableSettings: function () {
+      var oSettings = this.getView().getModel("tableSettings").getData();
+      try {
+        localStorage.setItem("scort_flat_table_cols", JSON.stringify(oSettings));
+      } catch (e) { /* ignore */ }
+      if (this._oFlatSettingsDialog) {
+        this._oFlatSettingsDialog.close();
+      }
+      MessageToast.show(this._getText("msgSettingsApplied") || "Table settings applied");
+    },
+
+    onCloseFlatTableSettings: function () {
+      if (this._oFlatSettingsDialog) {
+        this._oFlatSettingsDialog.close();
+      }
+    },
+
+    onResetFlatTableLayout: function () {
+      var oDefault = {
+        showTrkorr: true,
+        showManagingTr: true,
+        showType: true,
+        showName: true,
+        showOwner: true,
+        showStatus: true
+      };
+      this.getView().getModel("tableSettings").setData(oDefault);
+      try {
+        localStorage.removeItem("scort_flat_table_cols");
+      } catch (e) { /* ignore */ }
+      MessageToast.show(this._getText("msgLayoutReset") || "Layout reset to default");
+    },
+
+    onFlatRowSelect: function () {
+      // Single row selection
     },
 
     onFlatObjCompare: function (oEvent) {
@@ -544,6 +632,15 @@ sap.ui.define([
         aParts.push("TrStatus eq '" + sStatus.replace(/'/g, "''") + "'");
       }
 
+      var sObjName = (oM.getProperty("/filterObjName") || "").trim().replace(/\*/g, "");
+      var sObjType = (oM.getProperty("/filterObjType") || "").trim();
+      if (sObjName) {
+        aParts.push("contains(ObjName,'" + sObjName.replace(/'/g, "''") + "')");
+      }
+      if (sObjType) {
+        aParts.push("ObjType eq '" + sObjType.replace(/'/g, "''") + "'");
+      }
+
       return aParts;
     },
 
@@ -551,10 +648,20 @@ sap.ui.define([
       return this._buildTrODataFilterParts().join(" and ");
     },
 
+    formatTrStatusText: function (sStatus) {
+      switch ((sStatus || "").toUpperCase()) {
+        case "D": return "Modifiable";
+        case "R": return "Released";
+        case "N": return "Released (protected)";
+        default:  return sStatus || "";
+      }
+    },
+
     formatTrStatus: function (sStatus) {
       switch ((sStatus || "").toUpperCase()) {
         case "D": return ValueState.Warning;    // Modifiable = orange
         case "R": return ValueState.Success;    // Released   = green
+        case "N": return ValueState.Success;
         default:  return ValueState.None;
       }
     },

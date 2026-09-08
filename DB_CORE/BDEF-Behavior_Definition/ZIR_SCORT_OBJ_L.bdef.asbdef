@@ -1,14 +1,7 @@
-/*
-  Behavior Definition for ZIR_SCORT_OBJ_L
-  Root Entity: TADIR-based Local Object Search
-  Mode: Read-Only (lock master, no CUD operations)
-  Behavior Pool: ZBP_IR_SCORT_OBJ_L (auto-generated, CCIMP empty)
-*/
 unmanaged implementation in class ZBP_IR_SCORT_OBJ_L unique;
 
 define behavior for ZIR_SCORT_OBJ_L
 {
-  /* Static field control to guarantee read-only integrity */
   field ( readonly )
     Pgmid,
     ObjectType,

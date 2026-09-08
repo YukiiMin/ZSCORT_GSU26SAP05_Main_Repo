@@ -162,7 +162,7 @@ sap.ui.define([
         var bTargetExists = !!(that._oTargetMeta && (that._oTargetMeta.ObjectName || that._oTargetMeta.ObjectType));
         var bLocalExists = !!(that._oLocalMeta && (that._oLocalMeta.ObjectName || that._oLocalMeta.ObjectType));
 
-        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP"];
+        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP", "SRVD"];
         var bNotSupported = aNotSupportedTypes.indexOf(that._sType) !== -1 ||
           (oResLocal && oResLocal.Message === "NOT_SUPPORTED");
 

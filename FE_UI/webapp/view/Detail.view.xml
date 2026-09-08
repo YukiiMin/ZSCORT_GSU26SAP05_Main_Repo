@@ -111,17 +111,16 @@
               <table:template>
                 <HBox justifyContent="Center">
                   <Button
-                    tooltip="{i18n>openCompareTooltip}"
+                    tooltip="{= ${detail>CompareStatus} === 'MODIFIABLE' ? ${i18n>compareAvailableAfterRelease} : ${i18n>openCompareTooltip} }"
                     icon="sap-icon://compare-2"
                     type="Transparent"
-                    enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
+                    enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' &amp;&amp; ${detail>CompareStatus} !== 'MODIFIABLE' }"
                     press=".onButtonComparePress"
                     class="sapUiTinyMarginEnd" />
                   <Button
                     tooltip="{i18n>viewSourceTooltip}"
                     icon="sap-icon://document-text"
                     type="Transparent"
-                    enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' }"
                     press=".onButtonViewSourcePress" />
                 </HBox>
               </table:template>

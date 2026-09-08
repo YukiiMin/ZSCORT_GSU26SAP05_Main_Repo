@@ -183,7 +183,7 @@ sap.ui.define([
       var oContext = oOdm.bindContext(sPath);
 
       oContext.requestObject().then(function (oData) {
-        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP"];
+        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP", "SRVD"];
         var bNotSupported = aNotSupportedTypes.indexOf(sObjType) !== -1 || oData.Message === "NOT_SUPPORTED";
 
         if (bNotSupported) {

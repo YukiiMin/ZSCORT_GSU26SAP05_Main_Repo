@@ -1,0 +1,62 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+  <Dialog
+    id="idFlatTableSettingsDialog"
+    title="{i18n>tablePersonalizationTitle}"
+    icon="sap-icon://action-settings"
+    contentWidth="26rem"
+    contentHeight="auto"
+    resizable="false"
+    draggable="true">
+    <content>
+      <VBox class="sapUiSmallMargin">
+        <Text text="{i18n>tablePersonalizationDesc}" class="sapUiTinyMarginBottom" />
+        <List id="idFlatColumnList" mode="None" class="sapUiNoContentPadding">
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>trkorr}" />
+              <Switch id="swColTrkorr" state="{tableSettings>/showTrkorr}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>currentManagingTr}" />
+              <Switch id="swColManagingTr" state="{tableSettings>/showManagingTr}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>colType}" />
+              <Switch id="swColType" state="{tableSettings>/showType}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>colObjName}" />
+              <Switch id="swColName" state="{tableSettings>/showName}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>ownerFilter}" />
+              <Switch id="swColOwner" state="{tableSettings>/showOwner}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>colStatus}" />
+              <Switch id="swColStatus" state="{tableSettings>/showStatus}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+        </List>
+      </VBox>
+    </content>
+    <beginButton>
+      <Button text="{i18n>btnApplySettings}" type="Emphasized" press=".onApplyFlatTableSettings" />
+    </beginButton>
+    <endButton>
+      <Button text="{i18n>btnClose}" press=".onCloseFlatTableSettings" />
+    </endButton>
+  </Dialog>
+</core:FragmentDefinition>

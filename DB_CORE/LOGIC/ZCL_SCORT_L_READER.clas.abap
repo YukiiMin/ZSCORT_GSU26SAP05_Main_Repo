@@ -95,10 +95,6 @@ CLASS zcl_scort_l_reader DEFINITION
       IMPORTING iv_name  TYPE sobj_name
       EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
-    CLASS-METHODS read_srvd
-      IMPORTING iv_name  TYPE sobj_name
-      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
-
     CLASS-METHODS read_ddic_ttyp
       IMPORTING iv_name  TYPE sobj_name
       EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
@@ -112,7 +108,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     CASE iv_object_type.
       WHEN 'PROG' OR 'CLAS' OR 'INTF' OR 'FUNC' OR 'FUGR'
         OR 'DTEL' OR 'DOMA' OR 'TABL' OR 'DDLS' OR 'BDEF'
-        OR 'DCLS' OR 'DDLX' OR 'SRVD' OR 'TTYP'
+        OR 'DCLS' OR 'DDLX' OR 'TTYP'
         OR 'MSAG' OR 'DEVC'.
         rv_ok = abap_true.
       WHEN OTHERS.
@@ -292,9 +288,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
                    IMPORTING et_lines = et_lines ev_ok = ev_ok ).
       WHEN 'BDEF'.
         read_bdef( EXPORTING iv_name  = iv_name
-                   IMPORTING et_lines = et_lines ev_ok = ev_ok ).
-      WHEN 'SRVD'.
-        read_srvd( EXPORTING iv_name  = iv_name
                    IMPORTING et_lines = et_lines ev_ok = ev_ok ).
       WHEN 'TTYP'.
         read_ddic_ttyp( EXPORTING iv_name  = iv_name
@@ -705,165 +698,6 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
   ENDMETHOD.
 
-  METHOD read_srvd.
-    DATA lv_source  TYPE string.
-    DATA lv_name    TYPE sobj_name.
-    DATA lv_obj_key TYPE seu_objkey.
-
-    CLEAR: et_lines, ev_ok.
-    lv_name    = iv_name.
-    lv_obj_key = lv_name.
-
-    TRY.
-        DATA ls_wb_type TYPE wbobjtype.
-        DATA lo_wb_oper TYPE REF TO object.
-        DATA lo_wb_data TYPE REF TO object.
-        DATA lr_data    TYPE REF TO data.
-        FIELD-SYMBOLS <ls_data>    TYPE any.
-        FIELD-SYMBOLS <ls_content> TYPE any.
-        FIELD-SYMBOLS <lv_src>     TYPE any.
-
-        ls_wb_type-objtype_tr = 'SRVD'.
-        ls_wb_type-subtype_wb = 'SRV'.
-
-        CALL METHOD ('CL_WB_OBJECT_OPERATOR')=>('CREATE_INSTANCE')
-          EXPORTING
-            object_type = ls_wb_type
-            object_key  = lv_obj_key
-          RECEIVING
-            result      = lo_wb_oper.
-
-        IF lo_wb_oper IS BOUND.
-          TRY.
-              CALL METHOD lo_wb_oper->('IF_WB_OBJECT_OPERATOR~READ')
-                EXPORTING
-                  version        = 'A'
-                  data_selection = 'AL'
-                IMPORTING
-                  eo_object_data = lo_wb_data.
-            CATCH cx_root.
-              CALL METHOD lo_wb_oper->('IF_WB_OBJECT_OPERATOR~READ')
-                EXPORTING
-                  version        = 'I'
-                  data_selection = 'AL'
-                IMPORTING
-                  eo_object_data = lo_wb_data.
-          ENDTRY.
-
-          IF lo_wb_data IS BOUND.
-            TRY.
-                CREATE DATA lr_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_SRVD_OBJECT_DATA').
-              CATCH cx_root.
-                TRY.
-                    CREATE DATA lr_data TYPE ('CL_SRVD_WB_OBJECT_DATA=>TY_OBJECT_DATA').
-                  CATCH cx_root.
-                ENDTRY.
-            ENDTRY.
-
-            IF lr_data IS BOUND.
-              ASSIGN lr_data->* TO <ls_data>.
-              CALL METHOD lo_wb_data->('GET_DATA')
-                IMPORTING
-                  p_data = <ls_data>.
-
-              ASSIGN COMPONENT 'CONTENT-SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
-              IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
-                ASSIGN COMPONENT 'CONTENT' OF STRUCTURE <ls_data> TO <ls_content>.
-                IF sy-subrc = 0.
-                  ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_content> TO <lv_src>.
-                ENDIF.
-              ENDIF.
-              IF sy-subrc <> 0 OR <lv_src> IS INITIAL.
-                ASSIGN COMPONENT 'SOURCE' OF STRUCTURE <ls_data> TO <lv_src>.
-              ENDIF.
-
-              IF sy-subrc = 0 AND <lv_src> IS NOT INITIAL.
-                lv_source = <lv_src>.
-              ENDIF.
-            ENDIF.
-          ENDIF.
-        ENDIF.
-      CATCH cx_root.
-        CLEAR lv_source.
-    ENDTRY.
-
-    IF lv_source IS INITIAL.
-      TRY.
-          DATA lo_xco_srvd    TYPE REF TO object.
-          DATA lo_xco_content TYPE REF TO object.
-          DATA lt_xco_lines   TYPE ty_string_tab.
-
-          CALL METHOD ('XCO_CP_SRVD')=>('FOR')
-            EXPORTING
-              iv_name = CONV #( lv_name )
-            RECEIVING
-              ro_srvd = lo_xco_srvd.
-
-          IF lo_xco_srvd IS BOUND.
-            CALL METHOD lo_xco_srvd->('CONTENT')
-              RECEIVING
-                ro_content = lo_xco_content.
-
-            IF lo_xco_content IS BOUND.
-              CALL METHOD lo_xco_content->('GET_SOURCE')
-                RECEIVING
-                  rt_source = lt_xco_lines.
-
-              IF lt_xco_lines IS NOT INITIAL.
-                et_lines = lt_xco_lines.
-                ev_ok    = abap_true.
-                RETURN.
-              ENDIF.
-            ENDIF.
-          ENDIF.
-        CATCH cx_root.
-      ENDTRY.
-    ENDIF.
-
-    IF lv_source IS INITIAL.
-      TRY.
-          DATA lv_srvd_text TYPE string.
-          SELECT SINGLE description FROM ('SRVD_RT_HEADER')
-            WHERE srvd_name = @lv_name
-            INTO @lv_srvd_text.
-
-          SELECT entity_name, alias_name FROM ('SRVD_RT_ENTITIES')
-            WHERE srvd_name = @lv_name
-            ORDER BY entity_name
-            INTO TABLE @DATA(lt_rt_entities).
-
-          IF sy-subrc = 0 AND lt_rt_entities IS NOT INITIAL.
-            CLEAR et_lines.
-            IF lv_srvd_text IS NOT INITIAL.
-              APPEND |@EndUserText.label: '{ lv_srvd_text }'| TO et_lines.
-            ENDIF.
-            APPEND |define service { lv_name } \{| TO et_lines.
-            LOOP AT lt_rt_entities INTO DATA(ls_ent).
-              IF ls_ent-alias_name IS NOT INITIAL.
-                APPEND |  expose { ls_ent-entity_name } as { ls_ent-alias_name };| TO et_lines.
-              ELSE.
-                APPEND |  expose { ls_ent-entity_name };| TO et_lines.
-              ENDIF.
-            ENDLOOP.
-            APPEND '}' TO et_lines.
-            ev_ok = abap_true.
-            RETURN.
-          ENDIF.
-        CATCH cx_root.
-      ENDTRY.
-    ENDIF.
-
-    IF lv_source IS NOT INITIAL.
-      IF lv_source CS cl_abap_char_utilities=>cr_lf.
-        SPLIT lv_source AT cl_abap_char_utilities=>cr_lf INTO TABLE et_lines.
-      ELSEIF lv_source CS cl_abap_char_utilities=>newline.
-        SPLIT lv_source AT cl_abap_char_utilities=>newline INTO TABLE et_lines.
-      ELSE.
-        APPEND lv_source TO et_lines.
-      ENDIF.
-      ev_ok = abap_true.
-    ENDIF.
-  ENDMETHOD.
 
   METHOD read_ddic_ttyp.
     DATA ls_dd40v    TYPE dd40v.
@@ -959,13 +793,13 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     APPEND |@AbapCatalog.tableType.initialRows : { ls_dd40v-occurs }| TO et_lines.
     APPEND |@AbapCatalog.tableType.primaryKey.definition : '{ lv_keydef }'| TO et_lines.
     APPEND |@AbapCatalog.tableType.primaryKey.category : '{ lv_keykind }'| TO et_lines.
-    IF ls_dd40v-keyalias IS NOT INITIAL.
-      APPEND |@AbapCatalog.tableType.primaryKey.alias : '{ ls_dd40v-keyalias }'| TO et_lines.
+    IF ls_dd40v-alias IS NOT INITIAL.
+      APPEND |@AbapCatalog.tableType.primaryKey.alias : '{ ls_dd40v-alias }'| TO et_lines.
     ENDIF.
 
-    APPEND |define table type { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
-    LOOP AT lt_dd42v INTO DATA(ls_k) WHERE fieldname IS NOT INITIAL.
-      APPEND |  key { to_lower( CONV string( ls_k-fieldname ) ) };| TO et_lines.
+    APPEND |define table type { to_lower( iv_name ) } \{| TO et_lines.
+    LOOP AT lt_dd42v INTO DATA(ls_k) WHERE keyfield IS NOT INITIAL.
+      APPEND |  key { to_lower( ls_k-keyfield ) };| TO et_lines.
     ENDLOOP.
     APPEND '}' TO et_lines.
 
@@ -1431,7 +1265,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         read_fugr( EXPORTING iv_name = CONV #( iv_object_name )
                    IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
       WHEN 'DTEL' OR 'DOMA' OR 'TABL' OR 'DDLS' OR 'BDEF'
-        OR 'DCLS' OR 'DDLX' OR 'SRVD' OR 'TTYP'.
+        OR 'DCLS' OR 'DDLX' OR 'TTYP'.
         read_ddic_src( EXPORTING iv_object = CONV #( iv_object_type )
                                  iv_name   = CONV #( iv_object_name )
                        IMPORTING et_lines  = lt_lines ev_ok = lv_ok ).

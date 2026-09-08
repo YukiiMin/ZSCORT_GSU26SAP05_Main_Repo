@@ -25,6 +25,5 @@ define root view entity ZIR_SCORT_OBJ_T
 
       cast( 'T' as abap.char(1) )    as ServerType,
 
-      /* Navigation */
       _SourceCode
 }

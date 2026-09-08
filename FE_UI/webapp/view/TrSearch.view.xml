@@ -106,6 +106,49 @@
                 </Select>
               </VBox>
 
+              <!-- Object Name Filter -->
+              <VBox class="scortFilterItem">
+                <Label text="{i18n>colObjName}" />
+                <Input id="inputObjName"
+                  value="{trSearch>/filterObjName}"
+                  placeholder="e.g. Z* / ZCL_*"
+                  submit=".onSearch" />
+              </VBox>
+
+              <!-- Object Type Filter -->
+              <VBox class="scortFilterItem">
+                <Label text="{i18n>colType}" />
+                <Select id="selObjType"
+                  selectedKey="{trSearch>/filterObjType}"
+                  forceSelection="false">
+                  <items>
+                    <core:Item key="" text="{i18n>allTypes}" />
+                    <core:Item key="PROG" text="PROG — Program" />
+                    <core:Item key="CLAS" text="CLAS — Class" />
+                    <core:Item key="INTF" text="INTF — Interface" />
+                    <core:Item key="FUNC" text="FUNC — Function Module" />
+                    <core:Item key="FUGR" text="FUGR — Function Group" />
+                    <core:Item key="DDLS" text="DDLS — CDS View" />
+                    <core:Item key="BDEF" text="BDEF — Behavior Definition" />
+                    <core:Item key="DCLS" text="DCLS — Access Control" />
+                    <core:Item key="DDLX" text="DDLX — Metadata Extension" />
+                    <core:Item key="SRVD" text="SRVD — Service Definition" />
+                    <core:Item key="TABL" text="TABL — Table / Structure" />
+                    <core:Item key="DTEL" text="DTEL — Data Element" />
+                    <core:Item key="DOMA" text="DOMA — Domain" />
+                    <core:Item key="TTYP" text="TTYP — Table Type" />
+                    <core:Item key="VIEW" text="VIEW — Database View" />
+                    <core:Item key="MSAG" text="MSAG — Message Class" />
+                    <core:Item key="DEVC" text="DEVC — Package" />
+                    <core:Item key="TRAN" text="TRAN — Transaction" />
+                    <core:Item key="NROB" text="NROB — Number Range" />
+                    <core:Item key="WAPA" text="WAPA — BSP Application" />
+                    <core:Item key="SSFO" text="SSFO — Smart Form" />
+                    <core:Item key="SHLP" text="SHLP — Search Help" />
+                  </items>
+                </Select>
+              </VBox>
+
               <VBox class="scortFilterButtons" justifyContent="End">
                 <HBox wrap="Wrap" class="scortFilterButtons">
                   <Button text="{i18n>searchBtn}" type="Emphasized" icon="sap-icon://search"
@@ -264,72 +307,89 @@
               </content>
             </IconTabFilter>
 
-            <!-- TAB 2: TR Flat List (sap.m.Table) -->
+            <!-- TAB 2: TR Flat List (sap.ui.table.Table) -->
             <IconTabFilter
               key="flat"
               text="{i18n>tabFlatList}"
               icon="sap-icon://table-view"
               count="{trSearch>/countFlat}">
               <content>
-                <VBox height="100%">
-                  <Toolbar>
+                <VBox height="100%" fitContainer="true">
+                  <OverflowToolbar>
                     <Title text="{i18n>tabFlatList}" />
                     <ToolbarSpacer />
-                    <!-- Additional Object Name filter for flat list -->
-                    <Label text="{i18n>colObjName}:" class="sapUiTinyMarginEnd" />
-                    <Input id="inputFlatObjName"
-                      width="12rem"
-                      value="{trSearch>/filterFlatObjName}"
-                      placeholder="Object name..."
-                      submit=".onSearchFlat"
-                      class="sapUiTinyMarginEnd" />
-                    <Select id="selFlatObjType"
-                      width="10rem"
-                      selectedKey="{trSearch>/filterFlatObjType}">
-                      <items>
-                        <core:Item key="" text="{i18n>allTypes}" />
-                        <core:Item key="PROG" text="PROG" />
-                        <core:Item key="CLAS" text="CLAS" />
-                        <core:Item key="INTF" text="INTF" />
-                        <core:Item key="FUGR" text="FUGR" />
-                        <core:Item key="TABL" text="TABL" />
-                        <core:Item key="DDLS" text="DDLS" />
-                        <core:Item key="BDEF" text="BDEF" />
-                      </items>
-                    </Select>
-                    <Button icon="sap-icon://search" type="Transparent" press=".onSearchFlat" />
+                    <Label text="{= ${trSearch>/countFlat} + ' object(s)'}" class="sapUiTinyMarginEnd" />
+                    <Button icon="sap-icon://action-settings" tooltip="{i18n>btnTableSettings}" press=".onOpenFlatTableSettings" type="Transparent" />
+                    <Button icon="sap-icon://refresh" tooltip="{i18n>btnResetLayout}" press=".onResetFlatTableLayout" type="Transparent" />
                     <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onExportFlat" type="Transparent" />
-                  </Toolbar>
+                  </OverflowToolbar>
 
-                  <Table id="tblFlat"
-                    items="{trSearch>/}"
+                  <table:Table id="tblFlat"
+                    rows="{path: 'trSearch>/flatRows'}"
                     busy="{trSearch>/busyFlat}"
-                    noDataText="{i18n>noData}"
-                    mode="None"
+                    noData="{i18n>noData}"
+                    selectionMode="Single"
+                    rowSelectionChange=".onFlatRowSelect"
                     alternateRowColors="true"
-                    sticky="ColumnHeaders">
-                    <columns>
-                      <Column width="10rem"><Text text="{i18n>trkorr}" /></Column>
-                      <Column width="12rem"><Text text="{i18n>currentManagingTr}" /></Column>
-                      <Column width="6rem"><Text text="{i18n>colType}" /></Column>
-                      <Column minScreenWidth="Tablet" demandPopin="true"><Text text="{i18n>colObjName}" /></Column>
-                      <Column width="8rem" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>ownerFilter}" /></Column>
-                      <Column width="5rem" minScreenWidth="Desktop" demandPopin="true"><Text text="{i18n>colStatus}" /></Column>
-                      <Column width="7rem"><Text text="{i18n>colActions}" /></Column>
-                    </columns>
-                    <items>
-                      <ColumnListItem type="Active">
-                        <cells>
+                    enableColumnReordering="true"
+                    showColumnVisibilityMenu="true"
+                    visibleRowCountMode="Auto"
+                    minAutoRowCount="5"
+                    rowHeight="36"
+                    columnHeaderHeight="36">
+                    <table:layoutData>
+                      <FlexItemData growFactor="1" />
+                    </table:layoutData>
+                    <table:columns>
+                      <table:Column id="colFlatTrkorr" width="10rem" filterProperty="Trkorr" sortProperty="Trkorr" visible="{tableSettings>/showTrkorr}">
+                        <Label text="{i18n>trkorr}" />
+                        <table:template>
                           <Text text="{trSearch>Trkorr}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatManagingTr" width="12rem" filterProperty="CurrentManagingTr" sortProperty="CurrentManagingTr" visible="{tableSettings>/showManagingTr}">
+                        <Label text="{i18n>currentManagingTr}" />
+                        <table:template>
                           <ObjectStatus
                             text="{trSearch>CurrentManagingTr}"
                             state="{= ${trSearch>CurrentManagingTr} !== ${trSearch>Trkorr} ? 'Warning' : 'None'}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatType" width="6rem" filterProperty="ObjectType" sortProperty="ObjectType" visible="{tableSettings>/showType}">
+                        <Label text="{i18n>colType}" />
+                        <table:template>
                           <ObjectStatus text="{trSearch>ObjectType}" state="None" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatName" width="18rem" filterProperty="ObjectName" sortProperty="ObjectName" visible="{tableSettings>/showName}">
+                        <Label text="{i18n>colObjName}" />
+                        <table:template>
                           <ObjectIdentifier title="{trSearch>ObjectName}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatOwner" width="9rem" filterProperty="Owner" sortProperty="Owner" visible="{tableSettings>/showOwner}">
+                        <Label text="{i18n>ownerFilter}" />
+                        <table:template>
                           <Text text="{trSearch>Owner}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatStatus" width="8.5rem" filterProperty="TrStatus" sortProperty="TrStatus" visible="{tableSettings>/showStatus}">
+                        <Label text="{i18n>colStatus}" />
+                        <table:template>
                           <ObjectStatus
-                            text="{trSearch>TrStatus}"
+                            text="{path:'trSearch>TrStatus', formatter:'.formatTrStatusText'}"
                             state="{path:'trSearch>TrStatus', formatter:'.formatTrStatus'}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatActions" width="9rem">
+                        <Label text="{i18n>colActions}" />
+                        <table:template>
                           <HBox>
                             <Button icon="sap-icon://detail-view"
                               tooltip="Open TR Detail (Release / Apply)"
@@ -344,10 +404,10 @@
                               type="Transparent"
                               press=".onFlatObjViewSource" />
                           </HBox>
-                        </cells>
-                      </ColumnListItem>
-                    </items>
-                  </Table>
+                        </table:template>
+                      </table:Column>
+                    </table:columns>
+                  </table:Table>
                 </VBox>
               </content>
             </IconTabFilter>

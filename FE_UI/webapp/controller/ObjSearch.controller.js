@@ -728,6 +728,19 @@ sap.ui.define([
       this._openSourceDialog(oObj.ObjectType, oObj.ObjectName, sServerType, oObj);
     },
 
+    onButtonFindAssignedTrPress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("objSearch");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      this.getOwnerComponent().getRouter().navTo("trSearch", {
+        "?query": {
+          objectName: oObj.ObjectName || "",
+          objectType: oObj.ObjectType || "",
+          tab: "flat"
+        }
+      });
+    },
+
     onButtonExportLocalPress: function () {
       MessageToast.show("Export Local — TODO: use sap.ui.export.Spreadsheet");
     },

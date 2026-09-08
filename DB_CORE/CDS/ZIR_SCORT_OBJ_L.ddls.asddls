@@ -24,7 +24,6 @@ define root view entity ZIR_SCORT_OBJ_L
 
       cast( 'L' as abap.char(1) ) as ServerType,
 
-      /* Navigation */
       _SourceCode
 }
 where pgmid = 'R3TR'
@@ -59,7 +58,6 @@ select from enlfdir as Func
 
       cast( 'L' as abap.char(1) )        as ServerType,
 
-      /* Association Mapping */
       _SourceCode
 }
 where Func.active = 'X'

@@ -23,7 +23,7 @@ define root custom entity ZCR_SCORT_COMPARE
   @UI.lineItem: [{ position: 10 }]
   @UI.selectionField: [{ position: 10 }]
   @UI.identification: [{ position: 10 }]
-  key ObjectType : abap.char(4);
+  key ObjectType : trobjtype;
 
   @EndUserText.label: 'Object Name'
   @Consumption.valueHelpDefinition: [{
@@ -37,7 +37,7 @@ define root custom entity ZCR_SCORT_COMPARE
   @UI.lineItem: [{ position: 20 }]
   @UI.selectionField: [{ position: 20 }]
   @UI.identification: [{ position: 20 }]
-  key ObjectName : abap.char(40);
+  key ObjectName : trobj_name;
 
   @EndUserText.label: 'Server Id'
   @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_SERVER_ID', element: 'ServerId' } }]
@@ -63,7 +63,7 @@ define root custom entity ZCR_SCORT_COMPARE
   @UI.lineItem: [{ position: 29 }]
   @UI.selectionField: [{ position: 40 }]
   @UI.identification: [{ position: 29 }]
-  key VersionNo : abap.numc(5);
+  key VersionNo : versno;
 
   @EndUserText.label: 'Version Right (99998 = Active)'
   @Consumption.valueHelpDefinition: [{
@@ -76,7 +76,7 @@ define root custom entity ZCR_SCORT_COMPARE
   @UI.lineItem: [{ position: 31 }]
   @UI.selectionField: [{ position: 45 }]
   @UI.identification: [{ position: 30 }]
-  key VersionNoRight : abap.numc(5);
+  key VersionNoRight : versno;
 
   @EndUserText.label: 'Status'
   @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_COMPARE_STATUS', element: 'CompareStatus' } }]

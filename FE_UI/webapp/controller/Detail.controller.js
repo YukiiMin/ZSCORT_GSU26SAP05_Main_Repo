@@ -197,7 +197,7 @@ sap.ui.define([
                 Datum: o.CreatedOn || o.As4date || o.Datum || "",
                 CreatedOn: o.CreatedOn || o.As4date || o.Datum || "",
                 As4date: o.CreatedOn || o.As4date || o.Datum || "",
-                CompareStatus: "NOT_SUPPORTED",
+                CompareStatus: "MODIFIABLE",
                 Message: "TR Modifiable (Unreleased)"
               });
             });
@@ -360,6 +360,7 @@ sap.ui.define([
         case "DIFFERENT": return ValueState.Error;
         case "NEW_AT_TARGET": return ValueState.Information;
         case "SOURCE_MISSING": return ValueState.Error;
+        case "MODIFIABLE": return ValueState.Warning;
         case "NOT_SUPPORTED": return ValueState.None;
         default: return ValueState.None;
       }
@@ -371,6 +372,7 @@ sap.ui.define([
         case "DIFFERENT": return "sap-icon://error";
         case "NEW_AT_TARGET": return "sap-icon://add-document";
         case "SOURCE_MISSING": return "sap-icon://document-text";
+        case "MODIFIABLE": return "sap-icon://edit";
         case "NOT_SUPPORTED": return "sap-icon://sys-help-2";
         default: return "sap-icon://status-inactive";
       }

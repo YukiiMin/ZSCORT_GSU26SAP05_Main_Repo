@@ -27,7 +27,7 @@ define root custom entity ZCR_SCORT_OBJ_VERSION
       @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_OBJ_TYPE', element: 'ObjectType' } }]
       @UI.lineItem:[{ position: 10 }]
       @UI.selectionField: [{ position: 10 }]
-  key ObjectType : abap.char(4);
+  key ObjectType : trobjtype;
 
       @EndUserText.label: 'Object Name'
       @Consumption.valueHelpDefinition: [{
@@ -36,28 +36,28 @@ define root custom entity ZCR_SCORT_OBJ_VERSION
       }]
       @UI.lineItem:[{ position: 20 }]
       @UI.selectionField: [{ position: 20 }]
-  key ObjectName : abap.char(40);
+  key ObjectName : trobj_name;
 
       @EndUserText.label: 'Version No (99998 = Active)'
       @UI.lineItem:[{ position: 30 }]
       @UI.identification: [{ position: 10 }]
-  key VersionNo  : abap.numc(5);
+  key VersionNo  : versno;
 
       @EndUserText.label: 'Author'
       @UI.lineItem:[{ position: 40 }]
-      Author     : abap.char(12);
+      Author     : as4user;
 
       @EndUserText.label: 'Date'
       @UI.lineItem:[{ position: 50 }]
-      Datum      : abap.dats;
+      Datum      : as4date;
 
       @EndUserText.label: 'Time'
       @UI.lineItem:[{ position: 60 }]
-      Uzeit      : abap.tims;
+      Uzeit      : as4time;
 
       @EndUserText.label: 'Transport'
       @UI.lineItem:[{ position: 70 }]
-      Korrnum    : abap.char(20);
+      Korrnum    : trkorr;
 
       @EndUserText.label: 'Is Active (99998)'
       @UI.lineItem:[{ position: 80 }]

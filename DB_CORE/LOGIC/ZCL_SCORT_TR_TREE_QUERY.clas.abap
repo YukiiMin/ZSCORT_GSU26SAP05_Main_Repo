@@ -31,6 +31,8 @@ CLASS zcl_scort_tr_tree_query DEFINITION
         iv_date_from TYPE d               OPTIONAL
         iv_date_to   TYPE d               OPTIONAL
         iv_trstatus  TYPE e070-trstatus   OPTIONAL
+        iv_obj_name  TYPE e071-obj_name   OPTIONAL
+        iv_obj_type  TYPE e071-object     OPTIONAL
       RETURNING
         VALUE(rt_nodes) TYPE tt_nodes.
 
@@ -113,12 +115,36 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           lv_date_from = lv_raw(8).
         ENDIF.
 
+        DATA lv_obj_name TYPE e071-obj_name.
+        DATA lv_obj_type TYPE e071-object.
+        lv_raw = zcl_scort_query_utl=>filter_low(
+                   io_request = io_request iv_field = 'OBJNAME' ).
+        IF lv_raw IS INITIAL.
+          lv_raw = zcl_scort_query_utl=>filter_low(
+                     io_request = io_request iv_field = 'OBJECTNAME' ).
+        ENDIF.
+        IF lv_raw IS NOT INITIAL.
+          lv_obj_name = CONV #( lv_raw ).
+        ENDIF.
+
+        lv_raw = zcl_scort_query_utl=>filter_low(
+                   io_request = io_request iv_field = 'OBJTYPE' ).
+        IF lv_raw IS INITIAL.
+          lv_raw = zcl_scort_query_utl=>filter_low(
+                     io_request = io_request iv_field = 'OBJECTTYPE' ).
+        ENDIF.
+        IF lv_raw IS NOT INITIAL.
+          lv_obj_type = CONV #( lv_raw ).
+        ENDIF.
+
         DATA(lt_nodes) = build_tree(
           iv_trkorr    = lv_trkorr
           iv_owner     = lv_owner
           iv_date_from = lv_date_from
           iv_date_to   = lv_date_to
-          iv_trstatus  = lv_trstatus ).
+          iv_trstatus  = lv_trstatus
+          iv_obj_name  = lv_obj_name
+          iv_obj_type  = lv_obj_type ).
 
         LOOP AT lt_nodes ASSIGNING FIELD-SYMBOL(<node>).
           CLEAR ls_result.
@@ -213,14 +239,86 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       lv_owner_pattern = '%'.
     ENDIF.
 
-    SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
-      FROM e070
-      WHERE strkorr = @space
-        AND trkorr  LIKE @lv_tr_pattern
-        AND as4user LIKE @lv_owner_pattern
-      ORDER BY as4date DESCENDING, as4time DESCENDING
-      INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents
-      UP TO 200 ROWS.
+    TYPES: BEGIN OF ty_tr_filter,
+             trkorr TYPE e070-trkorr,
+           END OF ty_tr_filter.
+    DATA lt_matching_trkorr TYPE STANDARD TABLE OF ty_tr_filter WITH DEFAULT KEY.
+    DATA lt_target_parents  TYPE STANDARD TABLE OF ty_tr_filter WITH DEFAULT KEY.
+    DATA lv_obj_filtered    TYPE abap_bool VALUE abap_false.
+
+    IF iv_obj_name IS NOT INITIAL OR iv_obj_type IS NOT INITIAL.
+      lv_obj_filtered = abap_true.
+      DATA lv_obj_pattern TYPE string.
+      IF iv_obj_name IS NOT INITIAL.
+        lv_obj_pattern = iv_obj_name.
+        REPLACE ALL OCCURRENCES OF '*' IN lv_obj_pattern WITH '%'.
+        REPLACE ALL OCCURRENCES OF '+' IN lv_obj_pattern WITH '_'.
+        IF lv_obj_pattern NA '%'.
+          lv_obj_pattern = |%{ lv_obj_pattern }%|.
+        ENDIF.
+      ELSE.
+        lv_obj_pattern = '%'.
+      ENDIF.
+
+      IF iv_obj_type IS NOT INITIAL.
+        SELECT DISTINCT trkorr FROM e071
+          WHERE object = @iv_obj_type AND obj_name LIKE @lv_obj_pattern
+          INTO TABLE @lt_matching_trkorr
+          UP TO 500 ROWS.
+      ELSE.
+        SELECT DISTINCT trkorr FROM e071
+          WHERE obj_name LIKE @lv_obj_pattern
+          INTO TABLE @lt_matching_trkorr
+          UP TO 500 ROWS.
+      ENDIF.
+
+      IF lt_matching_trkorr IS INITIAL.
+        RETURN.
+      ENDIF.
+
+      SELECT trkorr, strkorr FROM e070
+        FOR ALL ENTRIES IN @lt_matching_trkorr
+        WHERE trkorr = @lt_matching_trkorr-trkorr
+        INTO TABLE @DATA(lt_match_e070).
+      LOOP AT lt_match_e070 INTO DATA(ls_m).
+        IF ls_m-strkorr IS NOT INITIAL.
+          APPEND VALUE #( trkorr = ls_m-strkorr ) TO lt_target_parents.
+        ELSE.
+          APPEND VALUE #( trkorr = ls_m-trkorr ) TO lt_target_parents.
+        ENDIF.
+      ENDLOOP.
+      SORT lt_target_parents BY trkorr.
+      DELETE ADJACENT DUPLICATES FROM lt_target_parents COMPARING trkorr.
+
+      IF lt_target_parents IS INITIAL.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
+    IF lv_obj_filtered = abap_true.
+      SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
+        FROM e070
+        FOR ALL ENTRIES IN @lt_target_parents
+        WHERE strkorr = @space
+          AND trkorr  = @lt_target_parents-trkorr
+          AND trkorr  LIKE @lv_tr_pattern
+          AND as4user LIKE @lv_owner_pattern
+        INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents.
+
+      SORT lt_tr_parents BY as4date DESCENDING as4time DESCENDING.
+      IF lines( lt_tr_parents ) > 200.
+        DELETE lt_tr_parents FROM 201.
+      ENDIF.
+    ELSE.
+      SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
+        FROM e070
+        WHERE strkorr = @space
+          AND trkorr  LIKE @lv_tr_pattern
+          AND as4user LIKE @lv_owner_pattern
+        ORDER BY as4date DESCENDING, as4time DESCENDING
+        INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents
+        UP TO 200 ROWS.
+    ENDIF.
 
     IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
 

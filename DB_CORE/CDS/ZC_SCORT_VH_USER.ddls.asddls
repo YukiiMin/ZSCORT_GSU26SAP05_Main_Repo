@@ -3,11 +3,11 @@
 @ObjectModel.resultSet.sizeCategory: #XS
 define custom entity ZC_SCORT_VH_USER
 {
-  @EndUserText.label: 'User ID'
-  @UI.lineItem: [{ position: 10 }]
-  key UserId : abap.char(12);
+      @EndUserText.label: 'User ID'
+      @UI.lineItem: [{ position: 10 }]
+  key UserId   : as4user;
 
-  @EndUserText.label: 'Full Name'
-  @UI.lineItem: [{ position: 20 }]
-  FullName : abap.char(40);
+      @EndUserText.label: 'Full Name'
+      @UI.lineItem: [{ position: 20 }]
+      FullName : ad_namtext;
 }

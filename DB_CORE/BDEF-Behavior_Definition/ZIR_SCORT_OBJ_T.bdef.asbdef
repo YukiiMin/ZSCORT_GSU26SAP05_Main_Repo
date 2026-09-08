@@ -1,15 +1,7 @@
-/*
-  Behavior Definition for ZIR_SCORT_OBJ_T
-  Root Entity: Custom Table ZA_SCORT_T-based Target Object Search
-  Mode: Read-Only (lock master, no CUD operations)
-  Behavior Pool: ZBP_IR_SCORT_OBJ_T (auto-generated, CCIMP empty)
-*/
 unmanaged implementation in class ZBP_IR_SCORT_OBJ_T unique;
 
 define behavior for ZIR_SCORT_OBJ_T
 {
-  /* Read-only: lock master removed */
-
   field ( readonly )
     ServerId,
     ObjectType,

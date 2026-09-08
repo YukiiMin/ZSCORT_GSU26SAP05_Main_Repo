@@ -122,22 +122,21 @@ FE_UI/
 |---|---|---|
 | `ZCR_SCORT_OBJ_L` | ZIR_SCORT_OBJ_L | Search/Filter Local objects — List Report |
 | `ZCR_SCORT_OBJ_T` | ZIR_SCORT_OBJ_T | Search/Filter Target objects — List Report |
-| `ZC_SCORT_TR_TREE` | ZCE_SCORT_TR_TREE | Tree Table UI (Lv0→Lv1→Lv2) |
-| `ZC_SCORT_TR_OBJ_SEARCH` | ZI_SCORT_TR_OBJ_SEARCH | Flat List Report for Object in TR |
+| `ZCR_SCORT_TR_OBJ_SEARCH` | ZIR_SCORT_TR_OBJ_SEARCH | Flat List Report for Object in TR |
 
 #### BDEF Projections
 | Object Name | Behavior |
 |---|---|
-| `ZCR_SCORT_OBJ_L` | use readonly |
-| `ZCR_SCORT_OBJ_T` | use readonly |
-| `ZC_SCORT_TR_TREE` | use readonly |
-| `ZC_SCORT_TR_OBJ_SEARCH` | use readonly |
+| `ZCR_SCORT_OBJ_L` | use association _SourceCode |
+| `ZCR_SCORT_OBJ_T` | use association _SourceCode |
+| `ZCR_SCORT_TR_OBJ_SEARCH` | projection behavior |
 
 #### Service Definitions
 | Object Name | Exposes |
 |---|---|
-| `ZSD_SCORT_OBJ_SEARCH` | ZCR_SCORT_OBJ_L, ZCR_SCORT_OBJ_T, ZCE_SCORT_MATRIX (CompareMatrix), ZCR_SCORT_OBJ_SRC (SourceCodeView), Value Help views |
-| `SD_SCORT_TR_SEARCH` | ZC_SCORT_TR_TREE, ZC_SCORT_TR_OBJ_SEARCH |
+| `ZSD_SCORT_OBJ_SEARCH` | ZCR_SCORT_OBJ_L (LocalObjects), ZCR_SCORT_OBJ_T (TargetObjects), ZCE_SCORT_MATRIX (CompareMatrix), ZCR_SCORT_OBJ_SRC (SourceCodeView), Value Help views |
+| `ZSD_SCORT_TR_SEARCH` | ZCE_SCORT_TR_TREE (TrTree), ZCR_SCORT_TR_OBJ_SEARCH (TrObjectSearch), Value Help views |
+| `ZSD_SCORT_COMPARE` | ZCR_SCORT_TR_CMP (TrCmp), ZCR_SCORT_COMPARE (Compare), ZCR_SCORT_OBJ_VERSION (Version), ZCR_SCORT_OBJ_SRC (ObjectSource), Value Help views |
 
 #### Service Bindings
 | Object Name | Protocol | For |

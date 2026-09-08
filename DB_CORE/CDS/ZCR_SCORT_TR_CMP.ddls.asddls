@@ -26,14 +26,14 @@ define root custom entity ZCR_SCORT_TR_CMP
   @UI.lineItem: [{ position: 10 }]
   @UI.selectionField: [{ position: 10 }]
   @UI.identification: [{ position: 10 }]
-  key Trkorr : abap.char(20);
+  key Trkorr : trkorr;
 
   @EndUserText.label: 'Object Type'
   @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_OBJ_TYPE', element: 'ObjectType' } }]
   @UI.lineItem: [{ position: 20 }]
   @UI.selectionField: [{ position: 20 }]
   @UI.identification: [{ position: 20 }]
-  key ObjectType : abap.char(4);
+  key ObjectType : trobjtype;
 
   @EndUserText.label: 'Object Name'
   @Consumption.valueHelpDefinition: [{
@@ -47,7 +47,7 @@ define root custom entity ZCR_SCORT_TR_CMP
   @UI.lineItem: [{ position: 30 }]
   @UI.selectionField: [{ position: 30 }]
   @UI.identification: [{ position: 30 }]
-  key ObjectName : abap.char(40);
+  key ObjectName : trobj_name;
 
   @EndUserText.label: 'Compare Status'
   @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_COMPARE_STATUS', element: 'CompareStatus' } }]
@@ -78,7 +78,7 @@ define root custom entity ZCR_SCORT_TR_CMP
   @EndUserText.label: 'Target Version'
   @UI.lineItem: [{ position: 80 }]
   @UI.identification: [{ position: 80 }]
-  TargetVers : abap.numc(5);
+  TargetVers : versno;
 
   @EndUserText.label: 'Server Id'
   @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_SERVER_ID', element: 'ServerId' } }]
