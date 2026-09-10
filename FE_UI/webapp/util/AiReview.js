@@ -495,7 +495,8 @@
       sLocalCode,
       sTargetCode,
       sUiLang,
-      sMode
+      sMode,
+      sModel
     ) {
       return this.reviewTransport(
         sObjectType,
@@ -503,7 +504,8 @@
         sLocalCode,
         sTargetCode,
         sUiLang,
-        sMode
+        sMode,
+        sModel
       )
     },
 
