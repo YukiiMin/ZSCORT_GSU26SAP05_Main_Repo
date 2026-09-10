@@ -1,7 +1,7 @@
 # AI Review & Multi-Model Rotation Standards
 
 ## 1. Authorized Model Pool (Strict Invariant)
-Chỉ được phép sử dụng và xoay vòng trong danh sách 5 Model sau (cả Backend ABAP ZCL_SCORT_AI_ASSISTANT và Frontend AiReview.js):
+Chỉ được phép sử dụng và xoay vòng trong danh sách 5 Model sau (được điều phối bởi Backend ABAP `ZCL_SCORT_AI_ASSISTANT`):
 1. `gemini-3.5-flash`
 2. `gemini-3-flash`
 3. `gemini-2.5-flash`
@@ -10,14 +10,18 @@ Chỉ được phép sử dụng và xoay vòng trong danh sách 5 Model sau (c�
 
 Tuyệt đối không sử dụng các model ngoài danh sách 5 model này.
 
-## 2. Complete 9-Key Pool Preservation
-- Giữ nguyên toàn bộ 9 API Key trong key pool.
-- Luôn mã hóa Base64 khi lưu trong mã nguồn để vượt qua GitHub Push Protection / Secret Scanner, và decode tại runtime.
-- Triển khai cơ chế xoay vòng 2 lớp: Thử lần lượt các Model trong Model Pool kết hợp xoay vòng API Keys khi gặp Rate Limit hoặc lỗi 429/503.
+## 2. Backend-Exclusive Key Storage & Zero FE API Keys
+- Toàn bộ 9 API Key và cơ chế xoay tua chìa khóa (Key Rotation) được lưu trữ và thực thi ĐỘC QUYỀN tại Backend ABAP (`ZCL_SCORT_AI_ASSISTANT`).
+- **TUYỆT ĐỐI KHÔNG** lưu trữ bất kỳ API Key nào (kể cả mã hóa Base64) trong mã nguồn Frontend (`AiReview.js`, UI5 Controllers).
+- Frontend **KHÔNG BAO GIỜ** gọi trực tiếp tới endpoint bên ngoài của Google (`generativelanguage.googleapis.com`).
 
-## 3. Dual Execution Mode
-- Mặc định ưu tiên chế độ SAP Backend (`BE_SAP` qua REST SICF `/sap/bc/zscort_ai` -> `ZCL_SCORT_AI_ASSISTANT`).
-- Tự động fallback sang chế độ Direct Client (`FE_DIRECT`) nếu Backend offline/chưa active SICF.
+## 3. Strictly Backend-Driven AI Architecture
+- 100% yêu cầu AI từ giao diện Fiori UI5 phải được định tuyến qua SAP SICF REST Handler: `/sap/bc/zscort_ai` (`ZCL_SCORT_AI_HTTP_HANDLER`).
+- Áp dụng cho cả 3 tác vụ AI:
+  1. `action: 'SYNTAX'` (Kiểm tra cú pháp, Clean ABAP audit).
+  2. `action: 'TRANSPORT'` (Đánh giá khuyến nghị vận chuyển Transport).
+  3. Pre-flight Selective Apply Risk Analysis (Phân tích rủi ro đóng gói TR Apply).
+- Không triển khai cơ chế client-side fallback ra ngoài Internet để đảm bảo an toàn dữ liệu doanh nghiệp và tuân thủ kiểm định an ninh SAP.
 
 ## 4. Multilingual & SAP System Language Resolution (`sy-langu`)
 - **Tự động nhận diện ngôn ngữ ở ABAP Backend:**

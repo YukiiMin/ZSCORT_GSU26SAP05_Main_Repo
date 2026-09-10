@@ -30,6 +30,15 @@ CLASS zcl_scort_l_reader DEFINITION
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
+    CLASS-METHODS read_table_data
+      IMPORTING
+        iv_tabname   TYPE csequence
+        iv_max_rows  TYPE i DEFAULT 100
+      EXPORTING
+        ev_json      TYPE string
+        ev_row_count TYPE i
+        ev_ok        TYPE abap_bool.
+
   PRIVATE SECTION.
     CLASS-METHODS read_prog
       IMPORTING iv_name TYPE sobj_name
@@ -225,15 +234,28 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
 
     CLEAR et_lines.
+    DATA lt_imp  TYPE STANDARD TABLE OF rsimp WITH DEFAULT KEY.
+    DATA lt_chng TYPE STANDARD TABLE OF rscha WITH DEFAULT KEY.
+    DATA lt_exp  TYPE STANDARD TABLE OF rsexp WITH DEFAULT KEY.
+    DATA lt_tbl  TYPE STANDARD TABLE OF rstbl WITH DEFAULT KEY.
+    DATA lt_exc  TYPE STANDARD TABLE OF rsexc WITH DEFAULT KEY.
+    DATA lt_doc  TYPE STANDARD TABLE OF rsfdo WITH DEFAULT KEY.
+
     TRY.
         CALL FUNCTION 'RPY_FUNCTIONMODULE_READ'
           EXPORTING
-            functionname  = lv_fname
+            functionname       = lv_fname
           TABLES
-            source        = lt_fm
+            import_parameter   = lt_imp
+            changing_parameter = lt_chng
+            export_parameter   = lt_exp
+            tables_parameter   = lt_tbl
+            exception_list     = lt_exc
+            documentation      = lt_doc
+            source             = lt_fm
           EXCEPTIONS
-            error_message = 1
-            OTHERS        = 2.
+            error_message      = 1
+            OTHERS             = 2.
         IF sy-subrc = 0 AND lt_fm IS NOT INITIAL.
           LOOP AT lt_fm INTO lv_line.
             APPEND CONV string( lv_line ) TO et_lines.
@@ -1061,12 +1083,22 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read_msag.
+    TYPES:
+      BEGIN OF ty_t100_msg,
+        msgnr   TYPE t100-msgnr,
+        text    TYPE t100-text,
+        selfdef TYPE t100u-selfdef,
+        name    TYPE t100u-name,
+        datum   TYPE t100u-datum,
+      END OF ty_t100_msg.
+
     DATA lv_arbgb      TYPE t100a-arbgb.
     DATA lv_masterlang TYPE t100a-masterlang.
     DATA lv_respuser   TYPE t100a-respuser.
     DATA lv_lastuser   TYPE t100a-lastuser.
     DATA lv_ldate      TYPE t100a-ldate.
     DATA lv_stext      TYPE t100t-stext.
+    DATA lt_t100       TYPE STANDARD TABLE OF ty_t100_msg WITH DEFAULT KEY.
 
     CLEAR: et_lines, ev_ok.
     lv_arbgb = iv_name.
@@ -1076,29 +1108,64 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       INTO (@lv_masterlang, @lv_respuser, @lv_lastuser, @lv_ldate).
 
     SELECT SINGLE stext FROM t100t
-      WHERE arbgb = @lv_arbgb AND sprsl = @sy-langu
+      WHERE sprsl = @sy-langu AND arbgb = @lv_arbgb
       INTO @lv_stext.
 
-    IF lv_stext IS INITIAL.
+    IF lv_stext IS INITIAL AND lv_masterlang IS NOT INITIAL.
       SELECT SINGLE stext FROM t100t
-        WHERE arbgb = @lv_arbgb
+        WHERE sprsl = @lv_masterlang AND arbgb = @lv_arbgb
         INTO @lv_stext.
     ENDIF.
 
-    SELECT t100~msgnr, t100~text, t100u~selfdef, t100u~name, t100u~datum
-      FROM t100
-      LEFT OUTER JOIN t100u ON t100u~arbgb = t100~arbgb AND t100u~msgnr = t100~msgnr
-      WHERE t100~arbgb = @lv_arbgb AND t100~sprsl = @sy-langu
-      ORDER BY t100~msgnr
-      INTO TABLE @DATA(lt_t100).
+    IF lv_stext IS INITIAL.
+      SELECT SINGLE stext FROM t100t
+        WHERE sprsl = 'E' AND arbgb = @lv_arbgb
+        INTO @lv_stext.
+    ENDIF.
 
-    IF lt_t100 IS INITIAL.
-      SELECT t100~msgnr, t100~text, t100u~selfdef, t100u~name, t100u~datum
+    SELECT msgnr, text
+      FROM t100
+      WHERE sprsl = @sy-langu AND arbgb = @lv_arbgb
+      ORDER BY msgnr
+      INTO TABLE @DATA(lt_t100_raw). "#EC CI_SGLSELECT
+
+    IF lt_t100_raw IS INITIAL AND lv_masterlang IS NOT INITIAL.
+      SELECT msgnr, text
         FROM t100
-        LEFT OUTER JOIN t100u ON t100u~arbgb = t100~arbgb AND t100u~msgnr = t100~msgnr
-        WHERE t100~arbgb = @lv_arbgb
-        ORDER BY t100~msgnr
-        INTO TABLE @lt_t100 UP TO 200 ROWS.
+        WHERE sprsl = @lv_masterlang AND arbgb = @lv_arbgb
+        ORDER BY msgnr
+        INTO TABLE @lt_t100_raw. "#EC CI_SGLSELECT
+    ENDIF.
+
+    IF lt_t100_raw IS INITIAL.
+      SELECT msgnr, text
+        FROM t100
+        WHERE sprsl = 'E' AND arbgb = @lv_arbgb
+        ORDER BY msgnr
+        INTO TABLE @lt_t100_raw UP TO 200 ROWS. "#EC CI_SGLSELECT
+    ENDIF.
+
+    IF lt_t100_raw IS NOT INITIAL.
+      SELECT msgnr, selfdef, name, datum
+        FROM t100u
+        WHERE arbgb = @lv_arbgb
+        INTO TABLE @DATA(lt_t100u_raw). "#EC CI_SGLSELECT
+
+      DATA lt_t100u_map TYPE HASHED TABLE OF t100u WITH UNIQUE KEY msgnr.
+      lt_t100u_map = lt_t100u_raw.
+
+      LOOP AT lt_t100_raw INTO DATA(ls_raw).
+        DATA ls_msg TYPE ty_t100_msg.
+        ls_msg-msgnr = ls_raw-msgnr.
+        ls_msg-text  = ls_raw-text.
+        READ TABLE lt_t100u_map INTO DATA(ls_u) WITH TABLE KEY msgnr = ls_raw-msgnr.
+        IF sy-subrc = 0.
+          ls_msg-selfdef = ls_u-selfdef.
+          ls_msg-name    = ls_u-name.
+          ls_msg-datum   = ls_u-datum.
+        ENDIF.
+        APPEND ls_msg TO lt_t100.
+      ENDLOOP.
     ENDIF.
 
     IF lv_masterlang IS INITIAL AND lt_t100 IS INITIAL.
@@ -1140,9 +1207,16 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read_devc.
+    TYPES:
+      BEGIN OF ty_sub_pkg,
+        devclass TYPE tdevc-devclass,
+        ctext    TYPE tdevct-ctext,
+      END OF ty_sub_pkg.
+
     DATA lv_devclass TYPE tdevc-devclass.
     DATA ls_tdevc    TYPE tdevc.
     DATA lv_ctext    TYPE tdevct-ctext.
+    DATA lt_sub      TYPE STANDARD TABLE OF ty_sub_pkg WITH DEFAULT KEY.
 
     CLEAR: et_lines, ev_ok.
     lv_devclass = iv_name.
@@ -1156,21 +1230,36 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
 
     SELECT SINGLE ctext FROM tdevct
-      WHERE devclass = @lv_devclass AND spras = @sy-langu
+      WHERE spras = @sy-langu AND devclass = @lv_devclass
       INTO @lv_ctext.
 
     IF lv_ctext IS INITIAL.
       SELECT SINGLE ctext FROM tdevct
-        WHERE devclass = @lv_devclass
+        WHERE spras = 'E' AND devclass = @lv_devclass
         INTO @lv_ctext.
     ENDIF.
 
-    SELECT p~devclass, t~ctext
-      FROM tdevc AS p
-      LEFT OUTER JOIN tdevct AS t ON t~devclass = p~devclass AND t~spras = @sy-langu
-      WHERE p~parentcl = @lv_devclass
-      ORDER BY p~devclass
-      INTO TABLE @DATA(lt_sub).
+    SELECT devclass
+      FROM tdevc
+      WHERE parentcl = @lv_devclass
+      ORDER BY devclass
+      INTO TABLE @DATA(lt_sub_devc). "#EC CI_SGLSELECT
+
+    IF lt_sub_devc IS NOT INITIAL.
+      LOOP AT lt_sub_devc INTO DATA(ls_sub_devc).
+        DATA ls_sub_row TYPE ty_sub_pkg.
+        ls_sub_row-devclass = ls_sub_devc-devclass.
+        SELECT SINGLE ctext FROM tdevct
+          WHERE spras = @sy-langu AND devclass = @ls_sub_devc-devclass
+          INTO @ls_sub_row-ctext.
+        IF ls_sub_row-ctext IS INITIAL.
+          SELECT SINGLE ctext FROM tdevct
+            WHERE spras = 'E' AND devclass = @ls_sub_devc-devclass
+            INTO @ls_sub_row-ctext.
+        ENDIF.
+        APPEND ls_sub_row TO lt_sub.
+      ENDLOOP.
+    ENDIF.
 
     DATA lv_type TYPE string.
     IF ls_tdevc-pdevclass IS NOT INITIAL.
@@ -1293,6 +1382,51 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     rs_source-text       = zcl_scort_hash_utl=>lines_to_text( lt_lines ).
     rs_source-hash       = zcl_scort_hash_utl=>calculate_checksum( rs_source-text ).
     rs_source-message    = |OK { rs_source-line_count } lines|.
+  ENDMETHOD.
+
+  METHOD read_table_data.
+    DATA lr_table TYPE REF TO data.
+    DATA lv_tab   TYPE tabname.
+    DATA ls_dd02v TYPE dd02v.
+    FIELD-SYMBOLS <lt_data> TYPE STANDARD TABLE.
+
+    CLEAR: ev_json, ev_row_count, ev_ok.
+    lv_tab = to_upper( CONV string( iv_tabname ) ).
+    CONDENSE lv_tab.
+
+    CALL FUNCTION 'DDIF_TABL_GET'
+      EXPORTING
+        name     = lv_tab
+      IMPORTING
+        dd02v_wa = ls_dd02v
+      EXCEPTIONS
+        OTHERS   = 1.
+
+    IF sy-subrc <> 0 OR ls_dd02v-tabname IS INITIAL OR ls_dd02v-tabclass = 'INTTAB'.
+      RETURN.
+    ENDIF.
+
+    TRY.
+        CREATE DATA lr_table TYPE STANDARD TABLE OF (lv_tab) WITH DEFAULT KEY.
+        ASSIGN lr_table->* TO <lt_data>.
+
+        IF iv_max_rows > 0.
+          SELECT * FROM (lv_tab)
+            UP TO @iv_max_rows ROWS
+            INTO TABLE @<lt_data>.
+        ELSE.
+          SELECT * FROM (lv_tab)
+            INTO TABLE @<lt_data>.
+        ENDIF.
+
+        ev_row_count = lines( <lt_data> ).
+        ev_json = /ui2/cl_json=>serialize(
+                    data        = <lt_data>
+                    pretty_name = /ui2/cl_json=>pretty_mode-none ).
+        ev_ok = abap_true.
+      CATCH cx_root.
+        CLEAR: ev_json, ev_row_count, ev_ok.
+    ENDTRY.
   ENDMETHOD.
 
 ENDCLASS.

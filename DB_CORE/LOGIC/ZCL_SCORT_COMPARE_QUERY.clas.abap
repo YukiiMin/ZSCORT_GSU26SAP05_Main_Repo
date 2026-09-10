@@ -10,6 +10,7 @@ CLASS zcl_scort_compare_query DEFINITION
       c_mode_l_vs_t        TYPE c LENGTH 20 VALUE 'L_VS_T',
       c_mode_ver_vs_ver    TYPE c LENGTH 20 VALUE 'VER_VS_VER',
       c_mode_active_vs_ver TYPE c LENGTH 20 VALUE 'ACTIVE_VS_VER',
+      c_mode_table_data    TYPE c LENGTH 20 VALUE 'TABLE_DATA',
       c_server_tgt         TYPE c LENGTH 10 VALUE 'TGT'.
 
     TYPES:
@@ -93,6 +94,15 @@ CLASS zcl_scort_compare_query DEFINITION
         iv_version_no  TYPE versno OPTIONAL
       CHANGING
         cs_detail      TYPE ty_detail.
+
+    CLASS-METHODS compare_table_data
+      IMPORTING
+        iv_object_type   TYPE trobjtype
+        iv_object_name   TYPE sobj_name
+        iv_version_no    TYPE versno OPTIONAL
+        iv_version_right TYPE versno OPTIONAL
+      CHANGING
+        cs_detail        TYPE ty_detail.
 
 ENDCLASS.
 
@@ -317,6 +327,18 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    IF lv_mode = c_mode_table_data OR lv_mode = 'TABLE_DATA' OR ( iv_object_type = 'TABL' AND ( lv_mode = 'TABLE' OR lv_mode = 'DATA' ) ).
+      compare_table_data(
+        EXPORTING
+          iv_object_type   = iv_object_type
+          iv_object_name   = iv_object_name
+          iv_version_no    = iv_version_no
+          iv_version_right = iv_version_right
+        CHANGING
+          cs_detail        = rs_detail ).
+      RETURN.
+    ENDIF.
+
     IF lv_mode = c_mode_ver_vs_ver OR lv_mode = c_mode_active_vs_ver.
       compare_versions(
         EXPORTING
@@ -481,6 +503,320 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
                                 is_t100_key = zcm_scort=>hashes_different
                                 iv_attr1    = CONV #( iv_object_type )
                                 iv_attr2    = CONV #( iv_object_name ) ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD compare_table_data.
+    TYPES: BEGIN OF ty_col_info,
+             name   TYPE string,
+             is_key TYPE abap_bool,
+             type   TYPE string,
+             text   TYPE string,
+           END OF ty_col_info,
+           tt_cols TYPE STANDARD TABLE OF ty_col_info WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_summary,
+             total_left  TYPE i,
+             total_right TYPE i,
+             total_diff  TYPE i,
+             inserted    TYPE i,
+             updated     TYPE i,
+             deleted     TYPE i,
+             is_capped   TYPE abap_bool,
+           END OF ty_summary.
+
+    TYPES: BEGIN OF ty_diff_row,
+             diff_type      TYPE string,
+             key_value      TYPE string,
+             changed_fields TYPE STANDARD TABLE OF string WITH DEFAULT KEY,
+             left_row_json  TYPE string,
+             right_row_json TYPE string,
+           END OF ty_diff_row,
+           tt_diff_rows TYPE STANDARD TABLE OF ty_diff_row WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_diff_result,
+             table_name TYPE string,
+             summary    TYPE ty_summary,
+             columns    TYPE tt_cols,
+             diff_rows  TYPE tt_diff_rows,
+           END OF ty_diff_result.
+
+    DATA: ls_dd02v        TYPE dd02v,
+          lt_dd03p        TYPE STANDARD TABLE OF dd03p WITH DEFAULT KEY,
+          lv_tab          TYPE tabname,
+          lt_cols         TYPE tt_cols,
+          lt_key_fields   TYPE STANDARD TABLE OF fieldname WITH DEFAULT KEY,
+          lt_all_fields   TYPE STANDARD TABLE OF fieldname WITH DEFAULT KEY,
+          lr_left_tab     TYPE REF TO data,
+          lr_right_tab    TYPE REF TO data,
+          lv_left_json    TYPE string,
+          lv_right_json   TYPE string,
+          lv_keystr       TYPE string,
+          ls_res          TYPE ty_diff_result,
+          lv_left_vers    TYPE versno,
+          lv_right_vers   TYPE versno.
+
+    FIELD-SYMBOLS: <lt_left>  TYPE STANDARD TABLE,
+                   <lt_right> TYPE STANDARD TABLE.
+
+    cs_detail-compare_mode = c_mode_table_data.
+    lv_tab = to_upper( CONV string( iv_object_name ) ).
+    CONDENSE lv_tab.
+    ls_res-table_name = lv_tab.
+
+    CALL FUNCTION 'DDIF_TABL_GET'
+      EXPORTING
+        name      = lv_tab
+        langu     = sy-langu
+      IMPORTING
+        dd02v_wa  = ls_dd02v
+      TABLES
+        dd03p_tab = lt_dd03p
+      EXCEPTIONS
+        OTHERS    = 1.
+
+    IF sy-subrc <> 0 OR ls_dd02v-tabname IS INITIAL.
+      cs_detail-status_code = 'NOT_FOUND'.
+      cs_detail-message     = |Table { lv_tab } not found in DDIC|.
+      RETURN.
+    ENDIF.
+
+    IF ls_dd02v-tabclass = 'INTTAB'.
+      cs_detail-status_code = 'NOT_SUPPORTED'.
+      cs_detail-message     = |{ lv_tab } is a structure (INTTAB) - no table data available|.
+      RETURN.
+    ENDIF.
+
+    LOOP AT lt_dd03p INTO DATA(ls_p) WHERE fieldname IS NOT INITIAL.
+      IF ls_p-fieldname(1) = '.'.
+        CONTINUE.
+      ENDIF.
+      DATA(ls_col) = VALUE ty_col_info(
+        name   = ls_p-fieldname
+        is_key = boolc( ls_p-keyflag = 'X' )
+        type   = ls_p-datatype
+        text   = ls_p-ddtext
+      ).
+      APPEND ls_col TO lt_cols.
+      APPEND ls_p-fieldname TO lt_all_fields.
+      IF ls_p-keyflag = 'X'.
+        APPEND ls_p-fieldname TO lt_key_fields.
+      ENDIF.
+    ENDLOOP.
+    ls_res-columns = lt_cols.
+
+    IF lt_key_fields IS INITIAL.
+      lt_key_fields = lt_all_fields.
+    ENDIF.
+
+    TRY.
+        CREATE DATA lr_left_tab TYPE STANDARD TABLE OF (lv_tab) WITH DEFAULT KEY.
+        ASSIGN lr_left_tab->* TO <lt_left>.
+
+        CREATE DATA lr_right_tab TYPE STANDARD TABLE OF (lv_tab) WITH DEFAULT KEY.
+        ASSIGN lr_right_tab->* TO <lt_right>.
+      CATCH cx_root INTO DATA(lx_alloc).
+        cs_detail-status_code = 'ERROR'.
+        cs_detail-message     = lx_alloc->get_text( ).
+        RETURN.
+    ENDTRY.
+
+    lv_left_vers = to_versno( iv_version_no ).
+    IF lv_left_vers IS INITIAL OR lv_left_vers = zcl_scort_v_reader=>c_vers_active.
+      TRY.
+          SELECT * FROM (lv_tab) UP TO 5000 ROWS INTO TABLE @<lt_left>.
+        CATCH cx_root.
+          CLEAR <lt_left>.
+      ENDTRY.
+    ELSE.
+      DATA(ls_src_l) = zcl_scort_t_reader=>read_version(
+                         iv_object_type = 'TABL'
+                         iv_object_name = iv_object_name
+                         iv_version_no  = lv_left_vers ).
+      IF ls_src_l-text CS '===SCORT_TABLE_DATA_START==='.
+        SPLIT ls_src_l-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_l) lv_left_json.
+        lv_left_json = condense( lv_left_json ).
+        TRY.
+            /ui2/cl_json=>deserialize(
+              EXPORTING
+                json        = lv_left_json
+                pretty_name = /ui2/cl_json=>pretty_mode-none
+              CHANGING
+                data        = <lt_left> ).
+          CATCH cx_root.
+            CLEAR <lt_left>.
+        ENDTRY.
+      ENDIF.
+    ENDIF.
+
+    lv_right_vers = to_versno( iv_version_right ).
+    IF lv_right_vers = zcl_scort_v_reader=>c_vers_active.
+      TRY.
+          SELECT * FROM (lv_tab) UP TO 5000 ROWS INTO TABLE @<lt_right>.
+        CATCH cx_root.
+          CLEAR <lt_right>.
+      ENDTRY.
+    ELSEIF lv_right_vers IS NOT INITIAL.
+      DATA(ls_src_r) = zcl_scort_t_reader=>read_version(
+                         iv_object_type = 'TABL'
+                         iv_object_name = iv_object_name
+                         iv_version_no  = lv_right_vers ).
+      IF ls_src_r-text CS '===SCORT_TABLE_DATA_START==='.
+        SPLIT ls_src_r-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_r) lv_right_json.
+        lv_right_json = condense( lv_right_json ).
+        TRY.
+            /ui2/cl_json=>deserialize(
+              EXPORTING
+                json        = lv_right_json
+                pretty_name = /ui2/cl_json=>pretty_mode-none
+              CHANGING
+                data        = <lt_right> ).
+          CATCH cx_root.
+            CLEAR <lt_right>.
+        ENDTRY.
+      ENDIF.
+    ELSE.
+      DATA(ls_src_cur) = zcl_scort_t_reader=>read_current(
+                           iv_object_type = 'TABL'
+                           iv_object_name = iv_object_name ).
+      IF ls_src_cur-text CS '===SCORT_TABLE_DATA_START==='.
+        SPLIT ls_src_cur-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_c) lv_right_json.
+        lv_right_json = condense( lv_right_json ).
+        TRY.
+            /ui2/cl_json=>deserialize(
+              EXPORTING
+                json        = lv_right_json
+                pretty_name = /ui2/cl_json=>pretty_mode-none
+              CHANGING
+                data        = <lt_right> ).
+          CATCH cx_root.
+            CLEAR <lt_right>.
+        ENDTRY.
+      ENDIF.
+    ENDIF.
+
+    ls_res-summary-total_left  = lines( <lt_left> ).
+    ls_res-summary-total_right = lines( <lt_right> ).
+
+    TYPES: BEGIN OF ty_idx,
+             key_str TYPE string,
+             idx     TYPE i,
+           END OF ty_idx.
+    DATA lt_l_idx TYPE STANDARD TABLE OF ty_idx WITH DEFAULT KEY.
+    DATA lt_r_idx TYPE STANDARD TABLE OF ty_idx WITH DEFAULT KEY.
+
+    DATA lv_row_idx TYPE i.
+    lv_row_idx = 0.
+    LOOP AT <lt_left> ASSIGNING FIELD-SYMBOL(<ls_l_row>).
+      lv_row_idx = lv_row_idx + 1.
+      CLEAR lv_keystr.
+      LOOP AT lt_key_fields INTO DATA(lv_kf1).
+        ASSIGN COMPONENT lv_kf1 OF STRUCTURE <ls_l_row> TO FIELD-SYMBOL(<lv_k_l>).
+        IF sy-subrc = 0.
+          lv_keystr = |{ lv_keystr }{ <lv_k_l> }\||.
+        ENDIF.
+      ENDLOOP.
+      APPEND VALUE ty_idx( key_str = lv_keystr idx = lv_row_idx ) TO lt_l_idx.
+    ENDLOOP.
+    SORT lt_l_idx BY key_str.
+
+    lv_row_idx = 0.
+    LOOP AT <lt_right> ASSIGNING FIELD-SYMBOL(<ls_r_row>).
+      lv_row_idx = lv_row_idx + 1.
+      CLEAR lv_keystr.
+      LOOP AT lt_key_fields INTO DATA(lv_kf2).
+        ASSIGN COMPONENT lv_kf2 OF STRUCTURE <ls_r_row> TO FIELD-SYMBOL(<lv_k_r>).
+        IF sy-subrc = 0.
+          lv_keystr = |{ lv_keystr }{ <lv_k_r> }\||.
+        ENDIF.
+      ENDLOOP.
+      APPEND VALUE ty_idx( key_str = lv_keystr idx = lv_row_idx ) TO lt_r_idx.
+    ENDLOOP.
+    SORT lt_r_idx BY key_str.
+
+    LOOP AT lt_l_idx INTO DATA(ls_li).
+      READ TABLE <lt_left> INDEX ls_li-idx ASSIGNING FIELD-SYMBOL(<ls_l_diff>).
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+
+      READ TABLE lt_r_idx WITH KEY key_str = ls_li-key_str BINARY SEARCH INTO DATA(ls_ri).
+      IF sy-subrc <> 0.
+        ls_res-summary-deleted = ls_res-summary-deleted + 1.
+        IF lines( ls_res-diff_rows ) < 200.
+          DATA(ls_diff_del) = VALUE ty_diff_row(
+            diff_type     = 'DELETE'
+            key_value     = ls_li-key_str
+            left_row_json = /ui2/cl_json=>serialize( data = <ls_l_diff> pretty_name = /ui2/cl_json=>pretty_mode-none )
+          ).
+          APPEND ls_diff_del TO ls_res-diff_rows.
+        ENDIF.
+      ELSE.
+        READ TABLE <lt_right> INDEX ls_ri-idx ASSIGNING FIELD-SYMBOL(<ls_r_diff>).
+        IF sy-subrc = 0.
+          DATA lt_diff_flds TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+          CLEAR lt_diff_flds.
+          LOOP AT lt_all_fields INTO DATA(lv_fld).
+            ASSIGN COMPONENT lv_fld OF STRUCTURE <ls_l_diff> TO FIELD-SYMBOL(<lv_diff_val_l>).
+            ASSIGN COMPONENT lv_fld OF STRUCTURE <ls_r_diff> TO FIELD-SYMBOL(<lv_diff_val_r>).
+            IF sy-subrc = 0 AND <lv_diff_val_l> <> <lv_diff_val_r>.
+              APPEND CONV string( lv_fld ) TO lt_diff_flds.
+            ENDIF.
+          ENDLOOP.
+
+          IF lt_diff_flds IS NOT INITIAL.
+            ls_res-summary-updated = ls_res-summary-updated + 1.
+            IF lines( ls_res-diff_rows ) < 200.
+              DATA(ls_diff_upd) = VALUE ty_diff_row(
+                diff_type      = 'UPDATE'
+                key_value      = ls_li-key_str
+                changed_fields = lt_diff_flds
+                left_row_json  = /ui2/cl_json=>serialize( data = <ls_l_diff> pretty_name = /ui2/cl_json=>pretty_mode-none )
+                right_row_json = /ui2/cl_json=>serialize( data = <ls_r_diff> pretty_name = /ui2/cl_json=>pretty_mode-none )
+              ).
+              APPEND ls_diff_upd TO ls_res-diff_rows.
+            ENDIF.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+
+    LOOP AT lt_r_idx INTO DATA(ls_rj).
+      READ TABLE lt_l_idx WITH KEY key_str = ls_rj-key_str BINARY SEARCH TRANSPORTING NO FIELDS.
+      IF sy-subrc <> 0.
+        ls_res-summary-inserted = ls_res-summary-inserted + 1.
+        IF lines( ls_res-diff_rows ) < 200.
+          READ TABLE <lt_right> INDEX ls_rj-idx ASSIGNING FIELD-SYMBOL(<ls_r_ins>).
+          IF sy-subrc = 0.
+            DATA(ls_diff_ins) = VALUE ty_diff_row(
+              diff_type      = 'INSERT'
+              key_value      = ls_rj-key_str
+              right_row_json = /ui2/cl_json=>serialize( data = <ls_r_ins> pretty_name = /ui2/cl_json=>pretty_mode-none )
+            ).
+            APPEND ls_diff_ins TO ls_res-diff_rows.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+
+    ls_res-summary-total_diff = ls_res-summary-inserted + ls_res-summary-updated + ls_res-summary-deleted.
+    IF ls_res-summary-total_diff > 200.
+      ls_res-summary-is_capped = abap_true.
+    ENDIF.
+
+    cs_detail-source_code = /ui2/cl_json=>serialize(
+                              data        = ls_res
+                              pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+    cs_detail-target_code = cs_detail-source_code.
+    cs_detail-source_lines = ls_res-summary-total_left.
+    cs_detail-target_lines = ls_res-summary-total_right.
+
+    IF ls_res-summary-total_diff = 0.
+      cs_detail-status_code = 'MATCH'.
+      cs_detail-message     = |Data Match: { ls_res-summary-total_left } rows identical|.
+    ELSE.
+      cs_detail-status_code = 'DIFF'.
+      cs_detail-message     = |Data Diff: { ls_res-summary-total_diff } diffs (Ins: { ls_res-summary-inserted }, Upd: { ls_res-summary-updated }, Del: { ls_res-summary-deleted })|.
     ENDIF.
   ENDMETHOD.
 

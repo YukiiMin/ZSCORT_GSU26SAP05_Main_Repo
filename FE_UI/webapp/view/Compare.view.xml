@@ -147,7 +147,99 @@
             </VBox>
           </IconTabFilter>
 
-          <!-- TAB 2: Version Management (ADT Style) -->
+          <!-- TAB 2: Table Data Compare (Exclusively for TABL) -->
+          <IconTabFilter
+            id="idTabTableDataDiff"
+            key="tableDataDiff"
+            text="Table Data Compare"
+            icon="sap-icon://table-view"
+            visible="{= ${detail>/ObjectType} === 'TABL' }">
+            <VBox height="100%" width="100%" class="sapUiNoContentPadding" fitContainer="true">
+              <!-- Diff Header Toolbar -->
+              <OverflowToolbar id="idTableDataDiffToolbar">
+                <ObjectStatus text="{= ${detail>/tableDiffLeftLabel} || ${i18n>statusLocalActive} }" state="Indication05" class="sapUiTinyMarginEnd" />
+                <Title text="{i18n>lblVs}" />
+                <ObjectStatus text="{= ${detail>/tableDiffRightLabel} || ${i18n>statusTargetSnapshot} }" state="Indication04" class="sapUiTinyMarginBegin" />
+                <ToolbarSeparator />
+                <ObjectStatus id="idTableDiffSummaryStatus" text="{detail>/tableDiffSummaryText}" state="{detail>/tableDiffSummaryState}" />
+                <ToolbarSpacer />
+                <SegmentedButton
+                  id="sbTableDiffFilter"
+                  selectedKey="{= ${detail>/tableDiffFilterKey} || 'ALL' }"
+                  selectionChange=".onTableDiffFilterChange">
+                  <items>
+                    <SegmentedButtonItem key="ALL" text="All ({detail>/tableDiffTotalCount})" />
+                    <SegmentedButtonItem key="UPDATE" text="Modified ({detail>/tableDiffUpdateCount})" icon="sap-icon://edit" />
+                    <SegmentedButtonItem key="INSERT" text="Inserted ({detail>/tableDiffInsertCount})" icon="sap-icon://add" />
+                    <SegmentedButtonItem key="DELETE" text="Deleted ({detail>/tableDiffDeleteCount})" icon="sap-icon://delete" />
+                  </items>
+                </SegmentedButton>
+                <ToolbarSeparator />
+                <Button icon="sap-icon://refresh" text="Reload Data" press=".onReloadTableDataDiff" type="Transparent" />
+              </OverflowToolbar>
+
+              <!-- Identical State Banner -->
+              <VBox visible="{detail>/tableDataIsIdentical}" class="sapUiMediumMargin" alignItems="Center" justifyContent="Center" height="100%">
+                <IllustratedMessage
+                  illustrationType="sapIllus-SuccessScreen"
+                  title="Table Data Completely Identical"
+                  description="All {detail>/tableLeftRowCount} records in table {detail>/ObjectName} match perfectly between {detail>/tableDiffLeftLabel} and {detail>/tableDiffRightLabel}." />
+              </VBox>
+
+              <!-- Capped Alert Strip if > 200 diffs -->
+              <MessageStrip
+                visible="{detail>/tableDiffIsCapped}"
+                text="Notice: Total diff count exceeds 200 rows. Showing top 200 different rows to preserve memory."
+                type="Warning"
+                showIcon="true"
+                class="sapUiTinyMargin" />
+
+              <!-- Side-by-Side Diff Table Grid -->
+              <layout:Splitter height="100%" width="100%" visible="{= !${detail>/tableDataIsIdentical} }">
+                <!-- Left Grid -->
+                <VBox height="100%" width="100%" class="sapUiNoContentPadding" fitContainer="true">
+                  <layoutData>
+                    <layout:SplitterLayoutData size="50%" minSize="300" />
+                  </layoutData>
+                  <Toolbar>
+                    <Title text="{detail>/tableDiffLeftLabel}" level="H5" />
+                    <ToolbarSpacer />
+                    <ObjectStatus text="{detail>/tableLeftRowCountText}" state="Information" />
+                  </Toolbar>
+                  <ScrollContainer height="100%" width="100%" horizontal="true" vertical="true">
+                    <table:Table
+                      id="idTableDataLeft"
+                      selectionMode="None"
+                      visibleRowCountMode="Auto"
+                      minAutoRowCount="12"
+                      class="sapUiSizeCompact" />
+                  </ScrollContainer>
+                </VBox>
+
+                <!-- Right Grid -->
+                <VBox height="100%" width="100%" class="sapUiNoContentPadding" fitContainer="true">
+                  <layoutData>
+                    <layout:SplitterLayoutData size="50%" minSize="300" />
+                  </layoutData>
+                  <Toolbar>
+                    <Title text="{detail>/tableDiffRightLabel}" level="H5" />
+                    <ToolbarSpacer />
+                    <ObjectStatus text="{detail>/tableRightRowCountText}" state="Information" />
+                  </Toolbar>
+                  <ScrollContainer height="100%" width="100%" horizontal="true" vertical="true">
+                    <table:Table
+                      id="idTableDataRight"
+                      selectionMode="None"
+                      visibleRowCountMode="Auto"
+                      minAutoRowCount="12"
+                      class="sapUiSizeCompact" />
+                  </ScrollContainer>
+                </VBox>
+              </layout:Splitter>
+            </VBox>
+          </IconTabFilter>
+
+          <!-- TAB 3: Version Management (ADT Style) -->
           <IconTabFilter key="versionMgmt" text="{i18n>tabVersionHistory}" icon="sap-icon://history">
             <layout:Splitter orientation="Vertical" width="100%" height="100%">
               <!-- Top Pane: Version Table -->

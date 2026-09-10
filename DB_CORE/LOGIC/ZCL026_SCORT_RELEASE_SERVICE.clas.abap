@@ -52,18 +52,11 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
         no_authorization           = 3
         invalid_request            = 4
         request_already_released   = 5
-        repeat_unable              = 6
-        object_check_error         = 7
-        object_conversion_error    = 8
-        model_check_error          = 9
-        released_with_warning      = 10
-        released_with_error        = 11
-        information_to_display     = 12
-        cancelled                  = 13
-        OTHERS                     = 14.
+        object_check_error         = 6
+        OTHERS                     = 7.
 
     DATA(lv_fm_subrc) = sy-subrc.
-    IF lv_fm_subrc = 0 OR lv_fm_subrc = 10.
+    IF lv_fm_subrc = 0.
       SELECT SINGLE trstatus FROM e070 WHERE trkorr = @iv_trkorr INTO @ev_status.
       IF ev_status = 'R'.
         ev_success = abap_true.
@@ -102,14 +95,8 @@ CLASS zcl026_scort_release_service IMPLEMENTATION.
         WHEN 3.  lv_reason = 'No authorization'.
         WHEN 4.  lv_reason = 'Invalid request'.
         WHEN 5.  lv_reason = 'Already released'.
-        WHEN 6.  lv_reason = 'Cannot repeat yet'.
-        WHEN 7.  lv_reason = 'Object check error'.
-        WHEN 8.  lv_reason = 'Object conversion error'.
-        WHEN 9.  lv_reason = 'Model check error'.
-        WHEN 11. lv_reason = 'Released with error'.
-        WHEN 12. lv_reason = 'Information to display'.
-        WHEN 13. lv_reason = 'Cancelled'.
-        WHEN OTHERS. lv_reason = |Subrc { lv_fm_subrc }|.
+        WHEN 6.  lv_reason = 'Object check error'.
+        WHEN OTHERS. lv_reason = |Release error (code { lv_fm_subrc })|.
       ENDCASE.
       ev_message = zcm_scort=>get_text_by_key(
                      is_t100_key = zcm_scort=>release_failed

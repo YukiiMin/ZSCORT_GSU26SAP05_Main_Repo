@@ -39,3 +39,24 @@ When implementing Query Provider classes (`IF_RAP_QUERY_PROVIDER`) for Custom En
    DATA(lv_sub) = lv_str+(strlen( lv_str ) - 14)(14).
    ```
 2. **Types vs Data:** Internal table structure templates must be declared using `TYPES: BEGIN OF ty_...`, NOT `DATA: BEGIN OF ty_...`.
+
+## 6. Table Data Compare Engine & Storage Invariants
+1. **Zero DDIC Schema Extension for Snapshots:**
+   - Do NOT create new database tables for metadata or table contents.
+   - Append table row JSON snapshot directly to `za05_scort_t_src-source_hex` after delimiter `===SCORT_TABLE_DATA_START===`.
+   - In RAP Projection (`ZCL_SCORT_R_SRC`), automatically isolate DDL source into `SourceCodeText` (for Monaco Diff Editor) and JSON data into `MetadataText` (for Table Data Grid view).
+2. **Diff-First Algorithm over Primary Key:**
+   - Retrieve Primary Key metadata dynamically via `DDIF_TABL_GET`.
+   - Compare records strictly by Primary Key coordinates; never compare full row strings directly.
+   - Classify deviations into `INSERT`, `UPDATE`, `DELETE`; skip identical records; cap response payload at 200 diff lines with summary statistics (`total_diff`, `diff_insert`, `diff_update`, `diff_delete`).
+3. **Strict Table Type Invariants for Dynamic Index Operations:**
+   - Field-symbols declared as `TYPE ANY TABLE` or `HASHED TABLE` CANNOT be accessed with `READ TABLE ... INDEX ...`.
+   - Always type generic dynamic table field-symbols as `TYPE STANDARD TABLE` (or `TYPE INDEX TABLE`):
+     ```abap
+     FIELD-SYMBOLS <lt_table> TYPE STANDARD TABLE.
+     READ TABLE <lt_table> INDEX 1 ASSIGNING FIELD-SYMBOL(<ls_row>).
+     ```
+4. **Clean ABAP Variable Scoping:**
+   - Avoid obsolete method header declarations: `FIELD-SYMBOLS <fs> TYPE any.`.
+   - Use inline semantic declarations: `ASSIGN COMPONENT ... TO FIELD-SYMBOL(<lv_val>)`, `LOOP AT ... ASSIGNING FIELD-SYMBOL(<ls_row>)` to prevent `GETWA_NOT_ASSIGNED` runtime dumps.
+

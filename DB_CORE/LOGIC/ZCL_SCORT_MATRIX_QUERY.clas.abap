@@ -130,7 +130,7 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
             AND devclass  IN @lr_local_pkg
             AND author    IN @lr_local_author
             AND ( delflag IS NULL OR delflag = ' ' OR delflag = '' )
-          INTO TABLE @lt_local.
+          INTO TABLE @lt_local. "#EC CI_SGLSELECT
       ELSE.
         SELECT pgmid, object AS objecttype, obj_name AS objectname, devclass AS localpackage, author AS localauthor
           FROM tadir
@@ -139,7 +139,7 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
             AND obj_name  LIKE 'Z%'
             AND author    IN @lr_local_author
             AND ( delflag IS NULL OR delflag = ' ' OR delflag = '' )
-          INTO TABLE @lt_local.
+          INTO TABLE @lt_local. "#EC CI_SGLSELECT
       ENDIF.
     ENDIF.
 
@@ -166,7 +166,7 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
             AND t~devclass IN @lr_local_pkg
             AND t~author   IN @lr_local_author
             AND f~active   = 'X'
-          APPENDING CORRESPONDING FIELDS OF TABLE @lt_local.
+          APPENDING CORRESPONDING FIELDS OF TABLE @lt_local. "#EC CI_BUFFJOIN
       ELSE.
         SELECT 'LIMU'     AS pgmid,
                'FUNC'     AS objecttype,
@@ -180,7 +180,7 @@ CLASS zcl_scort_matrix_query IMPLEMENTATION.
           WHERE f~funcname LIKE 'Z%'
             AND t~author   IN @lr_local_author
             AND f~active   = 'X'
-          APPENDING CORRESPONDING FIELDS OF TABLE @lt_local.
+          APPENDING CORRESPONDING FIELDS OF TABLE @lt_local. "#EC CI_BUFFJOIN
       ENDIF.
     ENDIF.
 

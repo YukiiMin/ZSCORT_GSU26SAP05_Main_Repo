@@ -234,7 +234,10 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD collect_e071.
-    DATA lt_task TYPE STANDARD TABLE OF e070 WITH DEFAULT KEY.
+    TYPES: BEGIN OF ty_task,
+             trkorr TYPE e070-trkorr,
+           END OF ty_task.
+    DATA lt_task TYPE STANDARD TABLE OF ty_task WITH DEFAULT KEY.
     DATA lt_raw  TYPE tt_e071.
     DATA lt_one  TYPE tt_e071.
     DATA ls_out  TYPE e071.
@@ -248,7 +251,7 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
       INTO TABLE @lt_one.
     APPEND LINES OF lt_one TO lt_raw.
 
-    SELECT * FROM e070
+    SELECT trkorr FROM e070
       WHERE strkorr = @iv_trkorr
       INTO TABLE @lt_task.
 

@@ -222,6 +222,8 @@ sap.ui.define([
           if (that._oSourceDialog) {
             that._oSourceDialog.setModel(new JSONModel(oTtypData), "adtTtyp");
           }
+        } else if (sObjType === "TABL") {
+          that._renderViewSourceTableData(oData.MetadataText);
         }
 
         var oTabBar = Fragment.byId("idViewSourceDialog", "idViewSourceIconTabBar") ||
@@ -267,6 +269,9 @@ sap.ui.define([
       if (this._pendingSourceCode !== null && this._pendingSourceCode !== undefined) {
         this._renderCodeHost(this._pendingSourceCode, this._pendingObjType);
       }
+      if (this._pendingObjType === "TABL" && this._pendingTableDataJson) {
+        this._renderViewSourceTableData(this._pendingTableDataJson);
+      }
     },
 
     onDialogViewSourceTabSelect: function (oEvent) {
@@ -278,6 +283,81 @@ sap.ui.define([
             that._renderCodeHost(that._pendingSourceCode, that._pendingObjType);
           }
         }, 50);
+      } else if (sKey === "tableData") {
+        setTimeout(function () {
+          if (that._aViewSourceTableRows) {
+            that._renderViewSourceTableData(JSON.stringify(that._aViewSourceTableRows));
+          }
+        }, 50);
+      }
+    },
+
+    _renderViewSourceTableData: function (sJson) {
+      var aData = [];
+      this._pendingTableDataJson = sJson;
+      try {
+        if (sJson) {
+          aData = JSON.parse(sJson);
+        }
+      } catch (e) {
+        aData = [];
+      }
+      this._aViewSourceTableRows = aData;
+
+      var oTable = Fragment.byId("idViewSourceDialog", "idViewSourceDataTable") ||
+        (this._oSourceDialog && this._oSourceDialog.getContent && sap.ui.getCore().byId("idViewSourceDataTable"));
+
+      var oApp = this._app();
+      if (oApp) {
+        oApp.setProperty("/viewSourceTableCountText", aData.length ? aData.length + " rows retrieved" : "No data");
+      }
+
+      if (!oTable) { return; }
+
+      oTable.destroyColumns();
+      if (!aData || aData.length === 0) {
+        oTable.setModel(new JSONModel([]), "tblData");
+        oTable.bindRows("tblData>/");
+        return;
+      }
+
+      var oFirst = aData[0];
+      var aCols = Object.keys(oFirst);
+      aCols.forEach(function (sCol) {
+        var oColumn = new sap.ui.table.Column({
+          label: new sap.m.Label({ text: sCol }),
+          template: new sap.m.Text({ text: "{tblData>" + sCol + "}", wrapping: false }),
+          width: "9rem",
+          sortProperty: sCol,
+          filterProperty: sCol
+        });
+        oTable.addColumn(oColumn);
+      });
+
+      oTable.setModel(new JSONModel(aData), "tblData");
+      oTable.bindRows("tblData>/");
+    },
+
+    onViewSourceTableLiveSearch: function (oEvent) {
+      var sQuery = (oEvent.getParameter("newValue") || "").trim().toLowerCase();
+      var aRows = this._aViewSourceTableRows || [];
+      var aFiltered = aRows;
+      if (sQuery) {
+        aFiltered = aRows.filter(function (row) {
+          return Object.keys(row).some(function (k) {
+            return String(row[k] || "").toLowerCase().indexOf(sQuery) !== -1;
+          });
+        });
+      }
+      var oTable = Fragment.byId("idViewSourceDialog", "idViewSourceDataTable") ||
+        sap.ui.getCore().byId("idViewSourceDataTable");
+      if (oTable) {
+        oTable.setModel(new JSONModel(aFiltered), "tblData");
+        oTable.bindRows("tblData>/");
+      }
+      var oApp = this._app();
+      if (oApp) {
+        oApp.setProperty("/viewSourceTableCountText", aFiltered.length + " rows (of " + aRows.length + ")");
       }
     },
 

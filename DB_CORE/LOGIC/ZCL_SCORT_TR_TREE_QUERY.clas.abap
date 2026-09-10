@@ -308,10 +308,12 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         lv_obj_pattern = |%{ lv_obj_pattern }%|.
       ENDIF.
 
-      SELECT DISTINCT area FROM enlfdir
+      SELECT area FROM enlfdir
         WHERE funcname LIKE @lv_obj_pattern
         INTO TABLE @DATA(lt_enlfdir_areas)
-        UP TO 500 ROWS.
+        UP TO 500 ROWS. "#EC CI_SGLSELECT
+      SORT lt_enlfdir_areas BY area.
+      DELETE ADJACENT DUPLICATES FROM lt_enlfdir_areas COMPARING area.
       LOOP AT lt_enlfdir_areas INTO DATA(ls_ea).
         APPEND VALUE #( sign = 'I' option = 'EQ' low = CONV e071-obj_name( ls_ea-area ) ) TO lr_matching_fugrs.
       ENDLOOP.
@@ -406,12 +408,14 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
             SORT lt_f_chk BY area.
             DELETE ADJACENT DUPLICATES FROM lt_f_chk COMPARING area.
 
-            SELECT DISTINCT area FROM enlfdir
+            SELECT area FROM enlfdir
               FOR ALL ENTRIES IN @lt_f_chk
               WHERE area = @lt_f_chk-area
                 AND funcname LIKE @lv_obj_pattern
                 AND active = 'X'
-              INTO TABLE @DATA(lt_matched_fm_areas).
+              INTO TABLE @DATA(lt_matched_fm_areas). "#EC CI_SGLSELECT
+            SORT lt_matched_fm_areas BY area.
+            DELETE ADJACENT DUPLICATES FROM lt_matched_fm_areas COMPARING area.
 
             LOOP AT lt_scoped_fugrs INTO DATA(ls_sf2).
               READ TABLE lt_matched_fm_areas WITH KEY area = ls_sf2-obj_name TRANSPORTING NO FIELDS.
@@ -451,37 +455,46 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       ENDIF.
 
     ELSE.
-      " GLOBAL SEARCH (No TR / Owner specified): Query E071 globally
+      " GLOBAL SEARCH (No TR / Owner specified): Query E071 joined with E070
+      TYPES: BEGIN OF ty_m_e070,
+               trkorr  TYPE e070-trkorr,
+               strkorr TYPE e070-strkorr,
+             END OF ty_m_e070.
+      DATA lt_match_e070 TYPE STANDARD TABLE OF ty_m_e070 WITH DEFAULT KEY.
+
       IF lr_cts_types IS NOT INITIAL AND lr_matching_fugrs IS NOT INITIAL.
-        SELECT DISTINCT trkorr FROM e071
-          WHERE ( object IN @lr_cts_types AND obj_name LIKE @lv_obj_pattern )
-             OR ( object = 'FUGR' AND obj_name IN @lr_matching_fugrs )
-          INTO TABLE @lt_matching_trkorr
+        SELECT DISTINCT h~trkorr, h~strkorr
+          FROM e070 AS h
+          INNER JOIN e071 AS o ON o~trkorr = h~trkorr
+          WHERE ( o~object IN @lr_cts_types AND o~obj_name LIKE @lv_obj_pattern )
+             OR ( o~object = 'FUGR' AND o~obj_name IN @lr_matching_fugrs )
+          INTO TABLE @lt_match_e070
           UP TO 500 ROWS.
       ELSEIF lr_cts_types IS NOT INITIAL.
-        SELECT DISTINCT trkorr FROM e071
-          WHERE object IN @lr_cts_types AND obj_name LIKE @lv_obj_pattern
-          INTO TABLE @lt_matching_trkorr
+        SELECT DISTINCT h~trkorr, h~strkorr
+          FROM e070 AS h
+          INNER JOIN e071 AS o ON o~trkorr = h~trkorr
+          WHERE o~object IN @lr_cts_types AND o~obj_name LIKE @lv_obj_pattern
+          INTO TABLE @lt_match_e070
           UP TO 500 ROWS.
       ELSEIF lr_matching_fugrs IS NOT INITIAL.
-        SELECT DISTINCT trkorr FROM e071
-          WHERE obj_name LIKE @lv_obj_pattern
-             OR ( object = 'FUGR' AND obj_name IN @lr_matching_fugrs )
-          INTO TABLE @lt_matching_trkorr
+        SELECT DISTINCT h~trkorr, h~strkorr
+          FROM e070 AS h
+          INNER JOIN e071 AS o ON o~trkorr = h~trkorr
+          WHERE o~obj_name LIKE @lv_obj_pattern
+             OR ( o~object = 'FUGR' AND o~obj_name IN @lr_matching_fugrs )
+          INTO TABLE @lt_match_e070
           UP TO 500 ROWS.
       ELSE.
-        SELECT DISTINCT trkorr FROM e071
-          WHERE obj_name LIKE @lv_obj_pattern
-          INTO TABLE @lt_matching_trkorr
+        SELECT DISTINCT h~trkorr, h~strkorr
+          FROM e070 AS h
+          INNER JOIN e071 AS o ON o~trkorr = h~trkorr
+          WHERE o~obj_name LIKE @lv_obj_pattern
+          INTO TABLE @lt_match_e070
           UP TO 500 ROWS.
       ENDIF.
 
-      IF lt_matching_trkorr IS INITIAL. RETURN. ENDIF.
-
-      SELECT trkorr, strkorr FROM e070
-        FOR ALL ENTRIES IN @lt_matching_trkorr
-        WHERE trkorr = @lt_matching_trkorr-trkorr
-        INTO TABLE @DATA(lt_match_e070).
+      IF lt_match_e070 IS INITIAL. RETURN. ENDIF.
       LOOP AT lt_match_e070 INTO DATA(ls_m).
         IF ls_m-strkorr IS NOT INITIAL.
           APPEND VALUE #( trkorr = ls_m-strkorr ) TO lt_target_parents.
@@ -601,7 +614,7 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           FOR ALL ENTRIES IN @lt_fugr_areas
           WHERE area = @lt_fugr_areas-area
             AND active = 'X'
-          INTO TABLE @lt_fms_in_fugrs.
+          INTO TABLE @lt_fms_in_fugrs. "#EC CI_SGLSELECT
       ENDIF.
 
       LOOP AT lt_e071_raw INTO DATA(ls_raw).

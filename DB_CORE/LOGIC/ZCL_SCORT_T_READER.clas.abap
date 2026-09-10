@@ -1,7 +1,3 @@
-*"*---------------------------------------------------------------------*
-*"* Class: ZCL_SCORT_T_READER
-*"* Target Repository Source Reader (ZA05_SCORT_T & ZA05_SCORT_T_SRC)
-*"*---------------------------------------------------------------------*
 CLASS zcl_scort_t_reader DEFINITION
   PUBLIC
   FINAL
@@ -90,7 +86,6 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       INTO @lv_vers.
 
     IF sy-subrc <> 0.
-      " Object does NOT exist in Target Repository header table (za05_scort_t)
       rs_source-found         = abap_false.
       rs_source-is_new_target = abap_true.
       rs_source-message       = zcm_scort=>get_text_by_key(
@@ -101,7 +96,6 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Header exists in za05_scort_t but current_version is initial/00000 -> fallback to max version in T_SRC
     IF lv_vers IS INITIAL OR lv_vers = '00000'.
       SELECT MAX( version_no ) FROM za05_scort_t_src
         WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
@@ -193,7 +187,6 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Decompress source from binary HEX
     lv_text = zcl_scort_compression_utl=>decode_hex_to_text( lv_hex ).
     IF lv_text IS INITIAL.
       TRY.
@@ -209,7 +202,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       rs_source-decompress_ok = abap_false.
       rs_source-hash_stored   = lv_hash.
       rs_source-is_new_target = abap_false.
-      rs_source-message       = |Decompress failed (vers { lv_vers })|.
+      rs_source-message       = |Decompress failed (vers { lv_vers }) — kiểm tra SOURCE_HEX từ Apply|.
       RETURN.
     ENDIF.
 

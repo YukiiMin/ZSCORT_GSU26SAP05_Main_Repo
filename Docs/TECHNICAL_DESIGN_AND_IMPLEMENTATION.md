@@ -224,6 +224,40 @@ sequenceDiagram
 
 ---
 
+### 3.3.1. Luồng 3.1: Đối Soát Dữ Liệu Bảng (Table Data Diff-First Engine)
+
+Áp dụng chuyên biệt cho đối tượng bảng cơ sở dữ liệu (`TABL`):
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Developer
+    participant FE as Compare.controller.js
+    participant OData as ZSD_SCORT_COMPARE
+    participant CmpQP as ZCL_SCORT_COMPARE_QUERY
+    participant DB as SAP Database (Live & za05_scort_t_src)
+
+    User->>FE: Chuyển sang Tab [Table Data Compare]
+    FE->>OData: GET Compare(ObjectType='TABL', ObjectName='ZA05_SCORT_T', CompareMode='TABLE_DATA', ...)
+    OData->>CmpQP: select() -> Điều hướng compare_table_data()
+    CmpQP->>DB: Đọc cấu trúc DDIC (DDIF_TABL_GET) lấy Primary Keys & Fields
+    alt Nguồn Left = Local Active (hoặc Version N)
+        CmpQP->>DB: SELECT * FROM (tabname) UP TO 5000 ROWS
+    end
+    alt Nguồn Right = Target Snapshot (hoặc Version M)
+        CmpQP->>DB: Đọc za05_scort_t_src-source_hex, decompress, bóc tách JSON sau delimiter
+    end
+    CmpQP->>CmpQP: Hash-Index Primary Key, so khớp tìm INSERT / UPDATE / DELETE
+    CmpQP->>CmpQP: Bỏ qua dòng khớp 100%, giới hạn tối đa 200 dòng khác biệt (cap memory)
+    CmpQP->>CmpQP: Tính toán Summary (Total Left, Total Right, Total Diff, Ins, Upd, Del)
+    CmpQP-->>OData: Trả về JSON kết quả (columns, summary, diffRows) trong SourceCode
+    OData-->>FE: Trả về HTTP 200 OK
+    FE->>FE: _renderTableDiffGrids() dựng 2 bảng sap.ui.table.Table đối soát side-by-side
+    FE-->>User: Hiển thị giao diện đối chiếu dòng lệch và highlight field thay đổi
+```
+
+---
+
 ### 3.4. Luồng 4: Quy Trình Release TR/Task An Toàn (Safe TR Release)
 
 ```mermaid

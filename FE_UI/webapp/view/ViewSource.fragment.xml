@@ -2,6 +2,7 @@
   xmlns="sap.m"
   xmlns:core="sap.ui.core"
   xmlns:f="sap.ui.layout.form"
+  xmlns:table="sap.ui.table"
   xmlns:layout="sap.ui.layout">
   <Dialog
     id="idViewSourceDialog"
@@ -88,6 +89,31 @@
                 <core:Fragment id="idSourceAiFrag" fragmentName="zscort.app.view.AiSidePanel" type="XML" />
               </VBox>
             </layout:Splitter>
+          </IconTabFilter>
+
+          <!-- TAB: Table Data Preview (for TABL) -->
+          <IconTabFilter
+            id="idViewSourceTableDataFilter"
+            key="tableData"
+            text="Table Data"
+            icon="sap-icon://table-view"
+            visible="{= ${appView>/viewSourceType} === 'TABL' }">
+            <VBox height="100%" width="100%" class="sapUiNoContentPadding">
+              <OverflowToolbar>
+                <Title text="Data Preview" level="H5" />
+                <ObjectStatus text="{appView>/viewSourceTableCountText}" state="Information" class="sapUiSmallMarginBegin" />
+                <ToolbarSpacer />
+                <SearchField id="idViewSourceTableSearch" width="16rem" placeholder="Search in data..." liveChange=".onViewSourceTableLiveSearch" />
+              </OverflowToolbar>
+              <ScrollContainer height="100%" width="100%" horizontal="true" vertical="true">
+                <table:Table
+                  id="idViewSourceDataTable"
+                  selectionMode="None"
+                  visibleRowCountMode="Auto"
+                  minAutoRowCount="10"
+                  class="sapUiSizeCompact" />
+              </ScrollContainer>
+            </VBox>
           </IconTabFilter>
           <IconTabFilter key="metadata" text="{i18n>tabMetadata}" icon="sap-icon://tag">
             <VBox height="100%" class="sapUiMediumMargin">

@@ -90,7 +90,13 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
                        iv_object_name = ls_filter-object_name ).
           ENDIF.
           ls_entity-VersionNo      = ls_tgt-version_no.
-          ls_entity-SourceCodeText = ls_tgt-text.
+          IF ls_filter-object_type = 'TABL' AND ls_tgt-text CS '===SCORT_TABLE_DATA_START==='.
+            SPLIT ls_tgt-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_t) DATA(lv_data_t).
+            ls_entity-SourceCodeText = lv_ddl_t.
+            ls_entity-MetadataText   = condense( lv_data_t ).
+          ELSE.
+            ls_entity-SourceCodeText = ls_tgt-text.
+          ENDIF.
           ls_entity-LineCount      = ls_tgt-line_count.
           ls_entity-SrcHash        = CONV #( ls_tgt-hash_stored ).
           IF ls_entity-SrcHash IS INITIAL.
@@ -104,8 +110,14 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
                              iv_object_type = ls_filter-object_type
                              iv_object_name = ls_filter-object_name
                              iv_version_no  = ls_filter-version_no ).
-            ls_entity-VersionNo      = ls_ver-version_no.
-            ls_entity-SourceCodeText = ls_ver-text.
+            ls_entity-VersionNo = ls_ver-version_no.
+            IF ls_filter-object_type = 'TABL' AND ls_ver-text CS '===SCORT_TABLE_DATA_START==='.
+              SPLIT ls_ver-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_v) DATA(lv_data_v).
+              ls_entity-SourceCodeText = lv_ddl_v.
+              ls_entity-MetadataText   = condense( lv_data_v ).
+            ELSE.
+              ls_entity-SourceCodeText = ls_ver-text.
+            ENDIF.
             ls_entity-LineCount      = ls_ver-line_count.
             ls_entity-SrcHash        = CONV #( ls_ver-hash ).
             ls_entity-Message        = ls_ver-message.
@@ -118,6 +130,23 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
             ls_entity-LineCount      = ls_ori-line_count.
             ls_entity-SrcHash        = CONV #( ls_ori-hash ).
             ls_entity-Message        = ls_ori-message.
+
+            IF ls_filter-object_type = 'TABL'.
+              DATA lv_tab_l_json TYPE string.
+              DATA lv_tab_l_cnt  TYPE i.
+              DATA lv_tab_l_ok   TYPE abap_bool.
+              zcl_scort_l_reader=>read_table_data(
+                EXPORTING
+                  iv_tabname   = ls_filter-object_name
+                  iv_max_rows  = 100
+                IMPORTING
+                  ev_json      = lv_tab_l_json
+                  ev_row_count = lv_tab_l_cnt
+                  ev_ok        = lv_tab_l_ok ).
+              IF lv_tab_l_ok = abap_true.
+                ls_entity-MetadataText = lv_tab_l_json.
+              ENDIF.
+            ENDIF.
           ENDIF.
         ENDIF.
       CATCH cx_root INTO DATA(lx).

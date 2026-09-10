@@ -146,10 +146,9 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
     IF lt_vrsd IS INITIAL AND iv_object_type = 'INTF'.
       TRY.
-          lv_objname = CONV vrsd-objname(
-            cl_oo_classname_service=>get_interfacepool_name( CONV seoclsname( iv_object_name ) ) ).
+          lv_objname = cl_oo_classname_service=>get_interfacepool_name( CONV seoclsname( iv_object_name ) ).
         CATCH cx_root.
-          lv_objname = CONV vrsd-objname( |{ iv_object_name WIDTH = 30 PAD = '=' }IP| ).
+          lv_objname = |{ iv_object_name WIDTH = 30 PAD = '=' }IP|.
       ENDTRY.
       lt_vrsd = read_version_directory(
                   iv_vrs_type    = 'REPS'
@@ -281,8 +280,8 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
     CLEAR rt_vrsd.
 
-    lv_pattern = CONV vrsd-objname( |{ iv_object_name WIDTH = 30 PAD = '=' }%| ).
-    lv_methpat = CONV vrsd-objname( |{ iv_object_name } %| ).
+    lv_pattern = |{ iv_object_name WIDTH = 30 PAD = '=' }%|.
+    lv_methpat = |{ iv_object_name } %|.
 
     SELECT objtype, objname, versno, author, datum, zeit, korrnum
       FROM vrsd
@@ -387,32 +386,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
         OTHERS             = 3.
 
     IF sy-subrc <> 0.
-      IF iv_object_type = 'PROG' OR iv_vrs_type = 'REPS'.
-        DATA lt_fallback_reps TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
-        DATA lv_pname TYPE programm.
-        lv_pname = CONV #( iv_object_name ).
-        TRY.
-            CALL FUNCTION 'SVRS_GET_VERSION_REPS'
-              EXPORTING
-                progname = lv_pname
-                versno   = iv_version_no
-              TABLES
-                texttab  = lt_fallback_reps
-              EXCEPTIONS
-                OTHERS   = 1.
-            IF sy-subrc = 0 AND lt_fallback_reps IS NOT INITIAL.
-              extract_text_from_any( EXPORTING is_any = lt_fallback_reps CHANGING ct_lines = et_lines ).
-              IF et_lines IS NOT INITIAL.
-                ev_ok = abap_true.
-                ev_message = |PROG via SVRS_GET_VERSION_REPS ({ lines( et_lines ) } lines)|.
-                et_lines = zcl_scort_hash_utl=>normalize_lines( et_lines ).
-                RETURN.
-              ENDIF.
-            ENDIF.
-          CATCH cx_root.
-        ENDTRY.
-      ENDIF.
-
       ev_ok = abap_false.
       ev_message = |SVRS_GET_VERSION failed for { iv_object_name } vers { iv_version_no } (Subrc: { sy-subrc })|.
       RETURN.
@@ -478,61 +451,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
         extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
       ENDIF.
-    ENDIF.
-
-    IF et_lines IS INITIAL AND ( iv_object_type = 'PROG' OR iv_vrs_type = 'REPS' ).
-      DATA lt_repotext TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
-      TRY.
-          CALL FUNCTION 'SVRS_GET_REPS_FROM_OBJECT'
-            EXPORTING
-              object   = ls_object
-            TABLES
-              repotext = lt_repotext
-            EXCEPTIONS
-              OTHERS   = 1.
-          IF sy-subrc = 0 AND lt_repotext IS NOT INITIAL.
-            extract_text_from_any( EXPORTING is_any = lt_repotext CHANGING ct_lines = et_lines ).
-          ENDIF.
-        CATCH cx_root.
-      ENDTRY.
-    ENDIF.
-
-    IF et_lines IS INITIAL AND ( iv_object_type = 'PROG' OR iv_vrs_type = 'REPS' ).
-      DATA lt_vrs_reps2 TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
-      DATA lv_progname2 TYPE programm.
-      lv_progname2 = CONV #( iv_object_name ).
-      TRY.
-          CALL FUNCTION 'SVRS_GET_VERSION_REPS'
-            EXPORTING
-              progname = lv_progname2
-              versno   = iv_version_no
-            TABLES
-              texttab  = lt_vrs_reps2
-            EXCEPTIONS
-              OTHERS   = 1.
-          IF sy-subrc = 0 AND lt_vrs_reps2 IS NOT INITIAL.
-            extract_text_from_any( EXPORTING is_any = lt_vrs_reps2 CHANGING ct_lines = et_lines ).
-          ENDIF.
-        CATCH cx_root.
-      ENDTRY.
-    ENDIF.
-
-    IF et_lines IS INITIAL AND iv_vrs_type = 'FUNC'.
-      DATA lt_vrs_func TYPE STANDARD TABLE OF abaptxt WITH DEFAULT KEY.
-      TRY.
-          CALL FUNCTION 'SVRS_GET_VERSION_FUNC'
-            EXPORTING
-              funcname = CONV rs38l_fnam( iv_object_name )
-              versno   = iv_version_no
-            TABLES
-              texttab  = lt_vrs_func
-            EXCEPTIONS
-              OTHERS   = 1.
-          IF sy-subrc = 0 AND lt_vrs_func IS NOT INITIAL.
-            extract_text_from_any( EXPORTING is_any = lt_vrs_func CHANGING ct_lines = et_lines ).
-          ENDIF.
-        CATCH cx_root.
-      ENDTRY.
     ENDIF.
 
     et_lines = zcl_scort_hash_utl=>normalize_lines( et_lines ).

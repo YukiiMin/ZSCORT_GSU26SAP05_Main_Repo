@@ -171,19 +171,19 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
       ENDIF.
 
       IF lv_is_deleted = abap_true.
-        SELECT SINGLE *
+        SELECT SINGLE current_version
           FROM za05_scort_t
           WHERE pgmid    = @ls_obj-pgmid
             AND object   = @ls_obj-object
             AND obj_name = @ls_obj-obj_name
-          INTO @DATA(ls_del_cat).
+          INTO @DATA(lv_cur_ver).
         IF sy-subrc = 0.
           DELETE FROM za05_scort_t
             WHERE pgmid    = @ls_obj-pgmid
               AND object   = @ls_obj-object
               AND obj_name = @ls_obj-obj_name.
 
-          DATA(lv_del_ver) = ls_del_cat-current_version + 1.
+          DATA(lv_del_ver) = lv_cur_ver + 1.
           APPEND VALUE za05_scort_t_src(
             client      = sy-mandt
             pgmid       = ls_obj-pgmid
@@ -212,8 +212,24 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         INTO @DATA(lv_devclass).
 
       DATA(lv_source)   = ls_src-text.
+      IF ls_obj-object = 'TABL'.
+        DATA lv_tab_json TYPE string.
+        DATA lv_row_cnt  TYPE i.
+        DATA lv_tab_ok   TYPE abap_bool.
+        zcl_scort_l_reader=>read_table_data(
+          EXPORTING
+            iv_tabname   = ls_obj-obj_name
+            iv_max_rows  = 500
+          IMPORTING
+            ev_json      = lv_tab_json
+            ev_row_count = lv_row_cnt
+            ev_ok        = lv_tab_ok ).
+        IF lv_tab_ok = abap_true AND lv_tab_json IS NOT INITIAL.
+          lv_source = |{ lv_source }{ cl_abap_char_utilities=>newline }===SCORT_TABLE_DATA_START==={ cl_abap_char_utilities=>newline }{ lv_tab_json }|.
+        ENDIF.
+      ENDIF.
       DATA(lv_checksum) = ls_src-hash.
-      IF lv_checksum IS INITIAL.
+      IF lv_checksum IS INITIAL OR ls_obj-object = 'TABL'.
         lv_checksum = calculate_checksum( lv_source ).
       ENDIF.
       DATA(lv_source_hex) = compress_source( lv_source ).

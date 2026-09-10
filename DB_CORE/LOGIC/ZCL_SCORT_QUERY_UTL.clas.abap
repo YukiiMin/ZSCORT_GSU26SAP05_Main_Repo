@@ -210,7 +210,6 @@ CLASS zcl_scort_query_utl IMPLEMENTATION.
     DATA lv_count_req TYPE abap_bool.
     FIELD-SYMBOLS <lt_all>  TYPE STANDARD TABLE.
     FIELD-SYMBOLS <lt_page> TYPE STANDARD TABLE.
-    FIELD-SYMBOLS <ls>      TYPE any.
 
     ASSIGN ct_data TO <lt_all>.
 
@@ -253,7 +252,7 @@ CLASS zcl_scort_query_utl IMPLEMENTATION.
     ELSE.
       lv_from = lv_skip + 1.
       lv_to   = lv_skip + lv_top.
-      LOOP AT <lt_all> ASSIGNING <ls> FROM lv_from TO lv_to.
+      LOOP AT <lt_all> ASSIGNING FIELD-SYMBOL(<ls>) FROM lv_from TO lv_to.
         APPEND <ls> TO <lt_page>.
       ENDLOOP.
     ENDIF.

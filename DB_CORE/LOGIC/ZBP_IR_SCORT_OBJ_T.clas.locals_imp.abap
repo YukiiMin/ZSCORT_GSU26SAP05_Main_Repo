@@ -20,7 +20,7 @@ CLASS lhc_TargetObject IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD rba_Sourcecode.
-    DATA ls_src TYPE zcr_scort_obj_src.
+    DATA ls_src  LIKE LINE OF result.
     DATA ls_link LIKE LINE OF association_links.
 
     LOOP AT keys_rba INTO DATA(ls_key).

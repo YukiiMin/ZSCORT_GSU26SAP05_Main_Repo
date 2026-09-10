@@ -111,6 +111,22 @@ sap.ui.define([
         oDetailModel.setProperty("/aiExecutionMode", "BE_SAP");
       }
 
+      this._sTableDiffVersLeft = null;
+      this._sTableDiffVersRight = null;
+      this._sTableDiffLeftLabel = "Local Active";
+      this._sTableDiffRightLabel = "Target Snapshot";
+      this._oTableDiffData = null;
+      oDetailModel.setProperty("/tableDiffFilterKey", "ALL");
+      oDetailModel.setProperty("/tableDataIsIdentical", false);
+      oDetailModel.setProperty("/tableDiffIsCapped", false);
+      oDetailModel.setProperty("/tableDiffTotalCount", 0);
+      oDetailModel.setProperty("/tableDiffUpdateCount", 0);
+      oDetailModel.setProperty("/tableDiffInsertCount", 0);
+      oDetailModel.setProperty("/tableDiffDeleteCount", 0);
+      oDetailModel.setProperty("/tableDiffLeftLabel", "Local Active");
+      oDetailModel.setProperty("/tableDiffRightLabel", "Target Snapshot");
+      oDetailModel.setProperty("/tableDiffSummaryText", "");
+
       var oApp = this._app();
       oApp.setProperty("/layout", this._bDirectMode ? LayoutType.TwoColumnsMidExpanded : LayoutType.ThreeColumnsEndExpanded);
 
@@ -266,6 +282,8 @@ sap.ui.define([
               that._oVersDiffHost.setModel(that._mVersModel);
             }
           }
+        } else if (sKey === "tableDataDiff") {
+          that._loadTableDataDiff();
         }
       }, 50);
     },
@@ -514,10 +532,245 @@ sap.ui.define([
           that.byId("idDetailDynamicPage").setBusy(false);
           that._oVersDiffHost.setSideBySide(that._bSideVers);
         });
+
+        if (that._sType === "TABL") {
+          that._sTableDiffVersLeft = padVers(oLeft.VersionNo);
+          that._sTableDiffVersRight = padVers(oRight.VersionNo);
+          that._sTableDiffLeftLabel = sTitleL;
+          that._sTableDiffRightLabel = sTitleR;
+        }
       }).catch(function(e) {
         that.byId("idDetailDynamicPage").setBusy(false);
         MessageBox.error("Failed to load version source code.\n" + String(e));
       });
+    },
+
+    // ==========================================
+    // TAB: TABLE DATA COMPARE (Diff-First)
+    // ==========================================
+    _loadTableDataDiff: function () {
+      if (this._sType !== "TABL") { return; }
+      var that = this;
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      var sCmpUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri.replace(/\/?$/, "/");
+
+      var sLeftVers = this._sTableDiffVersLeft || "";
+      var sRightVers = this._sTableDiffVersRight || "";
+      var sLeftLabel = this._sTableDiffLeftLabel || "Local Active";
+      var sRightLabel = this._sTableDiffRightLabel || "Target Snapshot";
+
+      oDetailModel.setProperty("/tableDiffLeftLabel", sLeftLabel);
+      oDetailModel.setProperty("/tableDiffRightLabel", sRightLabel);
+      oDetailModel.setProperty("/tableDiffSummaryText", "Loading table data diff...");
+      oDetailModel.setProperty("/tableDiffSummaryState", "Information");
+
+      var aFilters = [
+        "ObjectType eq 'TABL'",
+        "ObjectName eq '" + this._sName.replace(/'/g, "''") + "'",
+        "CompareMode eq 'TABLE_DATA'"
+      ];
+      if (sLeftVers) {
+        aFilters.push("VersionNo eq '" + sLeftVers + "'");
+      }
+      if (sRightVers) {
+        aFilters.push("VersionNoRight eq '" + sRightVers + "'");
+      }
+
+      var sUrl = sCmpUri + "Compare?$filter=" + encodeURIComponent(aFilters.join(" and "));
+      var oDp = this.byId("idDetailDynamicPage");
+      if (oDp) { oDp.setBusy(true); }
+
+      ValueHelp.fetchJson(sUrl, 20000).then(function (aResults) {
+        if (oDp) { oDp.setBusy(false); }
+        var oItem = (aResults && aResults[0]) || {};
+        var sJson = oItem.SourceCode || oItem.TargetCode || "{}";
+        var oData = {};
+        try {
+          oData = JSON.parse(sJson);
+        } catch (e) {
+          oData = { summary: { totalLeft: 0, totalRight: 0, totalDiff: 0, inserted: 0, updated: 0, deleted: 0 }, columns: [], diffRows: [] };
+        }
+
+        that._oTableDiffData = oData;
+        that._renderTableDiffGrids(oData);
+      }).catch(function (e) {
+        if (oDp) { oDp.setBusy(false); }
+        oDetailModel.setProperty("/tableDiffSummaryText", "Failed to load table diff: " + e);
+        oDetailModel.setProperty("/tableDiffSummaryState", "Error");
+      });
+    },
+
+    _renderTableDiffGrids: function (oData) {
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      var oSummary = oData.summary || {};
+      var aCols = oData.columns || [];
+      var aDiffRows = oData.diffRows || [];
+
+      var iTotalDiff = oSummary.totalDiff || 0;
+      var iTotalLeft = oSummary.totalLeft || 0;
+      var iTotalRight = oSummary.totalRight || 0;
+
+      oDetailModel.setProperty("/tableLeftRowCount", iTotalLeft);
+      oDetailModel.setProperty("/tableRightRowCount", iTotalRight);
+      oDetailModel.setProperty("/tableLeftRowCountText", iTotalLeft + " total rows");
+      oDetailModel.setProperty("/tableRightRowCountText", iTotalRight + " total rows");
+
+      oDetailModel.setProperty("/tableDiffTotalCount", iTotalDiff);
+      oDetailModel.setProperty("/tableDiffUpdateCount", oSummary.updated || 0);
+      oDetailModel.setProperty("/tableDiffInsertCount", oSummary.inserted || 0);
+      oDetailModel.setProperty("/tableDiffDeleteCount", oSummary.deleted || 0);
+      oDetailModel.setProperty("/tableDiffIsCapped", !!oSummary.isCapped);
+      oDetailModel.setProperty("/tableDataIsIdentical", iTotalDiff === 0);
+
+      if (iTotalDiff === 0) {
+        oDetailModel.setProperty("/tableDiffSummaryText", "Data 100% Identical (" + iTotalLeft + " rows)");
+        oDetailModel.setProperty("/tableDiffSummaryState", "Success");
+        return;
+      }
+
+      oDetailModel.setProperty("/tableDiffSummaryText", iTotalDiff + " difference(s) detected (Ins: " + (oSummary.inserted || 0) + ", Mod: " + (oSummary.updated || 0) + ", Del: " + (oSummary.deleted || 0) + ")");
+      oDetailModel.setProperty("/tableDiffSummaryState", "Warning");
+
+      var sFilterKey = oDetailModel.getProperty("/tableDiffFilterKey") || "ALL";
+      var aFilteredDiffs = aDiffRows;
+      if (sFilterKey !== "ALL") {
+        aFilteredDiffs = aDiffRows.filter(function (d) { return d.diffType === sFilterKey; });
+      }
+
+      var aLeftRows = [];
+      var aRightRows = [];
+
+      aFilteredDiffs.forEach(function (d, idx) {
+        var oL = {};
+        var oR = {};
+        try { oL = d.leftRowJson ? JSON.parse(d.leftRowJson) : {}; } catch (e) {}
+        try { oR = d.rightRowJson ? JSON.parse(d.rightRowJson) : {}; } catch (e) {}
+
+        oL._diffType = d.diffType;
+        oL._keyValue = d.keyValue;
+        oL._changedFields = d.changedFields || [];
+        oL._rowIndex = idx + 1;
+
+        oR._diffType = d.diffType;
+        oR._keyValue = d.keyValue;
+        oR._changedFields = d.changedFields || [];
+        oR._rowIndex = idx + 1;
+
+        aLeftRows.push(oL);
+        aRightRows.push(oR);
+      });
+
+      var oTblLeft = this.byId("idTableDataLeft");
+      var oTblRight = this.byId("idTableDataRight");
+
+      if (oTblLeft) {
+        this._buildDynamicDiffColumns(oTblLeft, aCols, "L");
+        oTblLeft.setModel(new JSONModel(aLeftRows), "tblLeft");
+        oTblLeft.bindRows("tblLeft>/");
+      }
+
+      if (oTblRight) {
+        this._buildDynamicDiffColumns(oTblRight, aCols, "R");
+        oTblRight.setModel(new JSONModel(aRightRows), "tblRight");
+        oTblRight.bindRows("tblRight>/");
+      }
+    },
+
+    _buildDynamicDiffColumns: function (oTable, aCols, sSide) {
+      oTable.destroyColumns();
+
+      var sModelName = sSide === "L" ? "tblLeft" : "tblRight";
+      var oStatusCol = new sap.ui.table.Column({
+        width: "7.5rem",
+        label: new sap.m.Label({ text: "Diff Status", design: "Bold" }),
+        template: new sap.m.ObjectStatus({
+          text: {
+            path: sModelName + ">_diffType",
+            formatter: function (sType) {
+              if (sType === "UPDATE") return "Modified";
+              if (sType === "INSERT") return sSide === "L" ? "Missing (Local)" : "Inserted (Target)";
+              if (sType === "DELETE") return sSide === "L" ? "Deleted (Target)" : "Missing (Target)";
+              return sType || "";
+            }
+          },
+          state: {
+            path: sModelName + ">_diffType",
+            formatter: function (sType) {
+              if (sType === "UPDATE") return "Warning";
+              if (sType === "INSERT") return sSide === "L" ? "None" : "Success";
+              if (sType === "DELETE") return sSide === "L" ? "Error" : "None";
+              return "None";
+            }
+          },
+          icon: {
+            path: sModelName + ">_diffType",
+            formatter: function (sType) {
+              if (sType === "UPDATE") return "sap-icon://edit";
+              if (sType === "INSERT") return sSide === "L" ? "sap-icon://border" : "sap-icon://add";
+              if (sType === "DELETE") return sSide === "L" ? "sap-icon://delete" : "sap-icon://border";
+              return "";
+            }
+          }
+        })
+      });
+      oTable.addColumn(oStatusCol);
+
+      aCols.forEach(function (col) {
+        var sField = col.name;
+        var bIsKey = !!col.isKey;
+        var sHeaderLabel = col.text ? col.name + " (" + col.text + ")" : col.name;
+
+        var oColumn = new sap.ui.table.Column({
+          width: bIsKey ? "9.5rem" : "9rem",
+          sortProperty: sField,
+          filterProperty: sField,
+          label: new sap.m.HBox({
+            alignItems: "Center",
+            items: [
+              new sap.ui.core.Icon({
+                src: "sap-icon://key",
+                size: "0.75rem",
+                color: "Critical",
+                visible: bIsKey,
+                class: "sapUiTinyMarginEnd"
+              }),
+              new sap.m.Label({ text: sHeaderLabel, design: bIsKey ? "Bold" : "Standard" })
+            ]
+          }),
+          template: new sap.m.Text({
+            text: {
+              parts: [
+                { path: sModelName + ">" + sField },
+                { path: sModelName + ">_diffType" }
+              ],
+              formatter: function (vVal, sDiffType) {
+                if (sSide === "L" && sDiffType === "INSERT") {
+                  return "—";
+                }
+                if (sSide === "R" && sDiffType === "DELETE") {
+                  return "—";
+                }
+                return vVal === undefined || vVal === null ? "" : String(vVal);
+              }
+            },
+            wrapping: false
+          })
+        });
+        oTable.addColumn(oColumn);
+      });
+    },
+
+    onTableDiffFilterChange: function (oEvent) {
+      var sKey = oEvent.getParameter("item") ? oEvent.getParameter("item").getKey() : oEvent.getSource().getSelectedKey();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      oDetailModel.setProperty("/tableDiffFilterKey", sKey);
+      if (this._oTableDiffData) {
+        this._renderTableDiffGrids(this._oTableDiffData);
+      }
+    },
+
+    onReloadTableDataDiff: function () {
+      this._loadTableDataDiff();
     },
 
     onToggleVersAiPanel: function () {
