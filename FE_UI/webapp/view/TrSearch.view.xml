@@ -184,6 +184,8 @@
                   <Toolbar>
                     <Title text="{i18n>tabTrTree}" />
                     <ToolbarSpacer />
+                    <BusyIndicator size="1rem" visible="{trSearch>/loadingMoreTree}" class="sapUiTinyMarginEnd" />
+                    <Label text="{= ${trSearch>/countTree} ? (${trSearch>/countTree} + ' node(s)') : ''}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://collapse-all" tooltip="{i18n>collapseAll}"
                       press=".onCollapseAll" type="Transparent" />
                     <Button icon="sap-icon://expand-all" tooltip="{i18n>expandAll}"
@@ -205,13 +207,15 @@
                     expandFirstLevel="true"
                     useGroupMode="false"
                     visibleRowCountMode="Auto"
-                    minAutoRowCount="5">
+                    minAutoRowCount="5"
+                    threshold="50"
+                    filter=".onTreeTableFilter">
                     <table:layoutData>
                       <FlexItemData growFactor="1" />
                     </table:layoutData>
 
                     <table:columns>
-                      <table:Column width="26rem" filterProperty="Trkorr">
+                      <table:Column width="26rem" filterProperty="ObjName" sortProperty="Trkorr">
                         <Label text="{i18n>colTrTaskObj}" />
                         <table:template>
                           <HBox alignItems="Center">
@@ -228,33 +232,35 @@
                               visible="{= ${trTree>TrStatus} === 'R' }" />
                             
                             <ObjectIdentifier
-                              title="{= ${trTree>NodeType} === 'OBJ' || ${trTree>NodeType} === 'ATTR' || ${trTree>NodeType} === 'COMM' ? ${trTree>ObjName} : (${trTree>NodeType} === 'FOLD' ? (${trTree>Description} || ${trTree>ObjName} || ${trTree>ObjType}) : ${trTree>Trkorr}) }" />
+                              title="{= ${trTree>NodeType} === 'OBJ' || ${trTree>NodeType} === 'ATTR' || ${trTree>NodeType} === 'COMM' ? ${trTree>ObjName} : (${trTree>NodeType} === 'FOLD' ? (${trTree>Description} || ${trTree>ObjName} || ${trTree>ObjType}) : ${trTree>Trkorr}) }"
+                              titleActive="{= ${trTree>NodeType} === 'OBJ' }"
+                              titlePress=".onTreeObjNamePress" />
                           </HBox>
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="8rem" filterProperty="NodeType">
+                      <table:Column width="8rem" filterProperty="ObjType" sortProperty="ObjType">
                         <Label text="{i18n>colType}" />
                         <table:template>
                           <Text text="{= ${trTree>NodeType} === 'OBJ' ? ${trTree>ObjType} : (${trTree>NodeType} === 'FOLD' || ${trTree>NodeType} === 'ATTR' || ${trTree>NodeType} === 'COMM' ? '' : ${trTree>NodeType}) }" />
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="10rem" filterProperty="Owner">
+                      <table:Column width="10rem" filterProperty="Owner" sortProperty="Owner">
                         <Label text="{i18n>ownerFilter}" />
                         <table:template>
                           <Text text="{trTree>Owner}" />
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="auto" filterProperty="Description">
+                      <table:Column width="auto" filterProperty="Description" sortProperty="Description">
                         <Label text="{i18n>colDescription}" />
                         <table:template>
                           <Text text="{= ${trTree>NodeType} === 'FOLD' ? '' : ${trTree>Description} }" wrapping="false" />
                         </table:template>
                       </table:Column>
 
-                      <table:Column width="14rem">
+                      <table:Column width="16.5rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
@@ -297,6 +303,13 @@
                               type="Transparent"
                               visible="{= ${trTree>NodeType} === 'OBJ' }"
                               press=".onTreeObjViewSource" />
+                            <!-- Find in Object Search for Object node -->
+                            <Button
+                              icon="sap-icon://search"
+                              tooltip="{i18n>btnFindInObjSearch}"
+                              type="Transparent"
+                              visible="{= ${trTree>NodeType} === 'OBJ' }"
+                              press=".onTreeFindInObjSearch" />
                           </HBox>
                         </table:template>
                       </table:Column>
@@ -318,6 +331,7 @@
                   <OverflowToolbar>
                     <Title text="{i18n>tabFlatList}" />
                     <ToolbarSpacer />
+                    <BusyIndicator size="1rem" visible="{trSearch>/loadingMoreFlat}" class="sapUiTinyMarginEnd" />
                     <Label text="{= ${trSearch>/countFlat} + ' object(s)'}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://action-settings" tooltip="{i18n>btnTableSettings}" press=".onOpenFlatTableSettings" type="Transparent" />
                     <Button icon="sap-icon://refresh" tooltip="{i18n>btnResetLayout}" press=".onResetFlatTableLayout" type="Transparent" />
@@ -330,6 +344,8 @@
                     noData="{i18n>noData}"
                     selectionMode="Single"
                     rowSelectionChange=".onFlatRowSelect"
+                    firstVisibleRowChanged=".onFlatTableScroll"
+                    threshold="50"
                     alternateRowColors="true"
                     enableColumnReordering="true"
                     showColumnVisibilityMenu="true"
@@ -344,16 +360,16 @@
                       <table:Column id="colFlatTrkorr" width="10rem" filterProperty="Trkorr" sortProperty="Trkorr" visible="{tableSettings>/showTrkorr}">
                         <Label text="{i18n>trkorr}" />
                         <table:template>
-                          <Text text="{trSearch>Trkorr}" />
+                          <Link text="{trSearch>Trkorr}" press=".onFlatOpenDetail" />
                         </table:template>
                       </table:Column>
 
                       <table:Column id="colFlatManagingTr" width="12rem" filterProperty="CurrentManagingTr" sortProperty="CurrentManagingTr" visible="{tableSettings>/showManagingTr}">
                         <Label text="{i18n>currentManagingTr}" />
                         <table:template>
-                          <ObjectStatus
+                          <Link
                             text="{trSearch>CurrentManagingTr}"
-                            state="{= ${trSearch>CurrentManagingTr} !== ${trSearch>Trkorr} ? 'Warning' : 'None'}" />
+                            press=".onFlatOpenManagingTrDetail" />
                         </table:template>
                       </table:Column>
 
@@ -367,7 +383,17 @@
                       <table:Column id="colFlatName" width="18rem" filterProperty="ObjectName" sortProperty="ObjectName" visible="{tableSettings>/showName}">
                         <Label text="{i18n>colObjName}" />
                         <table:template>
-                          <ObjectIdentifier title="{trSearch>ObjectName}" />
+                          <ObjectIdentifier
+                            title="{trSearch>ObjectName}"
+                            titleActive="true"
+                            titlePress=".onFlatObjNamePress" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatPackage" width="10rem" filterProperty="PackageName" sortProperty="PackageName" visible="{tableSettings>/showPackage}">
+                        <Label text="{i18n>colPackage}" />
+                        <table:template>
+                          <Text text="{trSearch>PackageName}" />
                         </table:template>
                       </table:Column>
 
@@ -379,7 +405,7 @@
                       </table:Column>
 
                       <table:Column id="colFlatStatus" width="8.5rem" filterProperty="TrStatus" sortProperty="TrStatus" visible="{tableSettings>/showStatus}">
-                        <Label text="{i18n>colStatus}" />
+                        <Label text="{i18n>colTrStatus}" />
                         <table:template>
                           <ObjectStatus
                             text="{path:'trSearch>TrStatus', formatter:'.formatTrStatusText'}"
@@ -387,7 +413,17 @@
                         </table:template>
                       </table:Column>
 
-                      <table:Column id="colFlatActions" width="9rem">
+                      <table:Column id="colFlatObjStatus" width="9rem" filterProperty="ObjectStatus" sortProperty="ObjectStatus" visible="{tableSettings>/showObjStatus}">
+                        <Label text="{i18n>colObjStatus}" />
+                        <table:template>
+                          <ObjectStatus
+                            text="{parts: [{path: 'trSearch>ObjectStatus'}, {path: 'trSearch>Activity'}], formatter: '.formatObjStatusText'}"
+                            state="{parts: [{path: 'trSearch>ObjectStatus'}, {path: 'trSearch>Activity'}], formatter: '.formatObjStatusState'}"
+                            icon="{parts: [{path: 'trSearch>ObjectStatus'}, {path: 'trSearch>Activity'}], formatter: '.formatObjStatusIcon'}" />
+                        </table:template>
+                      </table:Column>
+
+                      <table:Column id="colFlatActions" width="11.5rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
@@ -403,6 +439,10 @@
                               tooltip="{i18n>viewSourceTooltip}"
                               type="Transparent"
                               press=".onFlatObjViewSource" />
+                            <Button icon="sap-icon://search"
+                              tooltip="{i18n>btnFindInObjSearch}"
+                              type="Transparent"
+                              press=".onFlatFindInObjSearch" />
                           </HBox>
                         </table:template>
                       </table:Column>

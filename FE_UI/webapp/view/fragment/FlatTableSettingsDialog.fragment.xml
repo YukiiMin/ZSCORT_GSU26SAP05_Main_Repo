@@ -39,14 +39,26 @@
           </CustomListItem>
           <CustomListItem>
             <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>colPackage}" />
+              <Switch id="swColPackage" state="{tableSettings>/showPackage}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
               <Label text="{i18n>ownerFilter}" />
               <Switch id="swColOwner" state="{tableSettings>/showOwner}" customTextOn=" " customTextOff=" " />
             </HBox>
           </CustomListItem>
           <CustomListItem>
             <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
-              <Label text="{i18n>colStatus}" />
+              <Label text="{i18n>colTrStatus}" />
               <Switch id="swColStatus" state="{tableSettings>/showStatus}" customTextOn=" " customTextOff=" " />
+            </HBox>
+          </CustomListItem>
+          <CustomListItem>
+            <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiSmallMarginBeginEnd sapUiTinyMarginTopBottom">
+              <Label text="{i18n>colObjStatus}" />
+              <Switch id="swColObjStatus" state="{tableSettings>/showObjStatus}" customTextOn=" " customTextOff=" " />
             </HBox>
           </CustomListItem>
         </List>

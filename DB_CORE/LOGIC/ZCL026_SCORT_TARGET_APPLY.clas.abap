@@ -4,12 +4,19 @@ CLASS zcl026_scort_target_apply DEFINITION
   CREATE PUBLIC .
 
   PUBLIC SECTION.
+    TYPES: BEGIN OF ty_selected_obj,
+             object   TYPE e071-object,
+             obj_name TYPE e071-obj_name,
+           END OF ty_selected_obj,
+           tt_selected_objs TYPE STANDARD TABLE OF ty_selected_obj WITH DEFAULT KEY.
+
     CLASS-METHODS apply_to_target
       IMPORTING
-        iv_parent_trkorr TYPE trkorr
+        iv_parent_trkorr    TYPE trkorr
+        it_selected_objects TYPE tt_selected_objs OPTIONAL
       EXPORTING
-        ev_success       TYPE abap_bool
-        ev_message       TYPE string .
+        ev_success          TYPE abap_bool
+        ev_message          TYPE string .
 
   PRIVATE SECTION.
     CLASS-METHODS normalize_object
@@ -86,7 +93,7 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         AND langu  = @sy-langu
       INTO @DATA(lv_descript).
 
-    SELECT pgmid, object, obj_name
+    SELECT pgmid, object, obj_name, objfunc, activity
       FROM e071
       WHERE ( trkorr = @iv_parent_trkorr OR trkorr IN ( SELECT trkorr FROM e070 WHERE strkorr = @iv_parent_trkorr ) )
         AND pgmid IN ('R3TR', 'LIMU')
@@ -103,6 +110,8 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
              pgmid    TYPE e071-pgmid,
              object   TYPE e071-object,
              obj_name TYPE e071-obj_name,
+             objfunc  TYPE e071-objfunc,
+             activity TYPE e071-activity,
            END OF ty_object.
 
     DATA: lt_objects TYPE TABLE OF ty_object,
@@ -110,6 +119,8 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
 
     LOOP AT lt_raw_objects INTO DATA(ls_raw).
       ls_norm-obj_name = ls_raw-obj_name.
+      ls_norm-objfunc  = ls_raw-objfunc.
+      ls_norm-activity = ls_raw-activity.
 
       normalize_object(
         EXPORTING
@@ -128,6 +139,16 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
     SORT lt_objects BY pgmid object obj_name.
     DELETE ADJACENT DUPLICATES FROM lt_objects COMPARING pgmid object obj_name.
 
+    IF it_selected_objects IS NOT INITIAL.
+      DATA lt_filtered_objects LIKE lt_objects.
+      LOOP AT lt_objects INTO DATA(ls_filter_obj).
+        IF line_exists( it_selected_objects[ object = ls_filter_obj-object obj_name = ls_filter_obj-obj_name ] ).
+          APPEND ls_filter_obj TO lt_filtered_objects.
+        ENDIF.
+      ENDLOOP.
+      lt_objects = lt_filtered_objects.
+    ENDIF.
+
     GET TIME STAMP FIELD DATA(lv_timestamp).
 
     LOOP AT lt_objects INTO DATA(ls_obj).
@@ -136,11 +157,50 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         CONTINUE.
       ENDIF.
 
+      DATA(lv_is_deleted) = abap_false.
+      IF ls_obj-objfunc = 'D' OR ls_obj-activity = 'D'.
+        lv_is_deleted = abap_true.
+      ENDIF.
+
       DATA(ls_src) = zcl_scort_l_reader=>read_active(
         iv_object_type = ls_obj-object
         iv_object_name = CONV sobj_name( ls_obj-obj_name ) ).
 
       IF ls_src-found = abap_false.
+        lv_is_deleted = abap_true.
+      ENDIF.
+
+      IF lv_is_deleted = abap_true.
+        SELECT SINGLE *
+          FROM za05_scort_t
+          WHERE pgmid    = @ls_obj-pgmid
+            AND object   = @ls_obj-object
+            AND obj_name = @ls_obj-obj_name
+          INTO @DATA(ls_del_cat).
+        IF sy-subrc = 0.
+          DELETE FROM za05_scort_t
+            WHERE pgmid    = @ls_obj-pgmid
+              AND object   = @ls_obj-object
+              AND obj_name = @ls_obj-obj_name.
+
+          DATA(lv_del_ver) = ls_del_cat-current_version + 1.
+          APPEND VALUE za05_scort_t_src(
+            client      = sy-mandt
+            pgmid       = ls_obj-pgmid
+            object      = ls_obj-object
+            obj_name    = ls_obj-obj_name
+            version_no  = lv_del_ver
+            src_trkorr  = iv_parent_trkorr
+            src_hash    = 'DELETED'
+            src_preview = 'DELETED'
+            created_by  = sy-uname
+            created_at  = sy-datum
+            created_tm  = sy-uzeit
+            released_by = sy-uname
+            released_at = lv_timestamp
+          ) TO lt_src_insert.
+          lv_changed_count = lv_changed_count + 1.
+        ENDIF.
         CONTINUE.
       ENDIF.
 
@@ -250,7 +310,7 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
 
     ENDLOOP.
 
-    IF lt_catalog_modify IS NOT INITIAL OR lt_src_insert IS NOT INITIAL.
+    IF lt_catalog_modify IS NOT INITIAL OR lt_src_insert IS NOT INITIAL OR lv_changed_count > 0.
 
       TRY.
           IF lt_catalog_modify IS NOT INITIAL.

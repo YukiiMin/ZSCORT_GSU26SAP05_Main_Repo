@@ -1,0 +1,186 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core"
+  xmlns:table="sap.ui.table">
+
+  <Dialog
+    id="idApplyPreviewDialog"
+    title="{i18n>applyPreviewDialogTitle}"
+    icon="sap-icon://upload-to-cloud"
+    contentWidth="62rem"
+    contentHeight="40rem"
+    resizable="true"
+    draggable="true">
+
+    <content>
+      <VBox class="sapUiSmallMargin" fitContainer="true" height="100%">
+
+        <!-- Toolbar: Counter + Batch Select + AI Assessment Button -->
+        <OverflowToolbar class="sapUiTinyMarginBottom">
+          <ObjectStatus
+            title="{i18n>trkorr}"
+            text="{detail>/trkorr}"
+            state="Information"
+            class="sapUiTinyMarginEnd" />
+          <ToolbarSeparator />
+          <Label
+            text="{= (${detail>/applySelectedCount} || 0) + ' / ' + (${detail>/applyTotalCount} || 0) + ' ' + ${i18n>lblObjectsSelected} }"
+            design="Bold"
+            class="sapUiTinyMarginEnd" />
+          <Button text="{i18n>btnSelectAll}" icon="sap-icon://multiselect-all" press=".onApplySelectAll" type="Transparent" />
+          <Button text="{i18n>btnDeselectAll}" icon="sap-icon://multiselect-none" press=".onApplyDeselectAll" type="Transparent" />
+          <ToolbarSpacer />
+          <Button
+            id="idBtnRunAiAssessment"
+            text="{i18n>btnRunAiAssessment}"
+            icon="sap-icon://ai"
+            type="Emphasized"
+            busy="{detail>/aiApplyBusy}"
+            tooltip="{i18n>btnRunAiAssessmentTooltip}"
+            press=".onRunAiApplyAssessment" />
+        </OverflowToolbar>
+
+        <!-- AI Assessment Result Card -->
+        <Panel
+          id="idAiApplyResultPanel"
+          expandable="true"
+          expanded="true"
+          visible="{= !!${detail>/aiApplyResult} }"
+          class="sapUiTinyMarginBottom scortAiPanelCard">
+          <headerToolbar>
+            <OverflowToolbar height="3rem">
+              <core:Icon src="sap-icon://ai" class="sapUiTinyMarginEnd" color="#6366f1" />
+              <Title text="{i18n>aiAssessmentTitle}" level="H6" />
+              <ToolbarSpacer />
+              <ObjectStatus
+                text="{detail>/aiApplyResult/overall_verdict}"
+                state="{path: 'detail>/aiApplyResult/overall_verdict', formatter: '.formatAiVerdictState'}"
+                icon="{path: 'detail>/aiApplyResult/overall_verdict', formatter: '.formatAiVerdictIcon'}"
+                class="sapUiTinyMarginEnd" />
+              <Button
+                text="{i18n>btnApplyAiSelection}"
+                icon="sap-icon://accept"
+                type="Accept"
+                tooltip="{i18n>btnApplyAiSelectionTooltip}"
+                press=".onApplyAiRecommendationToSelection" />
+            </OverflowToolbar>
+          </headerToolbar>
+          <content>
+            <VBox class="sapUiSmallMargin">
+              <Text text="{detail>/aiApplyResult/summary}" class="sapUiTinyMarginBottom" />
+              <HBox alignItems="Center" visible="{= !!${detail>/aiApplyResult/general_advice} }">
+                <core:Icon src="sap-icon://hint" class="sapUiTinyMarginEnd" color="#0ea5e9" />
+                <Text text="{detail>/aiApplyResult/general_advice}" class="sapUiTinyMarginTopBottom" />
+              </HBox>
+            </VBox>
+          </content>
+        </Panel>
+
+        <!-- Objects Table with Checkbox for Selective Apply -->
+        <table:Table
+          id="idApplyPreviewTable"
+          rows="{detail>/applyObjects}"
+          selectionMode="None"
+          visibleRowCountMode="Auto"
+          minAutoRowCount="6"
+          alternateRowColors="true"
+          enableColumnReordering="true"
+          rowHeight="38"
+          columnHeaderHeight="38">
+          <table:layoutData>
+            <FlexItemData growFactor="1" />
+          </table:layoutData>
+
+          <table:columns>
+
+            <!-- Checkbox: Apply Flag -->
+            <table:Column width="4rem" hAlign="Center">
+              <Label text="{i18n>colApplyFlag}" />
+              <table:template>
+                <CheckBox
+                  selected="{detail>selected}"
+                  select=".onApplyCheckboxSelect" />
+              </table:template>
+            </table:Column>
+
+            <!-- Type -->
+            <table:Column width="6rem" filterProperty="ObjectType" sortProperty="ObjectType">
+              <Label text="{i18n>colType}" />
+              <table:template>
+                <ObjectStatus text="{detail>ObjectType}" state="None" />
+              </table:template>
+            </table:Column>
+
+            <!-- Object Name -->
+            <table:Column width="15rem" filterProperty="ObjectName" sortProperty="ObjectName">
+              <Label text="{i18n>colObjName}" />
+              <table:template>
+                <Text text="{detail>ObjectName}" wrapping="false" />
+              </table:template>
+            </table:Column>
+
+            <!-- Package -->
+            <table:Column width="9rem" filterProperty="PackageName" sortProperty="PackageName">
+              <Label text="{i18n>colPackage}" />
+              <table:template>
+                <Text text="{detail>PackageName}" wrapping="false" />
+              </table:template>
+            </table:Column>
+
+            <!-- Action: Create / Modify / Delete -->
+            <table:Column width="8rem" filterProperty="Action" sortProperty="Action">
+              <Label text="{i18n>colApplyAction}" />
+              <table:template>
+                <ObjectStatus
+                  text="{detail>Action}"
+                  state="{path: 'detail>Action', formatter: '.formatApplyActionState'}"
+                  icon="{path: 'detail>Action', formatter: '.formatApplyActionIcon'}" />
+              </table:template>
+            </table:Column>
+
+            <!-- Compare Status -->
+            <table:Column width="9rem" filterProperty="CompareStatus" sortProperty="CompareStatus">
+              <Label text="{i18n>colCompareStatus}" />
+              <table:template>
+                <ObjectStatus
+                  text="{detail>CompareStatus}"
+                  state="{path: 'detail>CompareStatus', formatter: '.formatCompareStatus'}"
+                  icon="{path: 'detail>CompareStatus', formatter: '.formatCompareIcon'}" />
+              </table:template>
+            </table:Column>
+
+            <!-- AI Assessment Advice -->
+            <table:Column width="11rem">
+              <Label text="{i18n>colAiAdvice}" />
+              <table:template>
+                <ObjectStatus
+                  text="{detail>aiAdvice}"
+                  state="{path: 'detail>aiRisk', formatter: '.formatAiRiskState'}"
+                  icon="{path: 'detail>aiRisk', formatter: '.formatAiRiskIcon'}" />
+              </table:template>
+            </table:Column>
+
+          </table:columns>
+        </table:Table>
+
+      </VBox>
+    </content>
+
+    <beginButton>
+      <Button
+        id="idBtnConfirmApply"
+        text="{= ${i18n>btnConfirmApply} + ' (' + (${detail>/applySelectedCount} || 0) + ')' }"
+        icon="sap-icon://upload-to-cloud"
+        type="Accept"
+        enabled="{= (${detail>/applySelectedCount} || 0) > 0 }"
+        press=".onConfirmApplySelected" />
+    </beginButton>
+
+    <endButton>
+      <Button
+        text="{i18n>btnClose}"
+        press=".onCloseApplyPreviewDialog" />
+    </endButton>
+
+  </Dialog>
+</core:FragmentDefinition>

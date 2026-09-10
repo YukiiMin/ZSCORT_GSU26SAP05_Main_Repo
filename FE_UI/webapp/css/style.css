@@ -244,3 +244,11 @@ html, body {
 .sapFCLMidColumn .sapMITBHead {
   overflow-x: auto;
 }
+
+/* AI Pre-check Panel Card */
+.scortAiPanelCard {
+  border: 1px solid #6366f1 !important;
+  border-radius: 8px !important;
+  background-color: rgba(99, 102, 241, 0.04) !important;
+}
+

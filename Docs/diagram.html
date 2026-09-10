@@ -1,0 +1,638 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SCORT Architecture — Sequence Diagrams</title>
+    <style>
+      :root {
+        --ink: #15283f;
+        --muted: #62758d;
+        --line: #d9e2ec;
+        --panel: #ffffff;
+        --canvas: #f3f6fa;
+        --accent: #2e5d8f;
+        --accent-soft: #e8f1fb;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--canvas);
+        color: var(--ink);
+        font-family: Inter, 'Segoe UI', Arial, sans-serif;
+      }
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        background: rgba(255, 255, 255, 0.94);
+        backdrop-filter: blur(10px);
+        border-bottom: 1px solid var(--line);
+      }
+      .topbar-inner {
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 18px 28px 14px;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #163a5f;
+        color: white;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+      }
+      .brand h1 {
+        margin: 0;
+        font-size: 20px;
+      }
+      .brand p {
+        margin: 3px 0 0;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .toolbar {
+        max-width: 1500px;
+        margin: 0 auto;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        padding: 10px 28px 14px;
+      }
+      .tab-btn {
+        border: 1px solid var(--line);
+        background: white;
+        color: var(--ink);
+        padding: 10px 13px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        transition: 0.16s ease;
+      }
+      .tab-btn:hover {
+        transform: translateY(-1px);
+        border-color: #adc0d5;
+      }
+      .tab-btn.active {
+        background: var(--accent);
+        color: white;
+        border-color: var(--accent);
+      }
+      .tab-num {
+        font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+        font-size: 11px;
+        font-weight: 700;
+        opacity: 0.8;
+      }
+      main {
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 22px 28px 44px;
+      }
+      .intro {
+        background: linear-gradient(135deg, #ffffff 0%, #f7fbff 100%);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px 22px;
+        margin-bottom: 18px;
+        box-shadow: 0 6px 20px rgba(25, 55, 90, 0.05);
+      }
+      .intro .eyebrow,
+      .eyebrow {
+        color: #54708f;
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.12em;
+      }
+      .intro h2 {
+        margin: 6px 0 7px;
+        font-size: 19px;
+      }
+      .intro p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+      .diagram-panel {
+        display: none;
+      }
+      .diagram-panel.active {
+        display: block;
+      }
+      .diagram-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 12px;
+      }
+      .diagram-header h2 {
+        margin: 4px 0 0;
+        font-size: 21px;
+      }
+      .copy-btn {
+        border: 1px solid var(--line);
+        background: white;
+        color: var(--ink);
+        padding: 9px 12px;
+        border-radius: 9px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+      .copy-btn:hover {
+        background: #f8fafc;
+      }
+      .mermaid-wrap {
+        background: #fff;
+      }
+      .mermaid {
+        overflow: auto;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 10px 30px rgba(25, 55, 90, 0.07);
+        min-height: 420px;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .mermaid svg {
+        max-width: 100%;
+        height: auto;
+      }
+      .diagram-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 380px;
+        color: var(--muted);
+        font-size: 14px;
+        width: 100%;
+      }
+      .diagram-error {
+        width: 100%;
+        margin: 20px 0;
+        padding: 18px 22px;
+        border: 1px solid #ef9a9a;
+        border-radius: 12px;
+        background: #ffebee;
+        color: #b71c1c;
+      }
+      footer {
+        max-width: 1500px;
+        margin: 0 auto;
+        padding: 0 28px 30px;
+        color: #7a8ba0;
+        font-size: 11px;
+      }
+      @media (max-width: 800px) {
+        .topbar-inner,
+        .toolbar,
+        main,
+        footer {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+        .diagram-header {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+      }
+      @media print {
+        .topbar {
+          position: static;
+        }
+        .toolbar,
+        .copy-btn,
+        footer {
+          display: none;
+        }
+        main {
+          padding: 0;
+          max-width: none;
+        }
+        .intro {
+          box-shadow: none;
+        }
+        .diagram-panel,
+        .diagram-panel.active {
+          display: block;
+          break-inside: avoid;
+          page-break-inside: avoid;
+          margin-bottom: 30px;
+        }
+        .diagram-panel:not(:first-of-type) {
+          page-break-before: always;
+        }
+        .mermaid {
+          box-shadow: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <div class="brand-mark">S</div>
+          <div>
+            <h1>SCORT Architecture — Sequence Diagrams</h1>
+            <p>
+              Object Search • TR Tree • Source Compare • Safe Release • Apply to
+              Target
+            </p>
+          </div>
+        </div>
+      </div>
+      <nav class="toolbar">
+        <button class="tab-btn active" data-index="0">
+          <span class="tab-num">3.1</span>Tra Cứu Đối Tượng &amp; Merge-Sort
+          Matrix Query
+        </button>
+        <button class="tab-btn" data-index="1">
+          <span class="tab-num">3.2</span>Duyệt Cây Phân Cấp Transport Request
+          (TR Tree &amp; Flat List)
+        </button>
+        <button class="tab-btn" data-index="2">
+          <span class="tab-num">3.3</span>Đối Soát Mã Nguồn &amp; Tích Hợp
+          Monaco Diff Editor
+        </button>
+        <button class="tab-btn" data-index="3">
+          <span class="tab-num">3.4</span>Quy Trình Release TR/Task An Toàn
+          (Safe TR Release)
+        </button>
+        <button class="tab-btn" data-index="4">
+          <span class="tab-num">3.5</span>Áp Dụng Snapshot Sang Target, Chọn Lọc
+          &amp; Xử Lý Xoá
+        </button>
+      </nav>
+    </header>
+
+    <main>
+      <section class="intro">
+        <div class="eyebrow">SYSTEM FLOW DOCUMENTATION</div>
+        <h2>SCORT — SAP Object Control, Release &amp; Target Synchronization</h2>
+        <p>
+          Bộ diagram được trình bày lại từ các luồng 3.1 → 3.5, giữ nguyên kiến
+          trúc FE → OData/RAP → Application Service → SAP/Storage, đồng thời làm
+          rõ các nhánh success/failure, merge-sort, tree construction, diff
+          source và selective apply.
+        </p>
+      </section>
+
+      <section class="diagram-panel active" data-index="0">
+        <div class="diagram-header">
+          <div>
+            <span class="eyebrow">SEQUENCE FLOW 3.1</span>
+            <h2>Tra Cứu Đối Tượng &amp; Merge-Sort Matrix Query</h2>
+          </div>
+          <button class="copy-btn" data-copy-index="0">Copy Mermaid</button>
+        </div>
+        <div class="mermaid-wrap">
+          <div class="mermaid" id="mermaid-0">
+            <div class="diagram-loading">Đang tải biểu đồ Sequence 3.1...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="diagram-panel" data-index="1">
+        <div class="diagram-header">
+          <div>
+            <span class="eyebrow">SEQUENCE FLOW 3.2</span>
+            <h2>
+              Duyệt Cây Phân Cấp Transport Request (TR Tree &amp; Flat List)
+            </h2>
+          </div>
+          <button class="copy-btn" data-copy-index="1">Copy Mermaid</button>
+        </div>
+        <div class="mermaid-wrap">
+          <div class="mermaid" id="mermaid-1">
+            <div class="diagram-loading">Đang tải biểu đồ Sequence 3.2...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="diagram-panel" data-index="2">
+        <div class="diagram-header">
+          <div>
+            <span class="eyebrow">SEQUENCE FLOW 3.3</span>
+            <h2>Đối Soát Mã Nguồn &amp; Tích Hợp Monaco Diff Editor</h2>
+          </div>
+          <button class="copy-btn" data-copy-index="2">Copy Mermaid</button>
+        </div>
+        <div class="mermaid-wrap">
+          <div class="mermaid" id="mermaid-2">
+            <div class="diagram-loading">Đang tải biểu đồ Sequence 3.3...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="diagram-panel" data-index="3">
+        <div class="diagram-header">
+          <div>
+            <span class="eyebrow">SEQUENCE FLOW 3.4</span>
+            <h2>Quy Trình Release TR/Task An Toàn (Safe TR Release)</h2>
+          </div>
+          <button class="copy-btn" data-copy-index="3">Copy Mermaid</button>
+        </div>
+        <div class="mermaid-wrap">
+          <div class="mermaid" id="mermaid-3">
+            <div class="diagram-loading">Đang tải biểu đồ Sequence 3.4...</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="diagram-panel" data-index="4">
+        <div class="diagram-header">
+          <div>
+            <span class="eyebrow">SEQUENCE FLOW 3.5</span>
+            <h2>Áp Dụng Snapshot Sang Target, Chọn Lọc &amp; Xử Lý Xoá</h2>
+          </div>
+          <button class="copy-btn" data-copy-index="4">Copy Mermaid</button>
+        </div>
+        <div class="mermaid-wrap">
+          <div class="mermaid" id="mermaid-4">
+            <div class="diagram-loading">Đang tải biểu đồ Sequence 3.5...</div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      Generated as a self-contained HTML presentation. Mermaid diagrams are
+      rendered via Mermaid.js CDN (v11).
+    </footer>
+
+    <script type="module">
+      import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs'
+
+      mermaid.initialize({
+        startOnLoad: false,
+        securityLevel: 'loose',
+        theme: 'base',
+        themeVariables: {
+          fontFamily: 'Inter, Segoe UI, Arial, sans-serif',
+          primaryColor: '#eef5ff',
+          primaryTextColor: '#10233f',
+          primaryBorderColor: '#4b79b8',
+          lineColor: '#5f7898',
+          secondaryColor: '#f8fbff',
+          tertiaryColor: '#ffffff',
+          actorBkg: '#eef5ff',
+          actorBorder: '#4b79b8',
+          actorTextColor: '#10233f',
+          signalColor: '#365879',
+          signalTextColor: '#193653',
+          labelBoxBkgColor: '#f6f9fc',
+          labelBoxBorderColor: '#b6c6d8',
+          labelTextColor: '#1b3654',
+          activationBkgColor: '#dcecff',
+          activationBorderColor: '#4b79b8',
+          sequenceNumberColor: '#23476d',
+        },
+      })
+
+      window.mermaidSources = {}
+
+      window.mermaidSources[0] = `sequenceDiagram
+    autonumber
+    actor User as Developer / Lead
+    participant FE as ObjSearch.controller.js
+    participant OData as ZSD_SCORT_OBJ_SEARCH
+    participant QP as ZCL_SCORT_MATRIX_QUERY
+    participant DB as SAP HANA<br/>(TADIR + ZA_SCORT_T)
+
+    User->>FE: Nhập Filter (ZSCORT*, DEV-021) & Bấm [Search]
+    FE->>OData: GET CompareMatrix?$filter=startswith(ObjectName,'ZSCORT')
+    OData->>QP: if_rap_query_provider~select( )
+    QP->>QP: Trích xuất SQL Push-down filter từ io_request
+    QP->>DB: Query Local Objects từ TADIR + ENLFDIR<br/>(R3TR + LIMU)
+    QP->>DB: Query Target Objects từ ZA_SCORT_T
+    DB-->>QP: Trả về lt_local và lt_target
+    QP->>QP: Thực thi 3-Key Merge-Sort<br/>(PGMID → OBJECT → OBJ_NAME)
+    QP->>QP: Gán nhãn ExistenceStatus<br/>(BOTH / LOCAL_ONLY / TARGET_ONLY)
+    QP->>QP: Dynamic Sorting & In-memory Paging<br/>($top, $skip)
+    QP-->>OData: Trả về bảng kết quả phân trang
+    OData-->>FE: JSON 200 OK
+    FE->>FE: Bind dữ liệu vào IconTabBar<br/>(Local, Target, Matrix)
+    FE-->>User: Hiển thị danh sách đối tượng + Badge trạng thái`
+
+      window.mermaidSources[1] = `sequenceDiagram
+    autonumber
+    actor User as Release Manager
+    participant FE as TrSearch.controller.js
+    participant OData as ZSD_SCORT_TR_SEARCH
+    participant TreeQP as ZCL_SCORT_TR_TREE_QUERY
+    participant CTS as SAP CTS Tables<br/>(E070, E071, E07T)
+
+    User->>FE: Mở tab TR Tree, nhập Filter TR/Owner/Object
+    FE->>OData: GET TrTree?$filter=startswith(Owner,'DEV-021')
+    OData->>TreeQP: if_rap_query_provider~select( )
+    TreeQP->>CTS: Query Header TRs<br/>E070 WHERE STRKORR IS INITIAL
+    TreeQP->>CTS: Query Task con trực thuộc<br/>E070 WHERE STRKORR = Header TR
+    TreeQP->>CTS: Query đối tượng trong Task<br/>E071 WHERE TRKORR IN Tasks
+    TreeQP->>CTS: Query mô tả TR<br/>(E07T)
+    TreeQP->>TreeQP: Xây dựng cây 4 cấp độ<br/>(TR → Task → Folder → Obj)
+    TreeQP->>TreeQP: Tạo NodeId duy nhất<br/>(S40K913364 / S40K913365 / #35;FUNC / FUNC_NAME)
+    TreeQP-->>OData: Mảng cây phẳng + ParentNodeId
+    OData-->>FE: JSON 200 OK
+    FE->>FE: _buildTreeData() chuyển flat list thành cây
+    FE->>FE: Bind sap.ui.table.TreeTable<br/>& expandToLevel(3)
+    FE-->>User: Hiển thị cây phả hệ TR hoàn chỉnh`
+
+      window.mermaidSources[2] = `sequenceDiagram
+    autonumber
+    actor User as Developer
+    participant FE as Compare.controller.js
+    participant Iframe as Monaco Diff Editor<br/>(Iframe)
+    participant OData as ZSD_SCORT_COMPARE
+    participant R_SRC as ZCL_SCORT_R_SRC
+    participant L_RDR as ZCL_SCORT_L_READER
+    participant T_RDR as ZCL_SCORT_T_READER
+
+    User->>FE: Bấm [Compare] trên đối tượng<br/>(VD: ZCL_TEST)
+    FE->>FE: Mở FCL EndColumnPage<br/>(ThreeColumnsMidExpanded)
+
+    par Đọc mã nguồn Local
+        FE->>OData: GET ObjectSource(ServerType='L',<br/>ObjectType='CLAS', ObjectName='ZCL_TEST')
+        OData->>R_SRC: select() → ServerType='L'
+        R_SRC->>L_RDR: read_source() qua SAP Internal APIs
+        L_RDR-->>FE: Active Local Source
+    and Đọc mã nguồn Target Snapshot
+        FE->>OData: GET ObjectSource(ServerType='T',<br/>ObjectType='CLAS', ObjectName='ZCL_TEST')
+        OData->>R_SRC: select() → ServerType='T'
+        R_SRC->>T_RDR: read_source() từ ZA_SCORT_T_SRC
+        T_RDR->>T_RDR: GZIP decompress via<br/>ZCL_SCORT_COMPRESSION_UTL
+        T_RDR-->>FE: Target Source đã giải nén
+    end
+
+    FE->>Iframe: postMessage({ action: 'setDiff',<br/>original: targetCode, modified: localCode })
+    Iframe->>Iframe: Monaco diff engine render side-by-side
+    Iframe-->>FE: postMessage({ action: 'diffSummary',<br/>added: 12, removed: 4, match: false })
+    FE-->>User: Hiển thị diff trực quan + thống kê dòng`
+
+      window.mermaidSources[3] = `sequenceDiagram
+    autonumber
+    actor User as Release Lead
+    participant FE as TrSearch.controller.js
+    participant BDEF as ZBP_CE_SCORT_TR_TREE
+    participant FM as Z_SCORT_TR_RELEASE_LOCAL<br/>(RFC)
+    participant SVC as ZCL026_SCORT_RELEASE_SERVICE
+    participant CTS as SAP CTS Kernel<br/>(TR_RELEASE_REQUEST)
+
+    User->>FE: Bấm [Release] trên Header TR<br/>(VD: S40K913364)
+    FE->>BDEF: POST TrTree('S40K913364')/ReleaseRequest
+
+    critical Pre-validation
+        BDEF->>CTS: SELECT trkorr, trstatus FROM e070<br/>WHERE strkorr = 'S40K913364'
+        alt Có Task con trạng thái Modifiable (D)
+            BDEF-->>FE: Lỗi: 'Release task first: S40K913365 (status D)'
+            FE-->>User: MessageBox.error + dừng quy trình
+        end
+    end
+
+    Note over BDEF,FM: Tạo LUW mới độc lập qua RFC DESTINATION 'NONE'
+    BDEF->>FM: CALL FUNCTION 'Z_SCORT_TR_RELEASE_LOCAL'<br/>DESTINATION 'NONE'
+    FM->>SVC: PROCESS_RELEASE( IV_TRKORR = 'S40K913364' )
+    SVC->>CTS: CALL FUNCTION 'TR_RELEASE_REQUEST'
+
+    alt CTS Release thành công
+        CTS-->>SVC: sy-subrc = 0
+        SVC->>CTS: Poll E070-TRSTATUS<br/>(xử lý nếu status = 'O')
+        SVC-->>FM: EV_SUCCESS = 'X'<br/>EV_MESSAGE = 'Released successfully'
+        FM-->>BDEF: Trả về kết quả
+        BDEF->>CTS: Re-verify TRSTATUS
+        BDEF-->>FE: HTTP 200 OK (reported-trtree)
+        FE->>FE: Cập nhật icon TR thành dấu tích xanh
+        FE-->>User: MessageToast: 'TR released successfully'
+    else CTS phát hiện lỗi
+        CTS-->>SVC: sy-subrc != 0<br/>(VD: subrc = 7: object_check_error)
+        SVC-->>FM: EV_SUCCESS = ''<br/>EV_MESSAGE = 'Mã lỗi 7: Lỗi kiểm tra đối tượng'
+        FM-->>BDEF: Trả về thất bại
+        BDEF-->>FE: Thêm key vào failed-trtree + message
+        FE-->>User: MessageBox.error hiển thị nguyên nhân SAP CTS
+    end`
+
+      window.mermaidSources[4] = `sequenceDiagram
+    autonumber
+    actor User as Release Lead
+    participant FE as Detail.controller.js
+    participant AI as /sap/bc/zscort_ai<br/>(SICF)
+    participant BDEF as ZBP_CE_SCORT_TR_TREE
+    participant FM as Z_SCORT_TR_APPLY_LOCAL<br/>(RFC)
+    participant SVC as ZCL026_SCORT_TARGET_APPLY
+    participant DB as Target Storage<br/>(ZA_SCORT_T + ZA_SCORT_T_SRC)
+
+    User->>FE: Bấm [Apply to Target]
+    FE->>FE: Mở ApplyPreviewDialog.fragment.xml<br/>nạp danh sách Object
+    User->>FE: Bấm [Analyze with AI]
+    FE->>AI: POST payload { trkorr, objects, locale: 'vi' }
+    AI->>AI: ZCL_SCORT_AI_ASSISTANT<br/>thẩm định rủi ro
+    AI-->>FE: JSON { verdict: 'PARTIAL_RECOMMENDED',<br/>risks, recommendations }
+    FE-->>User: Hiển thị AI Risk Card + khuyến nghị
+    User->>FE: [Apply AI Recommendation]<br/>→ Checkbox tự động tích chọn
+    User->>FE: [Confirm Apply]
+
+    Note over FE,BDEF: Gửi danh sách object được chọn (Selective Apply)
+    FE->>BDEF: POST TrTree('S40K913364')/ApplyToTarget<br/>(it_selected_objects = [...])
+    BDEF->>FM: CALL FUNCTION 'Z_SCORT_TR_APPLY_LOCAL'<br/>DESTINATION 'NONE'
+    FM->>SVC: APPLY_TO_TARGET( it_selected_objects )
+
+    loop Duyệt từng Object được chọn
+        alt Đối tượng cập nhật / thêm mới (Active Source)
+            SVC->>SVC: Đọc Local Source + GZIP compress<br/>qua ZCL_SCORT_COMPRESSION_UTL
+            SVC->>DB: INSERT/MODIFY ZA_SCORT_T<br/>(metadata)
+            SVC->>DB: APPEND ZA_SCORT_T_SRC<br/>(snapshot nhị phân nén)
+        else Đối tượng mang cờ xoá (OBJFUNC = 'D')
+            SVC->>DB: DELETE FROM ZA_SCORT_T WHERE object = obj
+            SVC->>DB: APPEND ZA_SCORT_T_SRC version mới<br/>status = 'DELETED'
+        end
+    end
+
+    SVC->>DB: COMMIT WORK (LUW riêng)
+    SVC-->>FM: EV_SUCCESS = 'X'<br/>EV_MESSAGE = 'Applied X object(s) successfully'
+    FM-->>BDEF: Trả về kết quả
+    BDEF-->>FE: HTTP 200 OK
+    FE->>FE: Đóng Preview Dialog + refresh bảng
+    FE-->>User: MessageToast: 'Applied X object(s) to Target successfully'`
+
+      const renderedSet = new Set()
+
+      async function renderDiagram(index) {
+        if (renderedSet.has(index)) return
+        const container = document.getElementById(`mermaid-${index}`)
+        const src = window.mermaidSources[index]
+        if (!container || !src) return
+
+        try {
+          container.innerHTML = '<div class="diagram-loading">Đang kết xuất biểu đồ...</div>'
+          const { svg } = await mermaid.render(`svg-flow-${index}`, src)
+          container.innerHTML = svg
+          renderedSet.add(index)
+        } catch (err) {
+          console.error(`Mermaid render error on tab ${index}:`, err)
+          container.innerHTML = `
+            <div class="diagram-error">
+              <h3 style="margin-top:0;">Lỗi kết xuất biểu đồ (${index + 1})</h3>
+              <pre style="white-space:pre-wrap;font-size:12px;">${err?.message || err}</pre>
+            </div>`
+        }
+      }
+
+      const buttons = [...document.querySelectorAll('.tab-btn')]
+      const panels = [...document.querySelectorAll('.diagram-panel')]
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const index = parseInt(btn.dataset.index, 10)
+          buttons.forEach((b) => b.classList.toggle('active', b === btn))
+          panels.forEach((p) =>
+            p.classList.toggle('active', parseInt(p.dataset.index, 10) === index)
+          )
+          window.scrollTo({ top: 0, behavior: 'smooth' })
+          await renderDiagram(index)
+        })
+      })
+
+      document.querySelectorAll('.copy-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const src = window.mermaidSources[btn.dataset.copyIndex]
+          try {
+            await navigator.clipboard.writeText(src)
+            const old = btn.textContent
+            btn.textContent = 'Copied ✓'
+            setTimeout(() => (btn.textContent = old), 1200)
+          } catch (e) {
+            btn.textContent = 'Copy failed'
+            setTimeout(() => (btn.textContent = 'Copy Mermaid'), 1200)
+          }
+        })
+      })
+
+      window.addEventListener('beforeprint', async () => {
+        for (let i = 0; i < 5; i++) {
+          await renderDiagram(i)
+        }
+      })
+
+      // Khởi tạo render diagram cho tab 0 đang active
+      renderDiagram(0)
+    </script>
+  </body>
+</html>

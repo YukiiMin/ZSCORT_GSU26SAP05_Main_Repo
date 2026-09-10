@@ -12,5 +12,7 @@ define behavior for ZIR_SCORT_TR_OBJ_SEARCH
   CreatedOn,
   TrStatus,
   CurrentManagingTr,
-  Activity;
+  Activity,
+  PackageName,
+  ObjectStatus;
 }

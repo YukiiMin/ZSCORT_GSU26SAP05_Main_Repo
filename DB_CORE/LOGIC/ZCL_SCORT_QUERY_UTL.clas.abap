@@ -75,6 +75,10 @@ CLASS zcl_scort_query_utl IMPLEMENTATION.
     DATA lv_in_q    TYPE abap_bool.
     DATA lv_started TYPE abap_bool.
     DATA lv_op_len  TYPE i.
+    DATA lv_q1      TYPE i.
+    DATA lv_q2      TYPE i.
+    DATA lv_sub_len TYPE i.
+    DATA lv_sub_str TYPE string.
 
     CLEAR rv_value.
     IF iv_sql IS INITIAL OR iv_field IS INITIAL.
@@ -94,6 +98,23 @@ CLASS zcl_scort_query_utl IMPLEMENTATION.
       ELSE.
         FIND |{ lv_field } LIKE| IN lv_upper MATCH OFFSET lv_pos.
         IF sy-subrc <> 0.
+          FIND lv_field IN lv_upper MATCH OFFSET lv_pos.
+          IF sy-subrc = 0.
+            FIND FIRST OCCURRENCE OF `'` IN SECTION OFFSET lv_pos OF iv_sql MATCH OFFSET lv_q1.
+            IF sy-subrc <> 0 AND lv_pos > 0.
+              FIND FIRST OCCURRENCE OF `'` IN SECTION OFFSET 0 LENGTH lv_pos OF iv_sql MATCH OFFSET lv_q1.
+            ENDIF.
+            IF sy-subrc = 0.
+              lv_off = lv_q1 + 1.
+              FIND FIRST OCCURRENCE OF `'` IN SECTION OFFSET lv_off OF iv_sql MATCH OFFSET lv_q2.
+              IF sy-subrc = 0 AND lv_q2 > lv_off.
+                lv_sub_len = lv_q2 - lv_off.
+                lv_sub_str = substring( val = iv_sql off = lv_off len = lv_sub_len ).
+                rv_value = strip_wildcards( clean_token( lv_sub_str ) ).
+                RETURN.
+              ENDIF.
+            ENDIF.
+          ENDIF.
           RETURN.
         ENDIF.
         lv_op_len = 4.

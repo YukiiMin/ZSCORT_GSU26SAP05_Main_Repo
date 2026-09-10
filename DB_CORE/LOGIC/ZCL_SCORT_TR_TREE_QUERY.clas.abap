@@ -26,13 +26,13 @@ CLASS zcl_scort_tr_tree_query DEFINITION
 
     CLASS-METHODS build_tree
       IMPORTING
-        iv_trkorr    TYPE e070-trkorr     OPTIONAL
-        iv_owner     TYPE e070-as4user    OPTIONAL
-        iv_date_from TYPE d               OPTIONAL
-        iv_date_to   TYPE d               OPTIONAL
-        iv_trstatus  TYPE e070-trstatus   OPTIONAL
-        iv_obj_name  TYPE e071-obj_name   OPTIONAL
-        iv_obj_type  TYPE e071-object     OPTIONAL
+        iv_trkorr       TYPE e070-trkorr     OPTIONAL
+        iv_owner        TYPE e070-as4user    OPTIONAL
+        iv_date_from    TYPE d               OPTIONAL
+        iv_date_to      TYPE d               OPTIONAL
+        iv_trstatus     TYPE e070-trstatus   OPTIONAL
+        iv_obj_name     TYPE e071-obj_name   OPTIONAL
+        iv_obj_type     TYPE e071-object     OPTIONAL
       RETURNING
         VALUE(rt_nodes) TYPE tt_nodes.
 
@@ -218,7 +218,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     DATA lv_owner_pattern TYPE string.
 
     IF iv_trkorr IS NOT INITIAL.
-      lv_tr_pattern = iv_trkorr.
+      DATA lv_clean_trkorr TYPE string.
+      lv_clean_trkorr = to_upper( condense( iv_trkorr ) ).
+      lv_tr_pattern = lv_clean_trkorr.
       REPLACE ALL OCCURRENCES OF '*' IN lv_tr_pattern WITH '%'.
       REPLACE ALL OCCURRENCES OF '+' IN lv_tr_pattern WITH '_'.
       IF lv_tr_pattern NA '%'.
@@ -229,7 +231,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     ENDIF.
 
     IF iv_owner IS NOT INITIAL.
-      lv_owner_pattern = iv_owner.
+      DATA lv_clean_owner TYPE string.
+      lv_clean_owner = to_upper( condense( iv_owner ) ).
+      lv_owner_pattern = lv_clean_owner.
       REPLACE ALL OCCURRENCES OF '*' IN lv_owner_pattern WITH '%'.
       REPLACE ALL OCCURRENCES OF '+' IN lv_owner_pattern WITH '_'.
       IF lv_owner_pattern NA '%'.
@@ -246,23 +250,223 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     DATA lt_target_parents  TYPE STANDARD TABLE OF ty_tr_filter WITH DEFAULT KEY.
     DATA lv_obj_filtered    TYPE abap_bool VALUE abap_false.
 
-    IF iv_obj_name IS NOT INITIAL OR iv_obj_type IS NOT INITIAL.
-      lv_obj_filtered = abap_true.
-      DATA lv_obj_pattern TYPE string.
-      IF iv_obj_name IS NOT INITIAL.
-        lv_obj_pattern = iv_obj_name.
-        REPLACE ALL OCCURRENCES OF '*' IN lv_obj_pattern WITH '%'.
-        REPLACE ALL OCCURRENCES OF '+' IN lv_obj_pattern WITH '_'.
-        IF lv_obj_pattern NA '%'.
-          lv_obj_pattern = |%{ lv_obj_pattern }%|.
-        ENDIF.
-      ELSE.
-        lv_obj_pattern = '%'.
+    DATA lr_cts_types TYPE RANGE OF e071-object.
+    IF iv_obj_type IS NOT INITIAL.
+      DATA lv_clean_obj_type TYPE e071-object.
+      lv_clean_obj_type = to_upper( condense( iv_obj_type ) ).
+      CASE lv_clean_obj_type.
+        WHEN 'PROG'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'PROG' )
+                                  ( sign = 'I' option = 'EQ' low = 'REPS' )
+                                  ( sign = 'I' option = 'EQ' low = 'REPT' ) ).
+        WHEN 'CLAS'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'CLAS' )
+                                  ( sign = 'I' option = 'EQ' low = 'METH' )
+                                  ( sign = 'I' option = 'EQ' low = 'CPUB' )
+                                  ( sign = 'I' option = 'EQ' low = 'CPRI' )
+                                  ( sign = 'I' option = 'EQ' low = 'CPRO' )
+                                  ( sign = 'I' option = 'EQ' low = 'CLSD' )
+                                  ( sign = 'I' option = 'EQ' low = 'CINC' ) ).
+        WHEN 'TABL'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'TABL' )
+                                  ( sign = 'I' option = 'EQ' low = 'TABD' )
+                                  ( sign = 'I' option = 'EQ' low = 'TABT' ) ).
+        WHEN 'FUNC'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'FUNC' )
+                                  ( sign = 'I' option = 'EQ' low = 'FUGR' ) ).
+        WHEN 'FUGR'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'FUGR' ) ).
+        WHEN 'DDLS'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'DDLS' )
+                                  ( sign = 'I' option = 'EQ' low = 'STOB' ) ).
+        WHEN 'BDEF'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'BDEF' )
+                                  ( sign = 'I' option = 'EQ' low = 'BDOB' ) ).
+        WHEN 'DCLS'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'DCLS' ) ).
+        WHEN 'DDLX'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'DDLX' ) ).
+        WHEN 'SRVD'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'SRVD' ) ).
+        WHEN 'TTYP'.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = 'TTYP' )
+                                  ( sign = 'I' option = 'EQ' low = 'TTDF' ) ).
+        WHEN OTHERS.
+          lr_cts_types = VALUE #( ( sign = 'I' option = 'EQ' low = lv_clean_obj_type ) ).
+      ENDCASE.
+    ENDIF.
+
+    DATA lv_obj_pattern TYPE string.
+    DATA lr_matching_fugrs TYPE RANGE OF e071-obj_name.
+    IF iv_obj_name IS NOT INITIAL.
+      DATA lv_clean_obj_name TYPE string.
+      lv_clean_obj_name = to_upper( condense( iv_obj_name ) ).
+      lv_obj_pattern = lv_clean_obj_name.
+      REPLACE ALL OCCURRENCES OF '*' IN lv_obj_pattern WITH '%'.
+      REPLACE ALL OCCURRENCES OF '+' IN lv_obj_pattern WITH '_'.
+      IF lv_obj_pattern NA '%'.
+        lv_obj_pattern = |%{ lv_obj_pattern }%|.
       ENDIF.
 
-      IF iv_obj_type IS NOT INITIAL.
+      SELECT DISTINCT area FROM enlfdir
+        WHERE funcname LIKE @lv_obj_pattern
+        INTO TABLE @DATA(lt_enlfdir_areas)
+        UP TO 500 ROWS.
+      LOOP AT lt_enlfdir_areas INTO DATA(ls_ea).
+        APPEND VALUE #( sign = 'I' option = 'EQ' low = CONV e071-obj_name( ls_ea-area ) ) TO lr_matching_fugrs.
+      ENDLOOP.
+    ELSE.
+      lv_obj_pattern = '%'.
+    ENDIF.
+
+    IF iv_obj_name IS NOT INITIAL OR iv_obj_type IS NOT INITIAL.
+      lv_obj_filtered = abap_true.
+    ENDIF.
+
+    DATA lv_has_tr_scope TYPE abap_bool.
+    IF iv_trkorr IS NOT INITIAL OR iv_owner IS NOT INITIAL OR iv_date_from IS NOT INITIAL.
+      lv_has_tr_scope = abap_true.
+    ELSE.
+      lv_has_tr_scope = abap_false.
+    ENDIF.
+
+    IF lv_has_tr_scope = abap_true.
+      " SCOPED PIPELINE: Select candidate TRs from E070 directly within user-specified TR / Owner / Date scope
+      SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
+        FROM e070
+        WHERE strkorr = @space
+          AND trkorr  LIKE @lv_tr_pattern
+          AND as4user LIKE @lv_owner_pattern
+        ORDER BY as4date DESCENDING, as4time DESCENDING
+        INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents
+        UP TO 500 ROWS.
+
+      IF iv_trstatus IS NOT INITIAL.
+        DELETE lt_tr_parents WHERE trstatus <> iv_trstatus.
+      ENDIF.
+      IF iv_date_from IS NOT INITIAL.
+        DELETE lt_tr_parents WHERE as4date < iv_date_from.
+      ENDIF.
+      IF iv_date_to IS NOT INITIAL.
+        DELETE lt_tr_parents WHERE as4date > iv_date_to.
+      ENDIF.
+
+      IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
+
+      " If user also filtered by Object Name or Type, prune TRs to only those containing matching objects
+      IF lv_obj_filtered = abap_true.
+        SELECT trkorr, strkorr FROM e070
+          FOR ALL ENTRIES IN @lt_tr_parents
+          WHERE strkorr = @lt_tr_parents-trkorr
+          INTO TABLE @DATA(lt_cand_tasks).
+
+        TYPES: BEGIN OF ty_scoped_k,
+                 trkorr TYPE e070-trkorr,
+                 strkorr TYPE e070-strkorr,
+               END OF ty_scoped_k.
+        DATA lt_scoped_keys TYPE STANDARD TABLE OF ty_scoped_k WITH DEFAULT KEY.
+        LOOP AT lt_tr_parents INTO DATA(ls_p).
+          APPEND VALUE #( trkorr = ls_p-trkorr strkorr = '' ) TO lt_scoped_keys.
+        ENDLOOP.
+        LOOP AT lt_cand_tasks INTO DATA(ls_ct).
+          APPEND VALUE #( trkorr = ls_ct-trkorr strkorr = ls_ct-strkorr ) TO lt_scoped_keys.
+        ENDLOOP.
+
+        DATA lt_matched_keys TYPE STANDARD TABLE OF e071-trkorr WITH DEFAULT KEY.
+        IF lr_cts_types IS NOT INITIAL.
+          SELECT DISTINCT trkorr FROM e071
+            FOR ALL ENTRIES IN @lt_scoped_keys
+            WHERE trkorr = @lt_scoped_keys-trkorr
+              AND object IN @lr_cts_types AND obj_name LIKE @lv_obj_pattern
+            INTO TABLE @lt_matched_keys.
+        ELSE.
+          SELECT DISTINCT trkorr FROM e071
+            FOR ALL ENTRIES IN @lt_scoped_keys
+            WHERE trkorr = @lt_scoped_keys-trkorr
+              AND obj_name LIKE @lv_obj_pattern
+            INTO TABLE @lt_matched_keys.
+        ENDIF.
+
+        " Also check if any FUGR in scoped tasks contains function modules in ENLFDIR matching obj_pattern
+        IF iv_obj_type IS INITIAL OR iv_obj_type = 'FUNC' OR iv_obj_type = 'FUGR'.
+          SELECT trkorr, obj_name FROM e071
+            FOR ALL ENTRIES IN @lt_scoped_keys
+            WHERE trkorr = @lt_scoped_keys-trkorr
+              AND object = 'FUGR'
+            INTO TABLE @DATA(lt_scoped_fugrs).
+
+          IF lt_scoped_fugrs IS NOT INITIAL.
+            TYPES: BEGIN OF ty_fugr_chk_area,
+                     area TYPE enlfdir-area,
+                   END OF ty_fugr_chk_area.
+            DATA lt_f_chk TYPE STANDARD TABLE OF ty_fugr_chk_area WITH DEFAULT KEY.
+            LOOP AT lt_scoped_fugrs INTO DATA(ls_sf).
+              APPEND VALUE #( area = CONV #( ls_sf-obj_name ) ) TO lt_f_chk.
+            ENDLOOP.
+            SORT lt_f_chk BY area.
+            DELETE ADJACENT DUPLICATES FROM lt_f_chk COMPARING area.
+
+            SELECT DISTINCT area FROM enlfdir
+              FOR ALL ENTRIES IN @lt_f_chk
+              WHERE area = @lt_f_chk-area
+                AND funcname LIKE @lv_obj_pattern
+                AND active = 'X'
+              INTO TABLE @DATA(lt_matched_fm_areas).
+
+            LOOP AT lt_scoped_fugrs INTO DATA(ls_sf2).
+              READ TABLE lt_matched_fm_areas WITH KEY area = ls_sf2-obj_name TRANSPORTING NO FIELDS.
+              IF sy-subrc = 0.
+                APPEND ls_sf2-trkorr TO lt_matched_keys.
+              ENDIF.
+            ENDLOOP.
+          ENDIF.
+        ENDIF.
+
+        SORT lt_matched_keys.
+        DELETE ADJACENT DUPLICATES FROM lt_matched_keys.
+
+        " Resolve matched task keys to parent TRs
+        DATA lt_keep_parents TYPE STANDARD TABLE OF e070-trkorr WITH DEFAULT KEY.
+        LOOP AT lt_matched_keys INTO DATA(lv_mk).
+          READ TABLE lt_scoped_keys INTO DATA(ls_sk) WITH KEY trkorr = lv_mk.
+          IF sy-subrc = 0.
+            IF ls_sk-strkorr IS NOT INITIAL.
+              APPEND ls_sk-strkorr TO lt_keep_parents.
+            ELSE.
+              APPEND ls_sk-trkorr TO lt_keep_parents.
+            ENDIF.
+          ENDIF.
+        ENDLOOP.
+        SORT lt_keep_parents.
+        DELETE ADJACENT DUPLICATES FROM lt_keep_parents.
+
+        DATA lr_keep_parents TYPE RANGE OF e070-trkorr.
+        lr_keep_parents = VALUE #( FOR kp IN lt_keep_parents ( sign = 'I' option = 'EQ' low = kp ) ).
+        IF lr_keep_parents IS NOT INITIAL.
+          DELETE lt_tr_parents WHERE trkorr NOT IN lr_keep_parents.
+        ELSE.
+          CLEAR lt_tr_parents.
+        ENDIF.
+        IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
+      ENDIF.
+
+    ELSE.
+      " GLOBAL SEARCH (No TR / Owner specified): Query E071 globally
+      IF lr_cts_types IS NOT INITIAL AND lr_matching_fugrs IS NOT INITIAL.
         SELECT DISTINCT trkorr FROM e071
-          WHERE object = @iv_obj_type AND obj_name LIKE @lv_obj_pattern
+          WHERE ( object IN @lr_cts_types AND obj_name LIKE @lv_obj_pattern )
+             OR ( object = 'FUGR' AND obj_name IN @lr_matching_fugrs )
+          INTO TABLE @lt_matching_trkorr
+          UP TO 500 ROWS.
+      ELSEIF lr_cts_types IS NOT INITIAL.
+        SELECT DISTINCT trkorr FROM e071
+          WHERE object IN @lr_cts_types AND obj_name LIKE @lv_obj_pattern
+          INTO TABLE @lt_matching_trkorr
+          UP TO 500 ROWS.
+      ELSEIF lr_matching_fugrs IS NOT INITIAL.
+        SELECT DISTINCT trkorr FROM e071
+          WHERE obj_name LIKE @lv_obj_pattern
+             OR ( object = 'FUGR' AND obj_name IN @lr_matching_fugrs )
           INTO TABLE @lt_matching_trkorr
           UP TO 500 ROWS.
       ELSE.
@@ -272,9 +476,7 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           UP TO 500 ROWS.
       ENDIF.
 
-      IF lt_matching_trkorr IS INITIAL.
-        RETURN.
-      ENDIF.
+      IF lt_matching_trkorr IS INITIAL. RETURN. ENDIF.
 
       SELECT trkorr, strkorr FROM e070
         FOR ALL ENTRIES IN @lt_matching_trkorr
@@ -290,12 +492,8 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       SORT lt_target_parents BY trkorr.
       DELETE ADJACENT DUPLICATES FROM lt_target_parents COMPARING trkorr.
 
-      IF lt_target_parents IS INITIAL.
-        RETURN.
-      ENDIF.
-    ENDIF.
+      IF lt_target_parents IS INITIAL. RETURN. ENDIF.
 
-    IF lv_obj_filtered = abap_true.
       SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
         FROM e070
         FOR ALL ENTRIES IN @lt_target_parents
@@ -306,33 +504,21 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents.
 
       SORT lt_tr_parents BY as4date DESCENDING as4time DESCENDING.
-      IF lines( lt_tr_parents ) > 200.
-        DELETE lt_tr_parents FROM 201.
+      IF lines( lt_tr_parents ) > 500.
+        DELETE lt_tr_parents FROM 501.
       ENDIF.
-    ELSE.
-      SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
-        FROM e070
-        WHERE strkorr = @space
-          AND trkorr  LIKE @lv_tr_pattern
-          AND as4user LIKE @lv_owner_pattern
-        ORDER BY as4date DESCENDING, as4time DESCENDING
-        INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents
-        UP TO 200 ROWS.
-    ENDIF.
 
-    IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
-
-    IF iv_trstatus IS NOT INITIAL.
-      DELETE lt_tr_parents WHERE trstatus <> iv_trstatus.
+      IF iv_trstatus IS NOT INITIAL.
+        DELETE lt_tr_parents WHERE trstatus <> iv_trstatus.
+      ENDIF.
+      IF iv_date_from IS NOT INITIAL.
+        DELETE lt_tr_parents WHERE as4date < iv_date_from.
+      ENDIF.
+      IF iv_date_to IS NOT INITIAL.
+        DELETE lt_tr_parents WHERE as4date > iv_date_to.
+      ENDIF.
+      IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
     ENDIF.
-    IF iv_date_from IS NOT INITIAL.
-      DELETE lt_tr_parents WHERE as4date < iv_date_from.
-    ENDIF.
-    IF iv_date_to IS NOT INITIAL.
-      DELETE lt_tr_parents WHERE as4date > iv_date_to.
-    ENDIF.
-
-    IF lt_tr_parents IS INITIAL. RETURN. ENDIF.
 
     DATA lt_tr_texts TYPE TABLE OF e07t.
     SELECT trkorr, langu, as4text
@@ -394,13 +580,102 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           AND ( pgmid = 'R3TR' OR pgmid = 'LIMU' OR pgmid = '*' OR object = 'RELE' )
         INTO CORRESPONDING FIELDS OF TABLE @lt_e071_raw.
 
+      TYPES: BEGIN OF ty_fugr_area,
+               area TYPE enlfdir-area,
+             END OF ty_fugr_area.
+      DATA lt_fugr_areas TYPE STANDARD TABLE OF ty_fugr_area WITH DEFAULT KEY.
+      LOOP AT lt_e071_raw INTO DATA(ls_r_fg) WHERE object = 'FUGR'.
+        APPEND VALUE #( area = CONV #( ls_r_fg-obj_name ) ) TO lt_fugr_areas.
+      ENDLOOP.
+      SORT lt_fugr_areas BY area.
+      DELETE ADJACENT DUPLICATES FROM lt_fugr_areas COMPARING area.
+
+      TYPES: BEGIN OF ty_enlfdir_fm,
+               area     TYPE enlfdir-area,
+               funcname TYPE enlfdir-funcname,
+             END OF ty_enlfdir_fm.
+      DATA lt_fms_in_fugrs TYPE STANDARD TABLE OF ty_enlfdir_fm WITH DEFAULT KEY.
+      IF lt_fugr_areas IS NOT INITIAL.
+        SELECT area, funcname
+          FROM enlfdir
+          FOR ALL ENTRIES IN @lt_fugr_areas
+          WHERE area = @lt_fugr_areas-area
+            AND active = 'X'
+          INTO TABLE @lt_fms_in_fugrs.
+      ENDIF.
+
       LOOP AT lt_e071_raw INTO DATA(ls_raw).
         CLEAR ls_parsed.
         ls_parsed-trkorr = ls_raw-trkorr.
         ls_parsed-pgmid  = ls_raw-pgmid.
 
-        IF ls_raw-object = 'METH'.
-          " LIMU METH: obj_name contains Class Name (first 30 chars) and Method Name
+        IF ls_raw-object = 'FUGR'.
+          ls_parsed-object    = 'FUGR'.
+          ls_parsed-fold_type = 'FUGR'.
+          ls_parsed-fold_desc = get_type_description( 'FUGR' ).
+          ls_parsed-obj_name  = ls_raw-obj_name.
+          ls_parsed-desc      = 'Function Group'.
+          APPEND ls_parsed TO lt_parsed_objs.
+
+          LOOP AT lt_fms_in_fugrs INTO DATA(ls_fm) WHERE area = ls_raw-obj_name.
+            CLEAR ls_parsed.
+            ls_parsed-trkorr    = ls_raw-trkorr.
+            ls_parsed-pgmid     = 'LIMU'.
+            ls_parsed-object    = 'FUNC'.
+            ls_parsed-fold_type = 'FUNC'.
+            ls_parsed-fold_desc = get_type_description( 'FUNC' ).
+            ls_parsed-obj_name  = ls_fm-funcname.
+            ls_parsed-desc      = |Function Module ({ ls_raw-obj_name })|.
+            APPEND ls_parsed TO lt_parsed_objs.
+          ENDLOOP.
+
+        ELSEIF ls_raw-object = 'FUNC'.
+          ls_parsed-object    = 'FUNC'.
+          ls_parsed-fold_type = 'FUNC'.
+          ls_parsed-fold_desc = get_type_description( 'FUNC' ).
+          ls_parsed-obj_name  = ls_raw-obj_name.
+          ls_parsed-desc      = 'Function Module'.
+          APPEND ls_parsed TO lt_parsed_objs.
+
+        ELSEIF ls_raw-object = 'TABL' OR ls_raw-object = 'TABD' OR ls_raw-object = 'TABT'.
+          ls_parsed-object    = 'TABL'.
+          ls_parsed-fold_type = 'TABL'.
+          ls_parsed-fold_desc = 'Database Table / Structure'.
+          ls_parsed-obj_name  = ls_raw-obj_name.
+          IF ls_raw-object = 'TABD'.
+            ls_parsed-desc = 'Table Definition / Structure'.
+          ELSEIF ls_raw-object = 'TABT'.
+            ls_parsed-desc = 'Table Texts'.
+          ELSE.
+            ls_parsed-desc = 'Database Table'.
+          ENDIF.
+          APPEND ls_parsed TO lt_parsed_objs.
+
+        ELSEIF ls_raw-object = 'DCLS'.
+          ls_parsed-object    = 'DCLS'.
+          ls_parsed-fold_type = 'DCLS'.
+          ls_parsed-fold_desc = 'Access Control (CDS Role)'.
+          ls_parsed-obj_name  = ls_raw-obj_name.
+          ls_parsed-desc      = 'Access Control (CDS Role)'.
+          APPEND ls_parsed TO lt_parsed_objs.
+
+        ELSEIF ls_raw-object = 'DDLX'.
+          ls_parsed-object    = 'DDLX'.
+          ls_parsed-fold_type = 'DDLX'.
+          ls_parsed-fold_desc = 'Metadata Extension'.
+          ls_parsed-obj_name  = ls_raw-obj_name.
+          ls_parsed-desc      = 'CDS Metadata Extension'.
+          APPEND ls_parsed TO lt_parsed_objs.
+
+        ELSEIF ls_raw-object = 'SRVD'.
+          ls_parsed-object    = 'SRVD'.
+          ls_parsed-fold_type = 'SRVD'.
+          ls_parsed-fold_desc = 'Service Definition'.
+          ls_parsed-obj_name  = ls_raw-obj_name.
+          ls_parsed-desc      = 'RAP Service Definition'.
+          APPEND ls_parsed TO lt_parsed_objs.
+
+        ELSEIF ls_raw-object = 'METH'.
           DATA lv_cls TYPE e071-obj_name.
           DATA lv_mth TYPE as4text.
           CLEAR: lv_cls, lv_mth.
@@ -424,14 +699,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           ls_parsed-desc      = lv_mth.
           APPEND ls_parsed TO lt_parsed_objs.
 
-        ELSEIF ls_raw-object = 'FUNC'.
-          ls_parsed-object    = 'FUNC'.
-          ls_parsed-fold_type = 'FUNC'.
-          ls_parsed-fold_desc = get_type_description( 'FUNC' ).
-          ls_parsed-obj_name  = ls_raw-obj_name.
-          ls_parsed-desc      = ''.
-          APPEND ls_parsed TO lt_parsed_objs.
-
         ELSEIF ls_raw-object = 'CPUB' OR ls_raw-object = 'CPRI' OR ls_raw-object = 'CPRO' OR ls_raw-object = 'CLSD'.
           ls_parsed-object    = ls_raw-object.
           ls_parsed-fold_type = ls_raw-object.
@@ -446,7 +713,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           APPEND ls_parsed TO lt_parsed_objs.
 
         ELSEIF ls_raw-object = 'REPS' OR ls_raw-object = 'REPT'.
-          " Check if this is a Function Group include (e.g. L<FUGR>UXX, L<FUGR>TOP, L<FUGR>U01...)
           DATA lv_obj_len TYPE i.
           DATA lv_off_end TYPE i.
           DATA lv_is_fg_inc TYPE abap_bool.
@@ -486,9 +752,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
             ls_parsed-obj_name  = ls_raw-obj_name.
             ls_parsed-desc      = |Function Group Include ({ lv_fg_name })|.
           ELSE.
-            ls_parsed-object    = ls_raw-object.
-            ls_parsed-fold_type = ls_raw-object.
-            ls_parsed-fold_desc = get_type_description( ls_raw-object ).
+            ls_parsed-object    = 'PROG'.
+            ls_parsed-fold_type = 'PROG'.
+            ls_parsed-fold_desc = get_type_description( 'PROG' ).
             ls_parsed-obj_name  = ls_raw-obj_name.
             ls_parsed-desc      = 'Report Source Code'.
           ENDIF.
@@ -496,7 +762,6 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           APPEND ls_parsed TO lt_parsed_objs.
 
         ELSEIF ls_raw-pgmid = '*' OR ls_raw-object = 'RELE'.
-          " Comment Entry: Released (SE09 CTS audit log: <Task> <YYYYMMDD> <HHMMSS> <User>)
           ls_parsed-object    = ls_raw-object.
           ls_parsed-fold_type = ls_raw-object.
           IF ls_raw-object = 'RELE'.
@@ -618,6 +883,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
             ls_node-node_type      = 'FOLD'.
             ls_node-trkorr         = <task>-trkorr.
             ls_node-parent_trkorr  = <tr>-trkorr.
+            ls_node-owner          = <task>-as4user.
+            ls_node-as4date        = <task>-as4date.
+            ls_node-tr_status      = <task>-trstatus.
             ls_node-obj_type       = <obj>-fold_type.
             ls_node-obj_name       = <obj>-fold_desc.
             ls_node-description    = <obj>-fold_desc.
@@ -642,9 +910,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
             ls_node-tr_status    = 'R'.
           ELSE.
             ls_node-node_type    = 'OBJ'.
-            ls_node-owner        = ''.
-            ls_node-as4date      = ''.
-            ls_node-tr_status    = ''.
+            ls_node-owner        = <task>-as4user.
+            ls_node-as4date      = <task>-as4date.
+            ls_node-tr_status    = <task>-trstatus.
           ENDIF.
           ls_node-trkorr         = <task>-trkorr.
           ls_node-parent_trkorr  = <tr>-trkorr.
@@ -693,6 +961,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
             ls_node-node_type      = 'FOLD'.
             ls_node-trkorr         = <tr>-trkorr.
             ls_node-parent_trkorr  = <tr>-trkorr.
+            ls_node-owner          = <tr>-as4user.
+            ls_node-as4date        = <tr>-as4date.
+            ls_node-tr_status      = <tr>-trstatus.
             ls_node-obj_type       = <obj2>-fold_type.
             ls_node-obj_name       = <obj2>-fold_desc.
             ls_node-description    = <obj2>-fold_desc.
@@ -717,9 +988,9 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
             ls_node-tr_status    = 'R'.
           ELSE.
             ls_node-node_type    = 'OBJ'.
-            ls_node-owner        = ''.
-            ls_node-as4date      = ''.
-            ls_node-tr_status    = ''.
+            ls_node-owner        = <tr>-as4user.
+            ls_node-as4date      = <tr>-as4date.
+            ls_node-tr_status    = <tr>-trstatus.
           ENDIF.
           ls_node-trkorr         = <tr>-trkorr.
           ls_node-parent_trkorr  = <tr>-trkorr.
@@ -838,11 +1109,17 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
       WHEN 'PROG'. rv_desc = 'Program / Report'.
       WHEN 'REPS'. rv_desc = 'Report Source Code'.
       WHEN 'REPT'. rv_desc = 'Report Text Elements'.
-      WHEN 'TABL'. rv_desc = 'Database Table'.
+      WHEN 'TABL'. rv_desc = 'Database Table / Structure'.
+      WHEN 'TABD'. rv_desc = 'Database Table Definition'.
+      WHEN 'TABT'. rv_desc = 'Table Texts'.
       WHEN 'DTEL'. rv_desc = 'Data Element'.
       WHEN 'DOMA'. rv_desc = 'Domain'.
+      WHEN 'TTYP'. rv_desc = 'Table Type'.
       WHEN 'DDLS'. rv_desc = 'CDS View Entity'.
       WHEN 'BDEF'. rv_desc = 'Behavior Definition'.
+      WHEN 'DCLS'. rv_desc = 'Access Control (CDS Role)'.
+      WHEN 'DDLX'. rv_desc = 'Metadata Extension'.
+      WHEN 'SRVD'. rv_desc = 'Service Definition'.
       WHEN 'TRAN'. rv_desc = 'Transaction'.
       WHEN 'DEVC'. rv_desc = 'Package'.
       WHEN 'MSAG'. rv_desc = 'Message Class'.

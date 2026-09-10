@@ -23,6 +23,11 @@
     "dependencies": [
       "@sap/ux-ui5-tooling",
       "ui5-middleware-simpleproxy"
-    ]
+    ],
+    "ui5linter": {
+      "jsClassExceptions": [
+        "zscort.app.init"
+      ]
+    }
   }
 }

@@ -495,6 +495,12 @@ sap.ui.define([
       window.location.href = oUrl.toString();
     },
 
+    /**
+     * Retrieves translated text from resource bundle.
+     * @param {string} sKey - i18n text key
+     * @param {any[]} [aArgs] - Optional replacement arguments
+     * @returns {string} Translated text or fallback key
+     */
     _getText: function (sKey, aArgs) {
       var oBundle = this.getOwnerComponent().getModel("i18n") ? this.getOwnerComponent().getModel("i18n").getResourceBundle() : null;
       if (!oBundle) {
@@ -503,7 +509,7 @@ sap.ui.define([
           oBundle = oView.getModel("i18n").getResourceBundle();
         }
       }
-      return oBundle ? oBundle.getText(sKey, aArgs) : sKey;
+      return oBundle ? oBundle.getText(sKey, aArgs || []) : sKey;
     }
   });
 });

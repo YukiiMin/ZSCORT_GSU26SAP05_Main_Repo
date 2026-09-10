@@ -1,16 +1,3 @@
-*"======================================================================
-*" Z_SCORT_TR_RELEASE_LOCAL | Function Group: ZSCORT_FG_LOCAL
-*"
-*" Wrapper LUW → ZCL026_SCORT_RELEASE_SERVICE=>PROCESS_RELEASE
-*"
-*" Nếu ADT vẫn báo Field unknown: mở FM → tab Parameters → Add thủ công
-*"   IV_TRKORR  Import  TYPE TRKORR     Pass Value
-*"   IV_DIALOG  Import  TYPE CHAR1      Pass Value  Optional
-*"   EV_SUCCESS Export  TYPE CHAR1      Pass Value
-*"   EV_MESSAGE Export  TYPE CHAR255    Pass Value
-*" rồi Attributes → Remote-Enabled → Activate.
-*"======================================================================
-
 FUNCTION z_scort_tr_release_local
   IMPORTING
     VALUE(iv_trkorr) TYPE trkorr
@@ -29,7 +16,9 @@ FUNCTION z_scort_tr_release_local
 
   IF iv_trkorr IS INITIAL.
     ev_success = space.
-    ev_message = 'Trkorr is initial'.
+    ev_message = zcm_scort=>get_text_by_key(
+                   is_t100_key = zcm_scort=>missing_tr_param
+                   iv_attr1    = 'ReleaseRequest' ).
     RETURN.
   ENDIF.
 
@@ -46,7 +35,9 @@ FUNCTION z_scort_tr_release_local
           ev_message = lv_msg ).
     CATCH cx_root INTO DATA(lx).
       ev_success = space.
-      ev_message = |ZCL026: { lx->get_text( ) }|.
+      ev_message = zcm_scort=>get_text_by_key(
+                     is_t100_key = zcm_scort=>internal_error
+                     iv_attr1    = CONV #( lx->get_text( ) ) ).
       RETURN.
   ENDTRY.
 
@@ -55,9 +46,14 @@ FUNCTION z_scort_tr_release_local
   IF lv_msg IS NOT INITIAL.
     ev_message = lv_msg.
   ELSEIF lv_ok = abap_true.
-    ev_message = |Released { iv_trkorr } (status={ lv_status })|.
+    ev_message = zcm_scort=>get_text_by_key(
+                   is_t100_key = zcm_scort=>tr_released_success
+                   iv_attr1    = CONV #( iv_trkorr ) ).
   ELSE.
-    ev_message = |Release failed { iv_trkorr }|.
+    ev_message = zcm_scort=>get_text_by_key(
+                   is_t100_key = zcm_scort=>release_failed
+                   iv_attr1    = CONV #( iv_trkorr )
+                   iv_attr2    = 'Unknown error' ).
   ENDIF.
 
 ENDFUNCTION.

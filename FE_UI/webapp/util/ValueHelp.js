@@ -278,7 +278,7 @@ sap.ui.define([
         oJson.setProperty("/rows", applyRowMap(STATIC[mOpts.sEntitySet].slice()));
         MessageToast.show("Local list (OData slow)");
       } else {
-        // Version: fallback tối thiểu để thoát dialog
+        // Version: minimal fallback data to close dialog
         if (mOpts.sEntitySet === "/Version") {
           oJson.setProperty("/rows", applyRowMap([
             { VersionNo: "00001", Message: "1" },

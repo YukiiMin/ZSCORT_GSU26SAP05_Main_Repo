@@ -1,3 +1,8 @@
+/**
+ * Application Bootstrap Entrypoint
+ * Loaded directly by index.html via data-sap-ui-oninit="module:zscort/app/init".
+ * @ui5ignore
+ */
 sap.ui.define([
   "sap/ui/core/ComponentContainer",
   "sap/m/IllustratedMessage",
@@ -8,7 +13,6 @@ sap.ui.define([
 
   function showBootError(vErr) {
     var sMsg = (vErr && vErr.message) ? vErr.message : String(vErr || "Unknown boot error");
-    // eslint-disable-next-line no-console
     console.error("[zscort.app] boot failed", vErr);
     new App({
       pages: [

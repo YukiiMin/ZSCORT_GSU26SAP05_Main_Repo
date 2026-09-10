@@ -54,9 +54,24 @@ sap.ui.define([
       this._app().setProperty("/currentModule", "objSearch");
     },
 
-    _onRouteMatched: function () {
+    _onRouteMatched: function (oEvent) {
       this._app().setProperty("/currentModule", "objSearch");
       this._ensureBeginVisible();
+
+      var oArgs = oEvent && oEvent.getParameter && oEvent.getParameter("arguments");
+      var oQuery = (oArgs && oArgs["?query"]) || {};
+      if (oQuery.objectName || oQuery.objectType) {
+        var oM = this.getView().getModel("objSearch");
+        if (oQuery.objectName) {
+          oM.setProperty("/filterObjName", oQuery.objectName);
+        }
+        if (oQuery.objectType) {
+          oM.setProperty("/filterObjTypes", [oQuery.objectType]);
+        }
+        oM.setProperty("/filterPackage", "");
+        oM.setProperty("/filterAuthor", "");
+        this.onSearchButtonPress();
+      }
     },
 
     _ensureBeginVisible: function () {
@@ -110,7 +125,7 @@ sap.ui.define([
       var sOwn = (oM.getProperty("/filterAuthor") || "").trim();
 
       if (!sObj && !sPkg && !sOwn) {
-        MessageBox.warning(this._getText("msgEnterAtLeastOneFilter") || "Please enter at least 1 filter criterion (Object Name, Package, or Person Responsible).");
+        MessageBox.warning(this._getText("msgEnterAtLeastOneFilter", []) || "Please enter at least 1 filter criterion (Object Name, Package, or Person Responsible).");
         return;
       }
 
@@ -396,7 +411,7 @@ sap.ui.define([
         that._bLocalLoaded = true;
         that._searchMatrix();
         if (!aFiltered.length) {
-          MessageToast.show(that._getText("noData") || "No local objects matched the filter");
+          MessageToast.show(that._getText("noData", []) || "No local objects matched the filter");
         }
         return aFiltered;
       }).catch(function (oErr) {
@@ -487,7 +502,7 @@ sap.ui.define([
         that._bTargetLoaded = true;
         that._searchMatrix();
         if (!aFiltered.length) {
-          MessageToast.show(that._getText("noData") || "No target objects matched the filter");
+          MessageToast.show(that._getText("noData", []) || "No target objects matched the filter");
         }
         return aFiltered;
       }).catch(function (oErr) {

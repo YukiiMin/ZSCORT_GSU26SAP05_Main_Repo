@@ -38,6 +38,7 @@ define root view entity ZCR_SCORT_TR_OBJ_SEARCH
   key ObjectName,
 
       ParentTrkorr,
+      ParentOwner,
 
       @UI.lineItem: [{ position: 50, label: 'Owner' }]
       @UI.selectionField: [{ position: 50 }]
@@ -56,5 +57,11 @@ define root view entity ZCR_SCORT_TR_OBJ_SEARCH
       @UI.lineItem: [{ position: 80, label: 'Current Managing TR' }]
       CurrentManagingTr,
 
-      Activity
+      Activity,
+
+      @UI.lineItem: [{ position: 45, label: 'Package' }]
+      PackageName,
+
+      @UI.lineItem: [{ position: 75, label: 'Object Status' }]
+      ObjectStatus
 }

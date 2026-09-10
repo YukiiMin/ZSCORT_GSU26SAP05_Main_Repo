@@ -15,7 +15,7 @@
           tooltip="{i18n>navTrSearch}" />
         <Title text="{i18n>masterTitle}: {detail>/trkorr}" level="H4" class="sapUiTinyMarginBegin" />
         <ToolbarSpacer />
-        <Button text="Release TR" press=".onReleaseTrInDetail" type="Emphasized" icon="sap-icon://shipping-status" visible="{detail>/isUnreleased}" tooltip="Release TR to enable compare" />
+        <Button text="{= ${detail>/nodeType} === 'TASK' ? 'Release Task' : 'Release TR'}" press=".onReleaseTrInDetail" type="Emphasized" icon="sap-icon://shipping-status" visible="{detail>/isUnreleased}" tooltip="Release to enable compare" />
         <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Accept" icon="sap-icon://upload-to-cloud" tooltip="Apply to Target after compare (Released TR)" visible="{= !${detail>/isUnreleased} }" />
         <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
         <Button
@@ -36,11 +36,13 @@
       <VBox height="100%" fitContainer="true">
         <ObjectHeader
           title="{detail>/trkorr}"
-          intro="{i18n>currentManagingTr}"
+          intro="{= ${detail>/nodeType} === 'TASK' ? 'Task (Parent TR: ' + ${detail>/parentTrkorr} + ')' : 'Transport Request'}"
           responsive="true"
           fullScreenOptimized="false">
           <attributes>
             <ObjectAttribute title="{i18n>colCreated}" text="{path: 'detail>/as4date', formatter: '.formatDate'}" />
+            <ObjectAttribute title="Owner" text="{detail>/owner}" />
+            <ObjectAttribute title="Description" text="{detail>/description}" />
             <ObjectAttribute title="Info" text="{detail>/message}" />
           </attributes>
         </ObjectHeader>
