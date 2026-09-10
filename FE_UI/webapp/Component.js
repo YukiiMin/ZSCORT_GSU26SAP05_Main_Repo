@@ -2,10 +2,8 @@ sap.ui.define([
   "sap/ui/core/UIComponent",
   "sap/ui/model/json/JSONModel",
   "sap/f/library",
-  "sap/base/Log",
-  "sap/base/i18n/Localization",
   "sap/ui/Device"
-], function (UIComponent, JSONModel, fLibrary, Log, Localization, Device) {
+], function (UIComponent, JSONModel, fLibrary, Device) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
@@ -28,7 +26,13 @@ sap.ui.define([
 
     init: function () {
       var sSavedLang = localStorage.getItem("scort_lang") || "en";
-      Localization.setLanguage(sSavedLang);
+      try {
+        if (sap.ui.getCore && sap.ui.getCore().getConfiguration) {
+          sap.ui.getCore().getConfiguration().setLanguage(sSavedLang);
+        }
+      } catch (e) {
+        // ignore fallback error
+      }
 
       UIComponent.prototype.init.apply(this, arguments);
 
