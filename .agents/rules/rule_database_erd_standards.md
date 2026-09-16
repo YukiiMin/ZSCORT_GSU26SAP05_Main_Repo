@@ -42,8 +42,10 @@ description: Universal standards for Database ERD schemas, high-resolution rende
    - **Ký hiệu Crow's Foot**: Các nhánh chân quạ bắt buộc phải **xòe mở rộng về phía biên thực thể** (apex nằm trên đường dây, 3 nhánh chạm hoặc tiến sát biên bảng), vòng tròn `O` rỗng nền trắng (`#FFFFFF`) che đường line bên dưới, vạch `|` vuông góc dứt khoát.
    - **White Pill Badge cho nhãn quan hệ**: Mọi nhãn chữ trên đường nối (verb phrase) PHẢI được bọc bởi thẻ `<rect>` nền trắng (`#FFFFFF`), viền mờ bo góc (`rx="4"`), kích thước ôm khít văn bản để đường path không đè xuyên qua chữ (loại bỏ 100% lỗi strikethrough).
 
-3. **Cân Bằng Không Gian Layout & Phân Cụm (Spatial Balance & Domain Panels)**:
-   - Khoảng cách giữa hai bảng liền kề duy trì chuẩn **90–110px**.
-   - Phân chia các phân hệ lớn thành các cụm khối nghiệp vụ có viền pillow mờ (`ClusterDef`) và nhãn tiêu đề phân hệ.
-   - Bố cục các cụm theo ma trận chữ nhật tỷ lệ 1.6:1 (3840 x 2400 px), tạo hành lang giao thông 100–120px giữa các cụm giúp đường liên kết chạy xuyên suốt, không để khoảng trống vô nghĩa vượt quá 250px ở bất kỳ khu vực nào trên canvas.
+3. **Cân Bằng Không Gian Layout & Phân Cụm Ẩn (Invisible Conceptual Zoning & Spatial Balance)**:
+   - **Ẩn hoàn toàn Background / Viền Zone trên Canvas (`show_clusters: false`, `visible: false`)**:
+     - Bố cục và tọa độ các bảng vẫn được thiết kế và quy hoạch nghiêm ngặt theo các cụm phân hệ nghiệp vụ độc lập (tọa độ tập trung, duy trì hành lang giao thông 100–120px giữa các cụm giúp đường nối chạy xuyên suốt mà không cắt ngang qua các bảng).
+     - **Tuyệt đối KHÔNG hiển thị khung viền hình chữ nhật, background màu đệm hay tag tiêu đề phân hệ** trên ảnh xuất bản. Điều này giúp sơ đồ đạt độ tinh gọn, trang nhã, hiện đại (clean & minimalist) và không bị rối mắt bởi các khối viền hộp bao quanh.
+   - **Khoảng cách tối ưu giữa các bảng**: Duy trì khoảng cách giữa 2 bảng liền kề chuẩn **90–110px**, không để bảng sát rạt (< 80px) gây đè ký hiệu, cũng không để khoảng cách quá xa (> 250px) gây lãng phí không gian.
+   - **Tỷ lệ khung hình**: Bố cục các cụm theo ma trận cân đối tỷ lệ chữ nhật 1.6:1 (3840 x 2400 px), triệt tiêu hoàn toàn khoảng trống thừa.
 
