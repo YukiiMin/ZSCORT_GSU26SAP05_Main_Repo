@@ -12,7 +12,16 @@
     <customHeader>
       <Bar>
         <contentLeft>
-          <Title text="{i18n>trSearchTitle}" />
+          <HBox alignItems="Center">
+            <Image
+              src="img/sap-logo.jpg"
+              width="36px"
+              height="36px"
+              densityAware="false"
+              class="sapUiTinyMarginEnd"
+              tooltip="SAP S/4HANA \u2014 SCORT" />
+            <Title text="{i18n>trSearchTitle}" />
+          </HBox>
         </contentLeft>
         <contentMiddle>
           <SegmentedButton
@@ -42,7 +51,13 @@
               </Menu>
             </menu>
           </MenuButton>
-          <Button icon="sap-icon://home" type="Transparent" press=".onNavObjSearch" tooltip="Home — Object Search" />
+          <Button
+            id="btnUserProfileTr"
+            icon="sap-icon://customer"
+            text="{user>/userId}"
+            type="Transparent"
+            press=".onUserProfilePress"
+            tooltip="{user>/userId} ({user>/client}) \u2014 {i18n>userProfileTitle}" />
         </contentRight>
       </Bar>
     </customHeader>

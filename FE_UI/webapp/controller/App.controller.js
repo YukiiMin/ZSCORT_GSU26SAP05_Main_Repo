@@ -19,6 +19,10 @@ sap.ui.define([
       var oAppModel = this.getOwnerComponent().getModel("appView");
 
       switch (sRouteName) {
+        case "login":
+          oAppModel.setProperty("/layout", LayoutType.OneColumn);
+          oAppModel.setProperty("/currentModule", "login");
+          break;
         case "master":
         case "home":
           oAppModel.setProperty("/layout", LayoutType.OneColumn);

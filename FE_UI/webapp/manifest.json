@@ -118,6 +118,10 @@
       "detail": {
         "type": "sap.ui.model.json.JSONModel",
         "settings": {}
+      },
+      "user": {
+        "type": "sap.ui.model.json.JSONModel",
+        "settings": {}
       }
     },
     "routing": {
@@ -133,9 +137,15 @@
       },
       "routes": [
         {
+          "pattern": "login",
+          "name": "login",
+          "target": ["login"],
+          "layout": "OneColumn"
+        },
+        {
           "pattern": "",
           "name": "home",
-          "target": ["trSearch"],
+          "target": ["login"],
           "layout": "OneColumn"
         },
         {
@@ -182,6 +192,13 @@
         }
       ],
       "targets": {
+        "login": {
+          "viewName": "Login",
+          "type": "View",
+          "id": "loginView",
+          "controlAggregation": "beginColumnPages",
+          "clearControlAggregation": true
+        },
         "master": {
           "viewName": "Master",
           "type": "View",

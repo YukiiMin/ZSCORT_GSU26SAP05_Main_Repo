@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 140 70" width="140" height="70">
+  <defs>
+    <linearGradient id="sapBlueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#008FD3" />
+      <stop offset="55%" stop-color="#0070F2" />
+      <stop offset="100%" stop-color="#004A99" />
+    </linearGradient>
+  </defs>
+  
+  <!-- SAP Background Badge -->
+  <rect x="0" y="0" width="140" height="70" rx="4" fill="url(#sapBlueGradient)" />
+
+  <!-- Letter S -->
+  <path d="M 14,53 L 34,53 C 41,53 45,49 45,43 C 45,37 40,34 33,32 L 29,31 C 24,29 22,28 22,25 C 22,21 26,19 32,19 L 44,19 L 44,11 L 32,11 C 21,11 13,16 13,25 C 13,33 19,37 25,39 L 29,40 C 35,42 37,43 37,46 C 37,50 33,52 28,52 L 14,52 Z" fill="#FFFFFF" />
+
+  <!-- Letter A -->
+  <path d="M 47,53 L 57,53 L 68,11 L 58,11 Z" fill="#FFFFFF" />
+  <path d="M 69,11 L 80,53 L 90,53 L 79,11 Z" fill="#FFFFFF" />
+  <path d="M 57,39 L 80,39 L 80,32 L 59,32 Z" fill="#FFFFFF" />
+
+  <!-- Letter P -->
+  <path d="M 94,53 L 103,53 L 103,11 L 122,11 C 131,11 137,16 137,25 C 137,34 131,39 122,39 L 103,39 L 103,53 Z M 103,32 L 121,32 C 125,32 128,29 128,25 C 128,21 125,18 121,18 L 103,18 Z" fill="#FFFFFF" />
+</svg>

@@ -1,0 +1,127 @@
+<mvc:View
+  controllerName="zscort.app.controller.Login"
+  xmlns="sap.m"
+  xmlns:mvc="sap.ui.core.mvc"
+  xmlns:f="sap.f"
+  xmlns:core="sap.ui.core"
+  displayBlock="true"
+  height="100%">
+
+  <Page
+    id="loginPage"
+    showHeader="false"
+    enableScrolling="true"
+    class="scortLoginPage">
+
+    <VBox
+      alignItems="Center"
+      justifyContent="Center"
+      fitContainer="true"
+      class="scortLoginContainer">
+
+      <VBox class="scortLoginCard sapUiResponsiveMargin">
+        
+        <VBox alignItems="Center" class="scortLoginHeader">
+          <Image
+            src="img/sap-logo.jpg"
+            densityAware="false"
+            alt="SAP Logo"
+            class="scortSapLogo"
+            width="88px" />
+
+          <Title
+            text="SCORT"
+            level="H2"
+            textAlign="Center"
+            class="scortMainBrandTitle" />
+
+          <Text
+            text="SAP CROSS-SYSTEM OBJECT REPLICATION TOOLKIT"
+            textAlign="Center"
+            class="scortMainBrandSubtitle" />
+        </VBox>
+
+        <MessageStrip
+          id="loginMsgStrip"
+          visible="false"
+          showIcon="true"
+          showCloseButton="true"
+          class="sapUiTinyMarginTopBottom" />
+
+        <VBox class="scortLoginForm">
+          
+          <VBox class="scortInputGroup">
+            <Label text="{i18n>loginUsernameLabel}" required="true" labelFor="inputUsername" />
+            <Input
+              id="inputUsername"
+              placeholder="{i18n>loginUsernamePlaceholder}"
+              value="{login>/username}"
+              valueLiveUpdate="true"
+              submit=".onLogonPress"
+              class="scortInput" />
+          </VBox>
+
+          <VBox class="scortInputGroup sapUiTinyMarginTop">
+            <Label text="{i18n>loginPasswordLabel}" required="true" labelFor="inputPassword" />
+            <Input
+              id="inputPassword"
+              type="Password"
+              placeholder="{i18n>loginPasswordPlaceholder}"
+              value="{login>/password}"
+              submit=".onLogonPress"
+              class="scortInput" />
+          </VBox>
+
+          <HBox justifyContent="SpaceBetween" alignItems="Center" class="scortClientLangRow sapUiTinyMarginTop">
+            <VBox class="scortInputGroup scortHalfWidth">
+              <Label text="{i18n>loginClientLabel}" required="true" labelFor="inputClient" />
+              <Input
+                id="inputClient"
+                value="{login>/client}"
+                maxLength="3"
+                submit=".onLogonPress"
+                placeholder="{i18n>loginClientPlaceholder}"
+                class="scortInput" />
+            </VBox>
+
+            <VBox class="scortInputGroup scortHalfWidth">
+              <Label text="{i18n>loginLanguageLabel}" labelFor="selectLanguage" />
+              <Select
+                id="selectLanguage"
+                selectedKey="{login>/language}"
+                change=".onLanguageChange"
+                width="100%"
+                class="scortSelect">
+                <core:Item key="en" text="🇬🇧 English" />
+                <core:Item key="vi" text="🇻🇳 Tiếng Việt" />
+                <core:Item key="de" text="🇩🇪 Deutsch" />
+                <core:Item key="ja" text="🇯🇵 日本語" />
+                <core:Item key="zh" text="🇨🇳 中文" />
+              </Select>
+            </VBox>
+          </HBox>
+
+          <HBox alignItems="Center" class="scortRememberRow">
+            <CheckBox
+              id="chkRemember"
+              text="{i18n>loginRememberMe}"
+              selected="{login>/rememberMe}" />
+          </HBox>
+
+          <Button
+            id="btnLogon"
+            text="{i18n>loginSubmitBtn}"
+            type="Emphasized"
+            icon="sap-icon://log-in"
+            press=".onLogonPress"
+            width="100%"
+            class="scortLogonBtn" />
+
+        </VBox>
+
+      </VBox>
+
+    </VBox>
+  </Page>
+
+</mvc:View>

@@ -64,6 +64,50 @@ sap.ui.define([
         aiModel: "gemini-3.5-flash",
         aiExecutionMode: "BE_SAP"
       }), "detail");
+
+      var isRunningInFLP = !!(window.sap && sap.ushell && sap.ushell.Container);
+      var oUserData = null;
+      if (isRunningInFLP) {
+        var sFlpUser = "DEV-032";
+        try {
+          if (sap.ushell.Container.getUser()) {
+            sFlpUser = sap.ushell.Container.getUser().getId() || "DEV-032";
+          }
+        } catch (e) {}
+        oUserData = {
+          userId: sFlpUser.toUpperCase(),
+          client: "324",
+          language: sSavedLang,
+          systemId: "S40",
+          role: "ABAP Developer",
+          isLoggedIn: true,
+          loginTime: new Date().toLocaleTimeString()
+        };
+        sessionStorage.setItem("scort_session", JSON.stringify(oUserData));
+      } else {
+        var sSession = sessionStorage.getItem("scort_session");
+        if (sSession) {
+          try {
+            oUserData = JSON.parse(sSession);
+          } catch (e) {
+            oUserData = null;
+          }
+        }
+        if (!oUserData || !oUserData.isLoggedIn) {
+          oUserData = {
+            userId: localStorage.getItem("scort_remember_user") || "DEV-032",
+            client: localStorage.getItem("scort_client") || "324",
+            language: sSavedLang,
+            systemId: "S40",
+            role: "ABAP Developer",
+            isLoggedIn: false,
+            loginTime: ""
+          };
+        }
+      }
+      var oUserModel = new JSONModel(oUserData);
+      this.setModel(oUserModel, "user");
+
       var oObjModel = this.getModel("objModel");
       var oTrModel = this.getModel("trModel");
 
@@ -111,15 +155,21 @@ sap.ui.define([
     _initRouterWhenReady: function () {
       var oRouter = this.getRouter();
       if (!oRouter) {
-        Log.error("No router", null, "zscort.app.Component");
         return;
       }
 
+      var that = this;
       function startRouter() {
         try {
           oRouter.initialize();
+          var oUser = that.getModel("user");
+          var bLoggedIn = oUser && oUser.getProperty("/isLoggedIn");
+          var isRunningInFLP = !!(window.sap && sap.ushell && sap.ushell.Container);
+          if (!bLoggedIn && !isRunningInFLP) {
+            oRouter.navTo("login", {}, true);
+          }
         } catch (oErr) {
-          Log.error("Router initialize failed", oErr, "zscort.app.Component");
+          // ignore
         }
       }
 

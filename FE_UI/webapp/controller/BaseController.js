@@ -2,6 +2,7 @@ sap.ui.define([
   "sap/ui/core/mvc/Controller",
   "sap/ui/core/Fragment",
   "sap/m/MessageToast",
+  "sap/m/MessageBox",
   "sap/f/library",
   "zscort/app/monaco/CodeHost",
   "sap/ui/core/format/DateFormat",
@@ -10,12 +11,20 @@ sap.ui.define([
   "sap/ui/model/json/JSONModel",
   "zscort/app/util/AdtFormParser",
   "zscort/app/util/ValueHelp"
-], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat, AiReview, AiPanelRenderer, JSONModel, AdtFormParser, ValueHelp) {
+], function (Controller, Fragment, MessageToast, MessageBox, fLibrary, CodeHost, DateFormat, AiReview, AiPanelRenderer, JSONModel, AdtFormParser, ValueHelp) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
 
   return Controller.extend("zscort.app.controller.BaseController", {
+
+    getRouter: function () {
+      return this.getOwnerComponent().getRouter();
+    },
+
+    getResourceBundle: function () {
+      return this.getOwnerComponent().getModel("i18n").getResourceBundle();
+    },
 
     onButtonNavObjSearchPress: function () {
       var oApp = this._app();
@@ -695,6 +704,108 @@ sap.ui.define([
       var oUrl = new URL(window.location.href);
       oUrl.searchParams.set("sap-language", sNorm.toUpperCase());
       window.location.href = oUrl.toString();
+    },
+
+    onUserProfilePress: function (oEvent) {
+      var oButton = oEvent.getSource();
+      var oView = this.getView();
+      var that = this;
+
+      if (!this._oUserProfilePopover) {
+        var oBundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+
+        var oPopoverContent = new sap.m.VBox({
+          width: "280px",
+          items: [
+            new sap.m.HBox({
+              alignItems: "Center",
+              items: [
+                new sap.f.Avatar({
+                  initials: "{= (${user>/userId} || 'DEV').substring(0, 3) }",
+                  displaySize: "S",
+                  displayShape: "Circle"
+                }).addStyleClass("sapUiSmallMarginEnd"),
+                new sap.m.VBox({
+                  items: [
+                    new sap.m.Title({ text: "{user>/userId}", level: "H4" }),
+                    new sap.m.Text({ text: "{i18n>userRoleLabel}" }).addStyleClass("scortRoleText")
+                  ]
+                })
+              ]
+            }).addStyleClass("sapUiSmallMarginBottom"),
+            new sap.m.VBox({
+              items: [
+                new sap.m.HBox({
+                  justifyContent: "SpaceBetween",
+                  items: [
+                    new sap.m.Label({ text: oBundle.getText("userClientLabel") + ":" }),
+                    new sap.m.Text({ text: "{user>/client}" })
+                  ]
+                }).addStyleClass("sapUiTinyMarginBottom"),
+                new sap.m.HBox({
+                  justifyContent: "SpaceBetween",
+                  items: [
+                    new sap.m.Label({ text: "System ID:" }),
+                    new sap.m.Text({ text: "{user>/systemId} (TUM CIT)" })
+                  ]
+                }).addStyleClass("sapUiTinyMarginBottom"),
+                new sap.m.HBox({
+                  justifyContent: "SpaceBetween",
+                  items: [
+                    new sap.m.Label({ text: oBundle.getText("userLanguageLabel") + ":" }),
+                    new sap.m.Text({ text: "{= (${user>/language} || 'en').toUpperCase() }" })
+                  ]
+                })
+              ]
+            }).addStyleClass("scortProfileDetailsBox sapUiSmallMarginBottom"),
+            new sap.m.Button({
+              text: oBundle.getText("userLogoffBtn"),
+              icon: "sap-icon://log-out",
+              type: "Reject",
+              width: "100%",
+              press: function () {
+                that._oUserProfilePopover.close();
+                that.onLogoffPress();
+              }
+            })
+          ]
+        }).addStyleClass("sapUiContentPadding");
+
+        this._oUserProfilePopover = new sap.m.ResponsivePopover({
+          title: oBundle.getText("userProfileTitle"),
+          placement: "Bottom",
+          content: [oPopoverContent]
+        });
+        oView.addDependent(this._oUserProfilePopover);
+      }
+
+      this._oUserProfilePopover.openBy(oButton);
+    },
+
+    onLogoffPress: function () {
+      var that = this;
+      var oBundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
+      MessageBox.confirm(oBundle.getText("userLogoffConfirm"), {
+        title: oBundle.getText("userLogoffBtn"),
+        actions: [MessageBox.Action.YES, MessageBox.Action.NO],
+        emphasizedAction: MessageBox.Action.YES,
+        onClose: function (sAction) {
+          if (sAction === MessageBox.Action.YES) {
+            sessionStorage.removeItem("scort_session");
+            var oUserModel = that.getOwnerComponent().getModel("user");
+            if (oUserModel) {
+              oUserModel.setProperty("/isLoggedIn", false);
+            }
+            try {
+              var img = new Image();
+              img.src = "/sap/public/bc/icf/logoff";
+            } catch (e) {}
+
+            MessageToast.show(oBundle.getText("userLogoffBtn") + " OK");
+            that.getOwnerComponent().getRouter().navTo("login", {}, true);
+          }
+        }
+      });
     },
 
     /**
