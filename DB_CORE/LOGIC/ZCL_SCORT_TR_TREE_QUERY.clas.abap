@@ -74,6 +74,17 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
     DATA lv_to     TYPE i.
     DATA lv_data   TYPE abap_bool.
     DATA lv_count  TYPE abap_bool.
+    DATA lt_child_e071  TYPE STANDARD TABLE OF e071  WITH DEFAULT KEY.
+    DATA lt_child_tadir TYPE STANDARD TABLE OF tadir WITH DEFAULT KEY.
+    DATA ls_cobj        LIKE LINE OF lt_child_e071.
+    DATA ls_tad         LIKE LINE OF lt_child_tadir.
+    TYPES: BEGIN OF ty_tadir_fae,
+             pgmid    TYPE tadir-pgmid,
+             object   TYPE tadir-object,
+             obj_name TYPE tadir-obj_name,
+           END OF ty_tadir_fae.
+    DATA lt_tadir_fae TYPE STANDARD TABLE OF ty_tadir_fae WITH DEFAULT KEY.
+    DATA ls_tadir_fae LIKE LINE OF lt_tadir_fae.
 
     TRY.
         TRY.
@@ -137,32 +148,137 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
           lv_obj_type = CONV #( lv_raw ).
         ENDIF.
 
-        DATA(lt_nodes) = build_tree(
-          iv_trkorr    = lv_trkorr
-          iv_owner     = lv_owner
-          iv_date_from = lv_date_from
-          iv_date_to   = lv_date_to
-          iv_trstatus  = lv_trstatus
-          iv_obj_name  = lv_obj_name
-          iv_obj_type  = lv_obj_type ).
+        DATA lv_parent_trkorr TYPE e070-strkorr.
+        lv_raw = zcl_scort_query_utl=>filter_low(
+                   io_request = io_request iv_field = 'PARENTTRKORR' ).
+        IF lv_raw IS INITIAL.
+          DATA(lv_sql_filter) = zcl_scort_query_utl=>get_filter_sql( io_request ).
+          lv_raw = zcl_scort_query_utl=>value_of( iv_sql = lv_sql_filter iv_field = 'PARENTTRKORR' ).
+        ENDIF.
+        IF lv_raw IS NOT INITIAL.
+          lv_parent_trkorr = CONV #( lv_raw ).
+        ENDIF.
 
-        LOOP AT lt_nodes ASSIGNING FIELD-SYMBOL(<node>).
-          CLEAR ls_result.
-          ls_result-NodeId        = <node>-node_id.
-          ls_result-ParentNodeId  = <node>-parent_node_id.
-          ls_result-TreeLevel     = <node>-tree_level.
-          ls_result-NodeType      = <node>-node_type.
-          ls_result-Trkorr        = <node>-trkorr.
-          ls_result-ParentTrkorr  = <node>-parent_trkorr.
-          ls_result-Description   = <node>-description.
-          ls_result-Owner         = <node>-owner.
-          ls_result-As4date       = <node>-as4date.
-          ls_result-TrStatus      = <node>-tr_status.
-          ls_result-ObjName       = <node>-obj_name.
-          ls_result-ObjType       = <node>-obj_type.
-          ls_result-Pgmid         = <node>-pgmid.
-          APPEND ls_result TO lt_result.
-        ENDLOOP.
+        IF lv_parent_trkorr IS NOT INITIAL.
+          SELECT trkorr, trfunction, trstatus, as4user, as4date, as4time
+            FROM e070
+            WHERE strkorr = @lv_parent_trkorr
+            ORDER BY trkorr ASCENDING
+            INTO TABLE @DATA(lt_child_tasks).
+
+          IF lt_child_tasks IS NOT INITIAL.
+            SELECT trkorr, as4text
+              FROM e07t
+              FOR ALL ENTRIES IN @lt_child_tasks
+              WHERE trkorr = @lt_child_tasks-trkorr
+                AND langu  = @sy-langu
+              INTO TABLE @DATA(lt_child_texts).
+
+            CLEAR lt_child_e071.
+            SELECT trkorr, pgmid, object, obj_name
+              FROM e071
+              FOR ALL ENTRIES IN @lt_child_tasks
+              WHERE trkorr = @lt_child_tasks-trkorr
+                AND ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
+              INTO CORRESPONDING FIELDS OF TABLE @lt_child_e071.
+            SORT lt_child_e071 BY trkorr object obj_name.
+
+            CLEAR lt_child_tadir.
+            CLEAR lt_tadir_fae.
+            IF lt_child_e071 IS NOT INITIAL.
+              LOOP AT lt_child_e071 INTO ls_cobj.
+                CLEAR ls_tadir_fae.
+                ls_tadir_fae-pgmid    = ls_cobj-pgmid.
+                ls_tadir_fae-object   = ls_cobj-object.
+                ls_tadir_fae-obj_name = CONV #( ls_cobj-obj_name ).
+                APPEND ls_tadir_fae TO lt_tadir_fae.
+              ENDLOOP.
+              SORT lt_tadir_fae BY pgmid object obj_name.
+              DELETE ADJACENT DUPLICATES FROM lt_tadir_fae COMPARING pgmid object obj_name.
+
+              SELECT pgmid, object, obj_name, devclass
+                FROM tadir
+                FOR ALL ENTRIES IN @lt_tadir_fae
+                WHERE pgmid    = @lt_tadir_fae-pgmid
+                  AND object   = @lt_tadir_fae-object
+                  AND obj_name = @lt_tadir_fae-obj_name
+                INTO CORRESPONDING FIELDS OF TABLE @lt_child_tadir.
+            ENDIF.
+
+            LOOP AT lt_child_tasks INTO DATA(ls_ct).
+              DATA(lv_task_desc) = VALUE as4text( lt_child_texts[ trkorr = ls_ct-trkorr ]-as4text OPTIONAL ).
+              DATA(lv_has_obj)   = abap_false.
+
+              LOOP AT lt_child_e071 INTO ls_cobj WHERE trkorr = ls_ct-trkorr.
+                lv_has_obj = abap_true.
+                CLEAR ls_result.
+                ls_result-NodeId       = make_node_id( iv_trkorr = ls_ct-trkorr iv_obj_name = ls_cobj-obj_name ).
+                ls_result-ParentNodeId = ls_ct-trkorr.
+                ls_result-TreeLevel    = 2.
+                ls_result-NodeType     = 'TASK'.
+                ls_result-Trkorr       = ls_ct-trkorr.
+                ls_result-ParentTrkorr = lv_parent_trkorr.
+                ls_result-Description  = lv_task_desc.
+                ls_result-Owner        = ls_ct-as4user.
+                ls_result-As4date      = ls_ct-as4date.
+                ls_result-TrStatus     = ls_ct-trstatus.
+                ls_result-Pgmid        = ls_cobj-pgmid.
+                ls_result-ObjType      = ls_cobj-object.
+                ls_result-ObjName      = ls_cobj-obj_name.
+                CLEAR ls_tad.
+                READ TABLE lt_child_tadir INTO ls_tad
+                  WITH KEY object = ls_cobj-object obj_name = ls_cobj-obj_name.
+                IF sy-subrc = 0.
+                  ls_result-Description = |{ lv_task_desc } [{ ls_tad-devclass }]|.
+                ENDIF.
+                APPEND ls_result TO lt_result.
+              ENDLOOP.
+
+              IF lv_has_obj = abap_false.
+                CLEAR ls_result.
+                ls_result-NodeId       = ls_ct-trkorr.
+                ls_result-ParentNodeId = lv_parent_trkorr.
+                ls_result-TreeLevel    = 1.
+                ls_result-NodeType     = 'TASK'.
+                ls_result-Trkorr       = ls_ct-trkorr.
+                ls_result-ParentTrkorr = lv_parent_trkorr.
+                ls_result-Description  = lv_task_desc.
+                ls_result-Owner        = ls_ct-as4user.
+                ls_result-As4date      = ls_ct-as4date.
+                ls_result-TrStatus     = ls_ct-trstatus.
+                APPEND ls_result TO lt_result.
+              ENDIF.
+            ENDLOOP.
+          ENDIF.
+
+        ELSE.
+          DATA(lt_nodes) = build_tree(
+            iv_trkorr    = lv_trkorr
+            iv_owner     = lv_owner
+            iv_date_from = lv_date_from
+            iv_date_to   = lv_date_to
+            iv_trstatus  = lv_trstatus
+            iv_obj_name  = lv_obj_name
+            iv_obj_type  = lv_obj_type ).
+
+          LOOP AT lt_nodes ASSIGNING FIELD-SYMBOL(<node>).
+            CLEAR ls_result.
+            ls_result-NodeId        = <node>-node_id.
+            ls_result-ParentNodeId  = <node>-parent_node_id.
+            ls_result-TreeLevel     = <node>-tree_level.
+            ls_result-NodeType      = <node>-node_type.
+            ls_result-Trkorr        = <node>-trkorr.
+            ls_result-ParentTrkorr  = <node>-parent_trkorr.
+            ls_result-Description   = <node>-description.
+            ls_result-Owner         = <node>-owner.
+            ls_result-As4date       = <node>-as4date.
+            ls_result-TrStatus      = <node>-tr_status.
+            ls_result-ObjName       = <node>-obj_name.
+            ls_result-ObjType       = <node>-obj_type.
+            ls_result-Pgmid         = <node>-pgmid.
+            APPEND ls_result TO lt_result.
+          ENDLOOP.
+        ENDIF.
 
         lv_total = lines( lt_result ).
 
@@ -342,6 +458,32 @@ CLASS zcl_scort_tr_tree_query IMPLEMENTATION.
         ORDER BY as4date DESCENDING, as4time DESCENDING
         INTO CORRESPONDING FIELDS OF TABLE @lt_tr_parents
         UP TO 500 ROWS.
+
+      IF iv_trkorr IS NOT INITIAL.
+        SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
+          FROM e070
+          WHERE strkorr <> @space
+            AND trkorr  LIKE @lv_tr_pattern
+            AND as4user LIKE @lv_owner_pattern
+          ORDER BY as4date DESCENDING, as4time DESCENDING
+          INTO TABLE @DATA(lt_cand_match_tasks)
+          UP TO 500 ROWS.
+
+        IF lt_cand_match_tasks IS NOT INITIAL.
+          SELECT trkorr, strkorr, as4user, as4date, as4time, trstatus
+            FROM e070
+            FOR ALL ENTRIES IN @lt_cand_match_tasks
+            WHERE trkorr  = @lt_cand_match_tasks-strkorr
+              AND strkorr = @space
+            INTO TABLE @DATA(lt_p_from_tasks).
+
+          LOOP AT lt_p_from_tasks INTO DATA(ls_p_cand).
+            IF NOT line_exists( lt_tr_parents[ trkorr = ls_p_cand-trkorr ] ).
+              APPEND ls_p_cand TO lt_tr_parents.
+            ENDIF.
+          ENDLOOP.
+        ENDIF.
+      ENDIF.
 
       IF iv_trstatus IS NOT INITIAL.
         DELETE lt_tr_parents WHERE trstatus <> iv_trstatus.

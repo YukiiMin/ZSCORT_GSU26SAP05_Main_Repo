@@ -150,14 +150,31 @@ sap.ui.define([
     onTabSelect: function (oEvent) {
       var sKey = oEvent.getParameter("key");
       this.getView().getModel("trSearch").setProperty("/activeTab", sKey);
+      var oM = this.getView().getModel("trSearch");
+      var sTrk = (oM.getProperty("/filterTrkorr") || "").trim();
+      var sOwn = (oM.getProperty("/filterOwner") || "").trim();
+      var sObj = (oM.getProperty("/filterObjName") || oM.getProperty("/filterFlatObjName") || "").trim();
+      var sType = (oM.getProperty("/filterObjType") || oM.getProperty("/filterFlatObjType") || "").trim();
+      var sFrom = (oM.getProperty("/filterDateFrom") || "").trim();
+      var sTo = (oM.getProperty("/filterDateTo") || "").trim();
+      var sStat = (oM.getProperty("/filterStatus") || "").trim();
+      var bHasFilter = !!(sTrk || sOwn || sObj || sType || sFrom || sTo || sStat);
+
       if (sKey === "flat" && !this._bFlatLoaded) {
-        this._searchFlat();
+        if (bHasFilter) {
+          this._searchFlat();
+        }
       } else if (sKey === "tree" && !this._bTreeLoaded) {
-        this._searchTree();
+        if (bHasFilter) {
+          this._searchTree();
+        }
       }
     },
 
     onClearFilter: function () {
+      this._iFlatSearchSeq = (this._iFlatSearchSeq || 0) + 1;
+      this._bFetchingFlat = false;
+      this._nextLinkFlat = null;
       var oM = this.getView().getModel("trSearch");
       oM.setProperty("/filterTrkorr",    "");
       oM.setProperty("/filterOwner",     "");
@@ -170,6 +187,8 @@ sap.ui.define([
       oM.setProperty("/filterFlatObjType", "");
       oM.setProperty("/flatRows", []);
       oM.setProperty("/countFlat", 0);
+      oM.setProperty("/busyFlat", false);
+      oM.setProperty("/loadingMoreFlat", false);
       this._bFlatLoaded = false;
     },
 
@@ -403,17 +422,17 @@ sap.ui.define([
             var sRawType = String(n.ObjType || n.NodeType || "").toUpperCase();
             var aAliases = [sRawType];
             if (sRawType === "TABL" || sRawType === "TABD" || sRawType === "TABT") {
-              aAliases.push("TABL", "TABD", "TABT", "TABLE", "STRUCTURE");
+              aAliases = aAliases.concat(["TABL", "TABD", "TABT", "TABLE", "STRUCTURE"]);
             } else if (sRawType === "PROG" || sRawType === "REPS" || sRawType === "REPT") {
-              aAliases.push("PROG", "REPS", "REPT", "PROGRAM", "REPORT");
+              aAliases = aAliases.concat(["PROG", "REPS", "REPT", "PROGRAM", "REPORT"]);
             } else if (sRawType === "CLAS" || sRawType === "METH" || sRawType === "CPUB" || sRawType === "CPRI" || sRawType === "CPRO" || sRawType === "CLSD") {
-              aAliases.push("CLAS", "CLASS", "METH", "METHOD");
+              aAliases = aAliases.concat(["CLAS", "CLASS", "METH", "METHOD"]);
             } else if (sRawType === "FUNC" || sRawType === "FUGR") {
-              aAliases.push("FUNC", "FUGR", "FUNCTION");
+              aAliases = aAliases.concat(["FUNC", "FUGR", "FUNCTION"]);
             } else if (sRawType === "DDLS" || sRawType === "STOB") {
-              aAliases.push("DDLS", "CDS", "VIEW");
+              aAliases = aAliases.concat(["DDLS", "CDS", "VIEW"]);
             } else if (sRawType === "DCLS") {
-              aAliases.push("DCLS", "ACCESS CONTROL", "ROLE");
+              aAliases = aAliases.concat(["DCLS", "ACCESS CONTROL", "ROLE"]);
             }
             return aAliases.some(function (s) { return s.indexOf(sNeedle) >= 0; }) ||
                    String(n.Description || "").toUpperCase().indexOf(sNeedle) >= 0;
@@ -558,7 +577,13 @@ sap.ui.define([
         } else if (sType === "FUNC" && oNode.ObjName && (oNode.ObjName.indexOf("UXX") > 0 || oNode.ObjName.indexOf("TOP") > 0)) {
           sType = "PROG";
         }
-        this._openSourceDialog(sType, oNode.ObjName, "L", oNode);
+        var oMeta = Object.assign({}, oNode);
+        if (oNode.TrStatus === "R" || oNode.ParentTrkorr) {
+          oMeta.Trkorr = oNode.Trkorr;
+          oMeta.ParentTrkorr = oNode.ParentTrkorr;
+          oMeta.TrStatus = oNode.TrStatus || "R";
+        }
+        this._openSourceDialog(sType, oNode.ObjName, "L", oMeta);
       }
     },
 
@@ -663,11 +688,107 @@ sap.ui.define([
         onClose: function (sAction) {
           if (sAction !== MessageBox.Action.OK) { return; }
           oOdm.bindContext(sPath).execute().then(function () {
-            MessageToast.show("Release OK: " + sTrkorr);
+            MessageToast.show(that._getText("msgReleaseSuccess", [sTrkorr]) || ("Release OK: " + sTrkorr));
             that._searchTree(true);
           }).catch(function (oErr) {
-            MessageBox.error(that._releaseErrorText(oErr));
+            var sErr = that._releaseErrorText(oErr);
+            that._handleReleaseError(sTrkorr, sErr);
           });
+        }
+      });
+    },
+
+    _handleReleaseError: function (sTrkorr, sErr) {
+      var aInactive = [];
+      var mMatch = sErr.match(/\[(.*?)\]/s);
+      if (mMatch && mMatch[1]) {
+        var aItems = mMatch[1].split(/\s*,\s*/);
+        aItems.forEach(function (sItem) {
+          sItem = (sItem || "").trim();
+          if (!sItem) { return; }
+          var mObj = sItem.match(/^([A-Z0-9_]+)\s+([A-Z0-9_/\-]+)(?:\s*\((.*?)\))?$/i);
+          if (mObj) {
+            aInactive.push({
+              objectType: mObj[1].toUpperCase(),
+              objectName: mObj[2].toUpperCase(),
+              userName:   (mObj[3] || "").toUpperCase(),
+              status:     "Inactive"
+            });
+          } else {
+            aInactive.push({
+              objectType: "OBJ",
+              objectName: sItem,
+              userName:   "",
+              status:     "Inactive"
+            });
+          }
+        });
+      }
+
+      if (aInactive.length > 0) {
+        this._showInactiveObjectsDialog(sTrkorr, aInactive, sErr);
+      } else {
+        MessageBox.error(sErr);
+      }
+    },
+
+    _showInactiveObjectsDialog: function (sTrkorr, aInactive, sRawErr) {
+      if (!this._oInactiveDialog) {
+        this._oInactiveDialog = sap.ui.xmlfragment(
+          this.getView().getId(),
+          "zscort.app.view.fragment.InactiveObjectsDialog",
+          this
+        );
+        this.getView().addDependent(this._oInactiveDialog);
+      }
+
+      var sTitle = (this._getText("titleInactiveObjects", []) || "Check for Inactive Objects") + " (" + sTrkorr + ")";
+      var sDesc = this._getText("msgInactiveObjectsDesc", [sTrkorr, aInactive.length]) ||
+        ("Transport " + sTrkorr + " contains " + aInactive.length + " inactive object(s). Please activate these objects in Eclipse ADT or SAP GUI before releasing.");
+
+      var oModel = new JSONModel({
+        trkorr: sTrkorr,
+        dialogTitle: sTitle,
+        description: sDesc,
+        objects: aInactive
+      });
+      this._oInactiveDialog.setModel(oModel, "inactiveModel");
+      this._oInactiveDialog.open();
+    },
+
+    onCloseInactiveObjectsDialog: function () {
+      if (this._oInactiveDialog) {
+        this._oInactiveDialog.close();
+      }
+    },
+
+    onCopyInactiveObjects: function () {
+      var oModel = this._oInactiveDialog ? this._oInactiveDialog.getModel("inactiveModel") : null;
+      var aObjs = (oModel && oModel.getProperty("/objects")) || [];
+      var sNames = aObjs.map(function (o) { return o.objectName; }).join(" ");
+      var sToastMsg = this._getText("msgCopiedToClipboard", []) || "Inactive object names copied to clipboard";
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(sNames).then(function () {
+          MessageToast.show(sToastMsg);
+        }).catch(function () {
+          MessageToast.show(sNames);
+        });
+      } else {
+        MessageToast.show(sNames);
+      }
+    },
+
+    onInactiveObjectNamePress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("inactiveModel");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      if (this._oInactiveDialog) {
+        this._oInactiveDialog.close();
+      }
+      this.getOwnerComponent().getRouter().navTo("objSearch", {
+        "?query": {
+          objectName: oObj.objectName || "",
+          objectType: oObj.objectType || ""
         }
       });
     },
@@ -687,9 +808,9 @@ sap.ui.define([
         sTrkorr = sTrkorr.replace(/\*/g, "").replace(/'/g, "''");
         if (sTrkorr) {
           if (bWild) {
-            aParts.push("(startswith(Trkorr,'" + sTrkorr + "') or startswith(ParentTrkorr,'" + sTrkorr + "') or startswith(CurrentManagingTr,'" + sTrkorr + "'))");
+            aParts.push("(startswith(Trkorr,'" + sTrkorr + "') or startswith(ParentTrkorr,'" + sTrkorr + "'))");
           } else {
-            aParts.push("(Trkorr eq '" + sTrkorr + "' or ParentTrkorr eq '" + sTrkorr + "' or CurrentManagingTr eq '" + sTrkorr + "')");
+            aParts.push("(Trkorr eq '" + sTrkorr + "' or ParentTrkorr eq '" + sTrkorr + "')");
           }
         }
       }
@@ -700,9 +821,9 @@ sap.ui.define([
         var sNormOwner = sCleanOwner.replace(/\s+/g, "-");
         if (sCleanOwner) {
           if (sNormOwner !== sCleanOwner) {
-            aParts.push("(startswith(Owner,'" + sCleanOwner + "') or startswith(Owner,'" + sNormOwner + "'))");
+            aParts.push("(startswith(Owner,'" + sCleanOwner + "') or startswith(Owner,'" + sNormOwner + "') or startswith(ParentOwner,'" + sCleanOwner + "') or startswith(ParentOwner,'" + sNormOwner + "'))");
           } else {
-            aParts.push("startswith(Owner,'" + sCleanOwner + "')");
+            aParts.push("(startswith(Owner,'" + sCleanOwner + "') or startswith(ParentOwner,'" + sCleanOwner + "'))");
           }
         }
       }
@@ -754,74 +875,62 @@ sap.ui.define([
       var that = this;
       var aParts = this._buildFlatODataFilterParts();
       var sFilter = aParts.join(" and ");
-      var sUrl = this._trServiceUri() + "TrObjectSearch" +
-        (sFilter ? ("?$filter=" + encodeURIComponent(sFilter)) : "");
+      var sUrlBare = this._trServiceUri() + "TrObjectSearch";
+      var sUrl = sFilter ? (sUrlBare + "?$filter=" + encodeURIComponent(sFilter)) : sUrlBare;
 
       oM.setProperty("/busyFlat", true);
       oM.setProperty("/loadingMoreFlat", false);
       this._bFetchingFlat = true;
       this._aRawFlatData = [];
       this._nextLinkFlat = null;
+      this._iFlatSearchSeq = (this._iFlatSearchSeq || 0) + 1;
+      var iSeq = this._iFlatSearchSeq;
 
-      ValueHelp.fetchProgressiveJson(sUrl, function (aAllSoFar, aChunk, bHasMore, sNextLink) {
-        that._nextLinkFlat = sNextLink;
+      function handleChunk(aAllSoFar, aChunk, bHasMore, sNextLink) {
+        if (iSeq !== that._iFlatSearchSeq) { return; }
         that._aRawFlatData = aAllSoFar || [];
+        that._nextLinkFlat = sNextLink;
         oM.setProperty("/countFlat", that._aRawFlatData.length);
         oM.setProperty("/flatRows", that._aRawFlatData);
         oM.setProperty("/busyFlat", false);
         oM.setProperty("/loadingMoreFlat", bHasMore);
         that._bFlatLoaded = true;
-      }, 60000).then(function (aData) {
+      }
+
+      function finish(aAll) {
+        if (iSeq !== that._iFlatSearchSeq) { return; }
         that._bFetchingFlat = false;
         that._nextLinkFlat = null;
-        that._aRawFlatData = aData || [];
+        that._aRawFlatData = aAll || [];
         oM.setProperty("/countFlat", that._aRawFlatData.length);
         oM.setProperty("/flatRows", that._aRawFlatData);
         oM.setProperty("/busyFlat", false);
         oM.setProperty("/loadingMoreFlat", false);
         that._bFlatLoaded = true;
         if (!that._aRawFlatData.length) {
-          MessageToast.show("No objects matched");
+          MessageToast.show(that._getText("noObjectsFound", []) || "No objects matched");
         }
-      }).catch(function (oErr) {
+      }
+
+      function fail(oErr) {
+        if (iSeq !== that._iFlatSearchSeq) { return; }
         that._bFetchingFlat = false;
         oM.setProperty("/busyFlat", false);
         oM.setProperty("/loadingMoreFlat", false);
         MessageBox.warning("Flat List OData error: " + (oErr.message || oErr), {
           onClose: function () { that._loadFlatMock(); }
         });
-      });
+      }
+
+      ValueHelp.fetchProgressiveJson(sUrl, handleChunk, 60000).then(finish).catch(fail);
     },
 
     onFlatTableScroll: function (oEvent) {
-      var iFirst = oEvent.getParameter("firstVisibleRow");
-      var oTable = this.byId("tblFlat");
-      var iVisibleCount = oTable ? oTable.getVisibleRowCount() : 20;
-      var aRows = this._aRawFlatData || [];
-
-      if (this._nextLinkFlat && !this._bFetchingFlat && (iFirst + iVisibleCount >= aRows.length - 25)) {
-        this._fetchNextFlatChunk();
-      }
+      // Progressive fetch streams all matching records into the model automatically
     },
 
     _fetchNextFlatChunk: function () {
-      if (!this._nextLinkFlat || this._bFetchingFlat) { return; }
-      this._bFetchingFlat = true;
-      var that = this;
-      var oM = this.getView().getModel("trSearch");
-      oM.setProperty("/loadingMoreFlat", true);
-
-      ValueHelp.fetchPageJson(this._nextLinkFlat, 30000).then(function (oPage) {
-        that._bFetchingFlat = false;
-        that._nextLinkFlat = oPage.nextLink;
-        that._aRawFlatData = (that._aRawFlatData || []).concat(oPage.data || []);
-        oM.setProperty("/flatRows", that._aRawFlatData);
-        oM.setProperty("/countFlat", that._aRawFlatData.length);
-        oM.setProperty("/loadingMoreFlat", !!oPage.nextLink);
-      }).catch(function () {
-        that._bFetchingFlat = false;
-        oM.setProperty("/loadingMoreFlat", false);
-      });
+      // Handled progressively by fetchProgressiveJson
     },
 
     _loadFlatMock: function () {
@@ -903,11 +1012,10 @@ sap.ui.define([
       this._openSourceDialog(oObj.ObjectType, oObj.ObjectName, "L", oObj);
     },
 
+    /**
+     * @param {sap.ui.base.Event} oEvent - UI5 event
+     */
     onFlatObjNamePress: function (oEvent) {
-      this.onFlatFindInObjSearch(oEvent);
-    },
-
-    onFlatFindInObjSearch: function (oEvent) {
       var oCtx = oEvent.getSource().getBindingContext("trSearch");
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
@@ -917,6 +1025,13 @@ sap.ui.define([
           objectType: oObj.ObjectType || ""
         }
       });
+    },
+
+    /**
+     * @param {sap.ui.base.Event} oEvent - UI5 event
+     */
+    onFlatFindInObjSearch: function (oEvent) {
+      this.onFlatObjNamePress(oEvent);
     },
 
     onFlatOpenDetail: function (oEvent) {
@@ -1046,13 +1161,16 @@ sap.ui.define([
 
     formatObjStatusText: function (sStatus, sActivity) {
       if (sActivity === "D" || sStatus === "DELETED") {
-        return "Deleted";
+        return this._getText("objStatusDeleted", []) || "Deleted";
       }
-      if (sStatus === "NOT_FOUND") {
-        return "Not in TADIR";
+      if (sStatus === "INACTIVE") {
+        return this._getText("objStatusInactive", []) || "Inactive";
       }
       if (sStatus === "ACTIVE") {
-        return "Active";
+        return this._getText("objStatusActive", []) || "Active";
+      }
+      if (sStatus === "NOT_FOUND") {
+        return this._getText("objStatusNotFound", []) || "Not Found";
       }
       return sStatus || (sActivity === "D" ? "Deleted" : "Active");
     },
@@ -1061,11 +1179,14 @@ sap.ui.define([
       if (sActivity === "D" || sStatus === "DELETED") {
         return ValueState.Error;
       }
-      if (sStatus === "NOT_FOUND") {
+      if (sStatus === "INACTIVE") {
         return ValueState.Warning;
       }
       if (sStatus === "ACTIVE") {
         return ValueState.Success;
+      }
+      if (sStatus === "NOT_FOUND") {
+        return ValueState.None;
       }
       return ValueState.None;
     },
@@ -1074,11 +1195,14 @@ sap.ui.define([
       if (sActivity === "D" || sStatus === "DELETED") {
         return "sap-icon://delete";
       }
-      if (sStatus === "NOT_FOUND") {
+      if (sStatus === "INACTIVE") {
         return "sap-icon://alert";
       }
       if (sStatus === "ACTIVE") {
         return "sap-icon://sys-enter-2";
+      }
+      if (sStatus === "NOT_FOUND") {
+        return "sap-icon://sys-help-2";
       }
       return "";
     },

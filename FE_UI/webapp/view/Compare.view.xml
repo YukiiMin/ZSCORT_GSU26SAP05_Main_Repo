@@ -12,7 +12,14 @@
     <f:title>
       <f:DynamicPageTitle>
         <f:heading>
-          <Title text="{detail>/ObjectType} {detail>/ObjectName}" />
+          <HBox alignItems="Center">
+            <Title text="{= ${detail>/isStructure} ? 'Structure' : ${detail>/ObjectType} } {detail>/ObjectName}" />
+            <ObjectStatus
+              text="{= ${detail>/isStructure} ? 'Structure' : (${detail>/ObjectType} === 'TABL' ? 'Database Table' : '') }"
+              state="{= ${detail>/isStructure} ? 'Indication05' : 'Information' }"
+              visible="{= ${detail>/ObjectType} === 'TABL' }"
+              class="sapUiTinyMarginBegin" />
+          </HBox>
         </f:heading>
         <f:navigationActions>
           <Button
@@ -147,13 +154,13 @@
             </VBox>
           </IconTabFilter>
 
-          <!-- TAB 2: Table Data Compare (Exclusively for TABL) -->
+          <!-- TAB 2: Table Data Compare (Exclusively for Database Tables, NOT Structures) -->
           <IconTabFilter
             id="idTabTableDataDiff"
             key="tableDataDiff"
             text="Table Data Compare"
             icon="sap-icon://table-view"
-            visible="{= ${detail>/ObjectType} === 'TABL' }">
+            visible="{= ${detail>/ObjectType} === 'TABL' &amp;&amp; !${detail>/isStructure} }">
             <VBox height="100%" width="100%" class="sapUiNoContentPadding" fitContainer="true">
               <!-- Diff Header Toolbar -->
               <OverflowToolbar id="idTableDataDiffToolbar">
@@ -163,10 +170,11 @@
                 <ToolbarSeparator />
                 <ObjectStatus id="idTableDiffSummaryStatus" text="{detail>/tableDiffSummaryText}" state="{detail>/tableDiffSummaryState}" />
                 <ToolbarSpacer />
-                <SegmentedButton
+                 <SegmentedButton
                   id="sbTableDiffFilter"
                   selectedKey="{= ${detail>/tableDiffFilterKey} || 'ALL' }"
-                  selectionChange=".onTableDiffFilterChange">
+                  selectionChange=".onTableDiffFilterChange"
+                  visible="{= ${detail>/targetHasSnapshot} !== false }">
                   <items>
                     <SegmentedButtonItem key="ALL" text="All ({detail>/tableDiffTotalCount})" />
                     <SegmentedButtonItem key="UPDATE" text="Modified ({detail>/tableDiffUpdateCount})" icon="sap-icon://edit" />
@@ -174,6 +182,11 @@
                     <SegmentedButtonItem key="DELETE" text="Deleted ({detail>/tableDiffDeleteCount})" icon="sap-icon://delete" />
                   </items>
                 </SegmentedButton>
+                <ObjectStatus
+                  text="Target Not In Snapshot"
+                  state="Information"
+                  icon="sap-icon://information"
+                  visible="{= ${detail>/targetHasSnapshot} === false }" />
                 <ToolbarSeparator />
                 <Button icon="sap-icon://refresh" text="Reload Data" press=".onReloadTableDataDiff" type="Transparent" />
               </OverflowToolbar>
@@ -258,6 +271,16 @@
                     <OverflowToolbar>
                       <Title text="{i18n>selectTwoVersions}" />
                       <ToolbarSpacer />
+                      <SegmentedButton
+                        id="sbVersionServerType"
+                        selectedKey="{= ${detail>/versionServerType} || 'L' }"
+                        selectionChange=".onVersionServerTypeChange">
+                        <items>
+                          <SegmentedButtonItem key="L" text="{i18n>tabLocal}" icon="sap-icon://laptop" tooltip="{i18n>btnVersionHistoryLocal}" />
+                          <SegmentedButtonItem key="T" text="{i18n>tabTarget}" icon="sap-icon://upload-to-cloud" tooltip="{i18n>btnVersionHistoryTarget}" />
+                        </items>
+                      </SegmentedButton>
+                      <ToolbarSeparator />
                       <Button id="btnViewSingleVers" icon="sap-icon://document-text" text="{i18n>btnViewVersionSource}" type="Transparent" press=".onViewVersionSourcePress" enabled="{= ${detail>/selectedVersionCount} === 1 }" />
                       <Button icon="sap-icon://refresh" text="{i18n>btnRefresh}" press=".onReloadVersions" type="Transparent" />
                       <Button id="btnCompare" icon="sap-icon://compare-2" text="{i18n>btnCompareSelected}" type="Emphasized" press=".onComparePress" enabled="false" />
@@ -268,8 +291,8 @@
                       <Label text="{i18n>colStatus}" />
                       <table:template>
                         <core:Icon
-                          src="{= ${detail>VersionNo} === '99998' ? 'sap-icon://sys-enter-2' : 'sap-icon://sys-help-2' }"
-                          color="{= ${detail>VersionNo} === '99998' ? 'Positive' : 'Critical' }" />
+                          src="{= (${detail>IsActive} || ${detail>VersionNo} === '99998') ? 'sap-icon://sys-enter-2' : 'sap-icon://sys-help-2' }"
+                          color="{= (${detail>IsActive} || ${detail>VersionNo} === '99998') ? 'Positive' : 'Critical' }" />
                       </table:template>
                     </table:Column>
                     <table:Column width="6rem">
@@ -281,7 +304,7 @@
                     <table:Column width="6rem">
                       <Label text="{i18n>versionNo}" />
                       <table:template>
-                        <Text text="{path: 'detail>VersionNo', formatter: '.formatVersionNo'}" />
+                        <Text text="{parts: [{path: 'detail>VersionNo'}, {path: 'detail>IsActive'}], formatter: '.formatVersionNoWithActive'}" />
                       </table:template>
                     </table:Column>
                     <table:Column width="8rem">
@@ -290,10 +313,10 @@
                         <Text text="{detail>Author}" />
                       </table:template>
                     </table:Column>
-                    <table:Column width="10rem">
+                    <table:Column width="11rem">
                       <Label text="{i18n>colDateTime}" />
                       <table:template>
-                        <Text text="{path: 'detail>Datum', formatter: '.formatDate'} {detail>Uzeit}" />
+                        <Text text="{= ${detail>Datum} ? (${path: 'detail>Datum', formatter: '.formatDate'} + (${detail>Uzeit} ? (' ' + ${path: 'detail>Uzeit', formatter: '.formatTime'}) : '')) : (${detail>Uzeit} ? ${path: 'detail>Uzeit', formatter: '.formatTime'} : '') }" />
                       </table:template>
                     </table:Column>
                     <table:Column width="10rem">

@@ -31,6 +31,13 @@ When writing or refactoring SAP ABAP, RAP entities, and DDIC integration code, y
                 attr1    = CONV #( <key>-objectname ) )
      ) TO reported-<entity>.
      ```
+6. **MSAG Companion Plain-Text / Markdown Catalog:**
+   - Whenever creating or updating a SAP Message Class (`<NAME>.msag.xml`), ALWAYS create and maintain a companion catalog `<NAME>.md` (and `<NAME>.txt`) in the same folder (`DB_CORE/TEXTS/`).
+   - The companion file MUST include:
+     - **Quick Copy Section (TSV)**: Raw tab-separated lines (`<MSGNR>\t<TEXT>`) for direct copy-paste into SAP GUI SE91 / ADT Table Control.
+     - **Exact SAP Placeholders**: Use unescaped `&1`, `&2`, `&3`, `&4` (never `&amp;`).
+     - **Concise Variants (<= 39 chars)**: Provide compact variants when message texts exceed 39 characters for compact UI/dialog views.
+     - **Detailed Table**: Number, Short Text, Character Count, and Parameter Meanings.
 
 ## 2. ABAP String Templates, Literals & VALUE Constructor Invariants
 1. **No Multiline Templates:** NEVER span string templates `|...|` across multiple editor lines.

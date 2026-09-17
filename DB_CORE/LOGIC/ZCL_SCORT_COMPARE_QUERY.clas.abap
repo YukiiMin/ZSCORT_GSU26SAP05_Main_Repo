@@ -196,12 +196,12 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
     lv_total = lines( ct_entity ).
 
     TRY.
-        lv_skip = CONV i( io_request->get_paging( )->get_offset( ) ).
+        lv_skip = io_request->get_paging( )->get_offset( ).
       CATCH cx_root.
         lv_skip = 0.
     ENDTRY.
     TRY.
-        lv_top = CONV i( io_request->get_paging( )->get_page_size( ) ).
+        lv_top = io_request->get_paging( )->get_page_size( ).
       CATCH cx_root.
         lv_top = 0.
     ENDTRY.
@@ -412,10 +412,10 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
     ENDIF.
 
     cs_detail-target_code  = ls_left-text.
-    cs_detail-target_hash  = CONV #( ls_left-hash ).
+    cs_detail-target_hash  = ls_left-hash.
     cs_detail-target_lines = ls_left-line_count.
     cs_detail-source_code  = ls_right-text.
-    cs_detail-source_hash  = CONV #( ls_right-hash ).
+    cs_detail-source_hash  = ls_right-hash.
     cs_detail-source_lines = ls_right-line_count.
 
     IF cs_detail-source_hash = cs_detail-target_hash.
@@ -450,7 +450,7 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
     ENDIF.
 
     cs_detail-source_code  = ls_ori-text.
-    cs_detail-source_hash  = CONV #( ls_ori-hash ).
+    cs_detail-source_hash  = ls_ori-hash.
     cs_detail-source_lines = ls_ori-line_count.
 
     lv_vers = to_versno( iv_version_no ).
@@ -483,12 +483,27 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    cs_detail-target_code  = ls_tgt-text.
-    cs_detail-target_hash  = CONV #( ls_tgt-hash_stored ).
-    IF cs_detail-target_hash IS INITIAL.
-      cs_detail-target_hash = CONV #( ls_tgt-hash_calc ).
+    IF iv_object_type = 'TABL' AND ls_tgt-text CS '===SCORT_TABLE_DATA_START==='.
+      SPLIT ls_tgt-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_tabl_ddl) DATA(lv_tabl_data).
+      DATA(lv_len) = strlen( lv_tabl_ddl ).
+      IF lv_len > 0 AND substring( val = lv_tabl_ddl off = lv_len - 1 len = 1 ) = cl_abap_char_utilities=>newline.
+        lv_tabl_ddl = substring( val = lv_tabl_ddl off = 0 len = lv_len - 1 ).
+        lv_len = strlen( lv_tabl_ddl ).
+        IF lv_len > 0 AND substring( val = lv_tabl_ddl off = lv_len - 1 len = 1 ) = cl_abap_char_utilities=>cr_lf(1).
+          lv_tabl_ddl = substring( val = lv_tabl_ddl off = 0 len = lv_len - 1 ).
+        ENDIF.
+      ENDIF.
+      cs_detail-target_code  = lv_tabl_ddl.
+      cs_detail-target_hash  = zcl_scort_hash_utl=>calculate_checksum( lv_tabl_ddl ).
+      cs_detail-target_lines = lines( zcl_scort_hash_utl=>text_to_lines( lv_tabl_ddl ) ).
+    ELSE.
+      cs_detail-target_code  = ls_tgt-text.
+      cs_detail-target_hash  = ls_tgt-hash_stored.
+      IF cs_detail-target_hash IS INITIAL.
+        cs_detail-target_hash = ls_tgt-hash_calc.
+      ENDIF.
+      cs_detail-target_lines = ls_tgt-line_count.
     ENDIF.
-    cs_detail-target_lines = ls_tgt-line_count.
     cs_detail-version_no   = ls_tgt-version_no.
 
     IF cs_detail-source_hash = cs_detail-target_hash.
@@ -521,8 +536,10 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
              total_diff  TYPE i,
              inserted    TYPE i,
              updated     TYPE i,
-             deleted     TYPE i,
-             is_capped   TYPE abap_bool,
+             deleted             TYPE i,
+             is_capped           TYPE abap_bool,
+             target_has_snapshot TYPE abap_bool,
+             status_text         TYPE string,
            END OF ty_summary.
 
     TYPES: BEGIN OF ty_diff_row,
@@ -649,6 +666,8 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
+    DATA lv_target_has_snapshot TYPE abap_bool VALUE abap_true.
+
     lv_right_vers = to_versno( iv_version_right ).
     IF lv_right_vers = zcl_scort_v_reader=>c_vers_active.
       TRY.
@@ -661,7 +680,9 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
                          iv_object_type = 'TABL'
                          iv_object_name = iv_object_name
                          iv_version_no  = lv_right_vers ).
-      IF ls_src_r-text CS '===SCORT_TABLE_DATA_START==='.
+      IF ls_src_r-found = abap_false OR NOT ( ls_src_r-text CS '===SCORT_TABLE_DATA_START===' ).
+        lv_target_has_snapshot = abap_false.
+      ELSE.
         SPLIT ls_src_r-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_r) lv_right_json.
         lv_right_json = condense( lv_right_json ).
         TRY.
@@ -679,7 +700,9 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       DATA(ls_src_cur) = zcl_scort_t_reader=>read_current(
                            iv_object_type = 'TABL'
                            iv_object_name = iv_object_name ).
-      IF ls_src_cur-text CS '===SCORT_TABLE_DATA_START==='.
+      IF ls_src_cur-found = abap_false OR NOT ( ls_src_cur-text CS '===SCORT_TABLE_DATA_START===' ).
+        lv_target_has_snapshot = abap_false.
+      ELSE.
         SPLIT ls_src_cur-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_c) lv_right_json.
         lv_right_json = condense( lv_right_json ).
         TRY.
@@ -695,6 +718,47 @@ CLASS zcl_scort_compare_query IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
+    IF lv_target_has_snapshot = abap_false.
+      ls_res-summary-total_left          = lines( <lt_left> ).
+      ls_res-summary-total_right         = 0.
+      ls_res-summary-total_diff          = 0.
+      ls_res-summary-inserted            = 0.
+      ls_res-summary-updated             = 0.
+      ls_res-summary-deleted             = 0.
+      ls_res-summary-target_has_snapshot = abap_false.
+      ls_res-summary-status_text         = 'TARGET_NOT_IN_SNAPSHOT'.
+
+      LOOP AT <lt_left> ASSIGNING FIELD-SYMBOL(<ls_loc_row>).
+        IF lines( ls_res-diff_rows ) >= 200.
+          ls_res-summary-is_capped = abap_true.
+          EXIT.
+        ENDIF.
+        CLEAR lv_keystr.
+        LOOP AT lt_key_fields INTO DATA(lv_kf_loc).
+          ASSIGN COMPONENT lv_kf_loc OF STRUCTURE <ls_loc_row> TO FIELD-SYMBOL(<lv_k_loc>).
+          IF sy-subrc = 0.
+            lv_keystr = |{ lv_keystr }{ <lv_k_loc> }\||.
+          ENDIF.
+        ENDLOOP.
+        APPEND VALUE ty_diff_row(
+          diff_type     = 'LOCAL_ONLY'
+          key_value     = lv_keystr
+          left_row_json = /ui2/cl_json=>serialize( data = <ls_loc_row> pretty_name = /ui2/cl_json=>pretty_mode-none )
+        ) TO ls_res-diff_rows.
+      ENDLOOP.
+
+      cs_detail-source_code  = /ui2/cl_json=>serialize(
+                                 data        = ls_res
+                                 pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+      cs_detail-target_code  = cs_detail-source_code.
+      cs_detail-source_lines = ls_res-summary-total_left.
+      cs_detail-target_lines = 0.
+      cs_detail-status_code  = 'NO_TARGET_DATA'.
+      cs_detail-message      = |Target has no snapshot data. Local active: { ls_res-summary-total_left } rows.|.
+      RETURN.
+    ENDIF.
+
+    ls_res-summary-target_has_snapshot = abap_true.
     ls_res-summary-total_left  = lines( <lt_left> ).
     ls_res-summary-total_right = lines( <lt_right> ).
 

@@ -162,9 +162,47 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         lv_is_deleted = abap_true.
       ENDIF.
 
-      DATA(ls_src) = zcl_scort_l_reader=>read_active(
-        iv_object_type = ls_obj-object
-        iv_object_name = CONV sobj_name( ls_obj-obj_name ) ).
+      DATA lv_versno   TYPE versno.
+      DATA lv_vrs_type TYPE vrsd-objtype.
+      lv_vrs_type = zcl_scort_v_reader=>map_vrs_objtype( ls_obj-object ).
+
+      DATA lv_name_like_pad TYPE vrsd-objname.
+      DATA lv_name_like_sp  TYPE vrsd-objname.
+      lv_name_like_pad = |{ ls_obj-obj_name WIDTH = 30 PAD = '=' }%|.
+      lv_name_like_sp  = |{ ls_obj-obj_name } %|.
+
+      SELECT MAX( versno )
+        FROM vrsd
+        WHERE ( objtype = @lv_vrs_type
+             OR ( @ls_obj-object = 'PROG' AND objtype IN ('REPS', 'PROG') )
+             OR ( @ls_obj-object = 'CLAS' AND objtype IN ('CPUB', 'CLAS', 'REPS') ) )
+          AND ( objname = @ls_obj-obj_name
+             OR objname LIKE @lv_name_like_pad
+             OR objname LIKE @lv_name_like_sp )
+          AND ( korrnum = @iv_parent_trkorr
+             OR korrnum IN ( SELECT trkorr FROM e070 WHERE strkorr = @iv_parent_trkorr ) )
+        INTO @lv_versno.
+
+      DATA ls_src TYPE zcl_scort_v_reader=>ty_source.
+      IF lv_versno IS NOT INITIAL AND lv_versno <> '00000'.
+        ls_src = zcl_scort_v_reader=>read_version(
+                   iv_object_type = ls_obj-object
+                   iv_object_name = ls_obj-obj_name
+                   iv_version_no  = lv_versno ).
+      ELSE.
+        DATA(ls_active_src) = zcl_scort_l_reader=>read_active(
+                                iv_object_type = ls_obj-object
+                                iv_object_name = CONV sobj_name( ls_obj-obj_name ) ).
+        ls_src-object_type = ls_active_src-object_type.
+        ls_src-object_name = ls_active_src-object_name.
+        ls_src-version_no  = zcl_scort_v_reader=>c_vers_active.
+        ls_src-found       = ls_active_src-found.
+        ls_src-lines       = ls_active_src-lines.
+        ls_src-text        = ls_active_src-text.
+        ls_src-hash        = ls_active_src-hash.
+        ls_src-line_count  = ls_active_src-line_count.
+        ls_src-message     = ls_active_src-message.
+      ENDIF.
 
       IF ls_src-found = abap_false.
         lv_is_deleted = abap_true.
@@ -229,8 +267,8 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         ENDIF.
       ENDIF.
       DATA(lv_checksum) = ls_src-hash.
-      IF lv_checksum IS INITIAL OR ls_obj-object = 'TABL'.
-        lv_checksum = calculate_checksum( lv_source ).
+      IF lv_checksum IS INITIAL.
+        lv_checksum = calculate_checksum( ls_src-text ).
       ENDIF.
       DATA(lv_source_hex) = compress_source( lv_source ).
       DATA(lv_preview)    = COND char255( WHEN strlen( lv_source ) > 255 THEN lv_source(255) ELSE lv_source ).
@@ -279,19 +317,28 @@ CLASS zcl026_scort_target_apply IMPLEMENTATION.
         lv_changed_count = lv_changed_count + 1.
 
       ELSE.
+        SELECT MAX( version_no )
+          FROM za05_scort_t_src
+          WHERE ( pgmid = @ls_obj-pgmid OR pgmid = 'R3TR' OR pgmid = 'LIMU' )
+            AND object   = @ls_obj-object
+            AND obj_name = @ls_obj-obj_name
+          INTO @DATA(lv_max_ver).
+
         SELECT SINGLE src_hash
           FROM za05_scort_t_src
-          WHERE pgmid      = @ls_catalog-pgmid
+          WHERE ( pgmid = @ls_catalog-pgmid OR pgmid = 'R3TR' OR pgmid = 'LIMU' )
             AND object     = @ls_catalog-object
             AND obj_name   = @ls_catalog-obj_name
             AND version_no = @ls_catalog-current_version
           INTO @DATA(lv_current_hash).
 
-        IF lv_checksum = lv_current_hash.
+        IF lv_checksum = lv_current_hash AND lv_current_hash IS NOT INITIAL.
           lv_unchanged_count = lv_unchanged_count + 1.
 
         ELSE.
-          DATA(lv_next_ver) = ls_catalog-current_version + 1.
+          DATA(lv_next_ver) = COND versno( WHEN lv_max_ver IS NOT INITIAL AND lv_max_ver >= ls_catalog-current_version
+                                           THEN lv_max_ver + 1
+                                           ELSE ls_catalog-current_version + 1 ).
 
           ls_new_catalog                 = ls_catalog.
           ls_new_catalog-devclass        = lv_devclass.

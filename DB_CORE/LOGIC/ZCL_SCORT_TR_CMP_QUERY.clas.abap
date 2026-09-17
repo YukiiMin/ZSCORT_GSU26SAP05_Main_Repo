@@ -324,10 +324,6 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
                iv_object_name = iv_object_name ).
 
     rs_row-target_vers = ls_tgt-version_no.
-    rs_row-target_hash = ls_tgt-hash_stored.
-    IF rs_row-target_hash IS INITIAL.
-      rs_row-target_hash = ls_tgt-hash_calc.
-    ENDIF.
 
     IF ls_tgt-is_new_target = abap_true.
       rs_row-compare_status = 'NEW_AT_TARGET'.
@@ -352,7 +348,31 @@ CLASS zcl_scort_tr_cmp_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    IF ls_ori-hash = rs_row-target_hash.
+    DATA(lv_tgt_code) = ls_tgt-text.
+    IF iv_object_type = 'TABL' AND lv_tgt_code CS '===SCORT_TABLE_DATA_START==='.
+      SPLIT lv_tgt_code AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_tabl_ddl) DATA(lv_tabl_data).
+      DATA(lv_len) = strlen( lv_tabl_ddl ).
+      IF lv_len > 0 AND substring( val = lv_tabl_ddl off = lv_len - 1 len = 1 ) = cl_abap_char_utilities=>newline.
+        lv_tabl_ddl = substring( val = lv_tabl_ddl off = 0 len = lv_len - 1 ).
+        lv_len = strlen( lv_tabl_ddl ).
+        IF lv_len > 0 AND substring( val = lv_tabl_ddl off = lv_len - 1 len = 1 ) = cl_abap_char_utilities=>cr_lf(1).
+          lv_tabl_ddl = substring( val = lv_tabl_ddl off = 0 len = lv_len - 1 ).
+        ENDIF.
+      ENDIF.
+      lv_tgt_code = lv_tabl_ddl.
+      rs_row-target_hash = zcl_scort_hash_utl=>calculate_checksum( lv_tabl_ddl ).
+    ELSE.
+      rs_row-target_hash = ls_tgt-hash_stored.
+      IF rs_row-target_hash IS INITIAL.
+        rs_row-target_hash = ls_tgt-hash_calc.
+      ENDIF.
+    ENDIF.
+
+    DATA(lv_ori_norm_hash) = zcl_scort_hash_utl=>normalize_and_hash( ls_ori-lines ).
+    DATA(lv_tgt_lines) = zcl_scort_hash_utl=>text_to_lines( lv_tgt_code ).
+    DATA(lv_tgt_norm_hash) = zcl_scort_hash_utl=>normalize_and_hash( lv_tgt_lines ).
+
+    IF ls_ori-hash = rs_row-target_hash OR lv_ori_norm_hash = lv_tgt_norm_hash.
       rs_row-compare_status = 'IDENTICAL'.
       rs_row-message        = zcm_scort=>get_text_by_key(
                                 is_t100_key = zcm_scort=>hashes_identical

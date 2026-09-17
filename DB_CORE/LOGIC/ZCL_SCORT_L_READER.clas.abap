@@ -892,10 +892,14 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
     APPEND |@EndUserText.label : '{ ls_dd02v-ddtext }'| TO et_lines.
     APPEND |@AbapCatalog.enhancement.category : #{ lv_enhanc }| TO et_lines.
-    APPEND |@AbapCatalog.tableCategory : #{ lv_tabcat }| TO et_lines.
-    APPEND |@AbapCatalog.deliveryClass : #{ lv_delclass }| TO et_lines.
-    APPEND |@AbapCatalog.dataMaintenance : #{ lv_maint }| TO et_lines.
-    APPEND |define table { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
+    IF ls_dd02v-tabclass = 'INTTAB'.
+      APPEND |define structure { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
+    ELSE.
+      APPEND |@AbapCatalog.tableCategory : #{ lv_tabcat }| TO et_lines.
+      APPEND |@AbapCatalog.deliveryClass : #{ lv_delclass }| TO et_lines.
+      APPEND |@AbapCatalog.dataMaintenance : #{ lv_maint }| TO et_lines.
+      APPEND |define table { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
+    ENDIF.
 
     LOOP AT lt_dd03p INTO DATA(ls_p) WHERE fieldname IS NOT INITIAL.
       IF ls_p-fieldname(1) = '.'.
@@ -955,7 +959,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
           MODIFY et_lines FROM lv_line INDEX lv_last_idx.
         ENDIF.
       ELSE.
-        IF ls_p-keyflag = 'X'.
+        IF ls_p-keyflag = 'X' AND ls_dd02v-tabclass <> 'INTTAB'.
           lv_line = |  key { lv_fnam WIDTH = 30 } : { lv_type } not null;|.
         ELSE.
           lv_line = |  { lv_fnam WIDTH = 34 } : { lv_type };|.

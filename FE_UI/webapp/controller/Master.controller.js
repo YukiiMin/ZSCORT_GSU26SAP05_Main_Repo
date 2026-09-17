@@ -27,17 +27,12 @@ sap.ui.define([
       this._loadReleasedTrs("");
     },
 
-    _serviceUri: function () {
-      var sUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri;
-      return String(sUri || "").replace(/\/?$/, "/");
-    },
-
     _loadReleasedTrs: function (sQuery) {
       var oM = this.getView().getModel("master");
       var that = this;
       var sQ = (sQuery || "").trim().toUpperCase().replace(/\*/g, "");
       // Only Trkorr on wire — TrStatus $filter can empty custom VH; filter Released in UI.
-      var sUrl = this._serviceUri() + "VHTrkorr?$top=200";
+      var sUrl = this._mainServiceUri() + "VHTrkorr?$top=200";
       if (sQ) {
         sUrl += "&$filter=" + encodeURIComponent("startswith(Trkorr,'" + sQ.replace(/'/g, "''") + "')");
       }

@@ -178,6 +178,8 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
       ls_entity-ObjectName = is_filter-object_name.
       ls_entity-VersionNo  = ls_v-version_no.
       ls_entity-Author     = ls_v-author.
+      ls_entity-Datum      = ls_v-datum.
+      ls_entity-Uzeit      = ls_v-uzeit.
       ls_entity-Korrnum    = ls_v-trkorr.
       ls_entity-SrcHash    = ls_v-checksum.
       ls_entity-IsActive   = ls_v-is_current.

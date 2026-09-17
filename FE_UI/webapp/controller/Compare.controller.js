@@ -66,12 +66,6 @@ sap.ui.define([
       }
     },
 
-    _serviceUri: function () {
-      var oModel = this.getOwnerComponent().getModel();
-      var sUri = oModel && oModel.getServiceUrl && oModel.getServiceUrl();
-      return sUri || this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri;
-    },
-
     onExit: function () {
       if (this._oGitDiffHost) { this._oGitDiffHost.dispose(); }
       if (this._oVersDiffHost) { this._oVersDiffHost.dispose(); }
@@ -99,7 +93,7 @@ sap.ui.define([
       if (!oArgs || !oArgs.objectType || !oArgs.objectName) { return; }
       this._sType = oArgs.objectType;
       this._sName = decodeURIComponent(oArgs.objectName);
-      
+
       var oDetailModel = this.getOwnerComponent().getModel("detail");
       oDetailModel.setProperty("/ObjectType", this._sType);
       oDetailModel.setProperty("/ObjectName", this._sName);
@@ -140,14 +134,28 @@ sap.ui.define([
         }
       }
 
+      var sInitialTab = oApp.getProperty("/compareInitialTab") || "gitReview";
+      oApp.setProperty("/compareInitialTab", "");
       var oTabBar = this.byId("idCompareIconTabBar");
       if (oTabBar) {
-        oTabBar.setSelectedKey("gitReview");
+        oTabBar.setSelectedKey(sInitialTab);
       }
 
-      // Auto-load Tab 1 (Git Review) and Tab 2 (Versions)
-      this._loadGitReviewSource();
-      this.onReloadVersions();
+      if (!oDetailModel.getProperty("/versionServerType")) {
+        oDetailModel.setProperty("/versionServerType", "L");
+      }
+
+      this._mGitModel = null;
+      this._mVersModel = null;
+      this._oLocalMeta = null;
+      this._oTargetMeta = null;
+
+      // Lazy load only the active tab
+      if (sInitialTab === "versionMgmt") {
+        this.onReloadVersions();
+      } else {
+        this._loadGitReviewSource();
+      }
     },
 
     // ==========================================
@@ -161,8 +169,10 @@ sap.ui.define([
       var sUrlLocalMeta = oObjUri + "LocalObjects?$filter=" + encodeURIComponent("ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
       var sUrlTargetMeta = oObjUri + "TargetObjects?$filter=" + encodeURIComponent("ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
 
+      var oTabBar = this.byId("idCompareIconTabBar");
+      var bGitActive = !oTabBar || oTabBar.getSelectedKey() === "gitReview";
       var oDp = this.byId("idDetailDynamicPage");
-      if (oDp) oDp.setBusy(true);
+      if (oDp && bGitActive) oDp.setBusy(true);
 
       Promise.all([
         ValueHelp.fetchJson(sUrlLocal, 15000).catch(function() { return []; }),
@@ -185,8 +195,16 @@ sap.ui.define([
         var sTargetCode = (!bNotSupported && bTargetExists && oResTarget && oResTarget.SourceCodeText) ? oResTarget.SourceCodeText : "";
         var sLocalCode = (!bNotSupported && bLocalExists && oResLocal && oResLocal.SourceCodeText) ? oResLocal.SourceCodeText : "";
 
+        var bIsStructure = that._sType === "TABL" && (
+          (sLocalCode && (sLocalCode.indexOf("define structure") !== -1 || sLocalCode.indexOf("#STRUCTURE") !== -1)) ||
+          (sTargetCode && (sTargetCode.indexOf("define structure") !== -1 || sTargetCode.indexOf("#STRUCTURE") !== -1)) ||
+          (oResLocal && oResLocal.Message && oResLocal.Message.indexOf("structure") !== -1)
+        );
+
         var oDetailModel = that.getOwnerComponent().getModel("detail");
         if (oDetailModel) {
+          oDetailModel.setProperty("/isStructure", bIsStructure);
+          oDetailModel.setProperty("/subCategory", bIsStructure ? "Structure" : (that._sType === "TABL" ? "Database Table" : ""));
           oDetailModel.setProperty("/isNotSupported", bNotSupported);
           oDetailModel.setProperty("/targetExists", !!sTargetCode);
           oDetailModel.setProperty("/localExists", !!sLocalCode);
@@ -250,7 +268,7 @@ sap.ui.define([
               if (oDpInner) oDpInner.setBusy(false);
               that._oGitDiffHost.setSideBySide(that._bSideGit);
             });
-          } else if (iAttempt < 25) {
+          } else if (iAttempt < 10) {
             setTimeout(function () { tryRender(iAttempt + 1); }, 80);
           } else {
             var oDpInner = that.byId("idDetailDynamicPage");
@@ -270,11 +288,16 @@ sap.ui.define([
       var that = this;
       setTimeout(function () {
         if (sKey === "gitReview") {
-          that._ensureGitDiffHost(true);
-          if (that._mGitModel && that._oGitDiffHost) {
-            that._oGitDiffHost.setModel(that._mGitModel);
+          if (!that._mGitModel) {
+            that._loadGitReviewSource();
+          } else {
+            that._ensureGitDiffHost(true);
+            if (that._mGitModel && that._oGitDiffHost) {
+              that._oGitDiffHost.setModel(that._mGitModel);
+            }
           }
         } else if (sKey === "versionMgmt") {
+          that.onReloadVersions();
           var oDetailModel = that.getOwnerComponent().getModel("detail");
           if (oDetailModel.getProperty("/showEditor")) {
             that._ensureVersDiffHost(true);
@@ -383,27 +406,41 @@ sap.ui.define([
       oDetailModel.setProperty("/busyVersions", true);
       oDetailModel.setProperty("/showEditor", false);
 
-      var sUri = this._serviceUri();
-      var sUrlLocal = sUri + "Version?$filter=" + encodeURIComponent("ServerType eq 'L' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
+      var sServerType = oDetailModel.getProperty("/versionServerType") || "L";
+      var sUri = this._mainServiceUri();
+      var sFilter = "ServerType eq '" + sServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'";
+      var sUrl = sUri + "Version?$filter=" + encodeURIComponent(sFilter);
 
-      Promise.all([
-        ValueHelp.fetchJson(sUrlLocal, 12000).catch(function() { return []; })
-      ]).then(function(aResults) {
-        var aLocal = aResults[0] || [];
+      ValueHelp.fetchJson(sUrl, 12000).then(function (aItems) {
+        var aList = aItems || [];
 
-        aLocal.sort(function(a, b) {
+        aList.sort(function (a, b) {
+           var bActiveA = !!(a.IsActive || padVers(a.VersionNo) === "99998");
+           var bActiveB = !!(b.IsActive || padVers(b.VersionNo) === "99998");
+           if (bActiveA && !bActiveB) return -1;
+           if (!bActiveA && bActiveB) return 1;
            var vA = padVers(a.VersionNo);
            var vB = padVers(b.VersionNo);
-           if (vA === "99998" && vB !== "99998") return -1;
-           if (vB === "99998" && vA !== "99998") return 1;
            return vB.localeCompare(vA);
         });
 
-        oDetailModel.setProperty("/versions", aLocal);
+        oDetailModel.setProperty("/versions", aList);
         oDetailModel.setProperty("/busyVersions", false);
         var oTbl = that.byId("idVersionsTable");
         if (oTbl) { oTbl.clearSelection(); }
+      }).catch(function () {
+        oDetailModel.setProperty("/versions", []);
+        oDetailModel.setProperty("/busyVersions", false);
       });
+    },
+
+    onVersionServerTypeChange: function (oEvent) {
+      var sKey = oEvent.getParameter("item").getKey();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/versionServerType", sKey);
+      }
+      this.onReloadVersions();
     },
 
     onVersionSelectionChange: function () {
@@ -441,7 +478,6 @@ sap.ui.define([
       var sVers = padVers(oRowData.VersionNo);
       var sObjType = this._sType || oRowData.ObjectType;
       var sObjName = this._sName || oRowData.ObjectName;
-      var that = this;
 
       var oMeta = Object.assign({}, oRowData, {
         ObjectType: sObjType,
@@ -450,24 +486,7 @@ sap.ui.define([
         VersionNo: sVers
       });
 
-      var sObjUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.objService.uri.replace(/\/?$/, "/");
-      var sUrl = sObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq '" + sServerType + "' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sVers + "'");
-
       this._openSourceDialog(sObjType, sObjName, sServerType, oMeta);
-      ValueHelp.fetchJson(sUrl, 15000).then(function (aRes) {
-        var oItem = (aRes && aRes[0]) || { SourceCodeText: "" };
-        var sCode = oItem.SourceCodeText || "";
-        that._pendingSourceCode = sCode;
-        var oM = that.getView().getModel("detail") || that._app();
-        if (oM) {
-          oM.setProperty("/viewSourceCode", sCode);
-          oM.setProperty("/viewSourceHash", oItem.SrcHash || "V_" + sVers);
-          oM.setProperty("/viewSourceMessage", "Version " + that.formatVersionNo(sVers) + " loaded (" + (oItem.LineCount || sCode.split("\n").length) + " lines)");
-        }
-        that._renderCodeHost(sCode, sObjType);
-      }).catch(function (e) {
-        MessageToast.show("Failed to load source for version " + sVers + ": " + e);
-      });
     },
 
     onComparePress: function () {
@@ -552,6 +571,7 @@ sap.ui.define([
       if (this._sType !== "TABL") { return; }
       var that = this;
       var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel && oDetailModel.getProperty("/isStructure")) { return; }
       var sCmpUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri.replace(/\/?$/, "/");
 
       var sLeftVers = this._sTableDiffVersLeft || "";
@@ -609,31 +629,38 @@ sap.ui.define([
       var iTotalDiff = oSummary.totalDiff || 0;
       var iTotalLeft = oSummary.totalLeft || 0;
       var iTotalRight = oSummary.totalRight || 0;
+      var bTargetHasSnapshot = oSummary.targetHasSnapshot !== false && oSummary.target_has_snapshot !== false && oSummary.statusText !== "TARGET_NOT_IN_SNAPSHOT" && oSummary.status_text !== "TARGET_NOT_IN_SNAPSHOT";
 
+      oDetailModel.setProperty("/targetHasSnapshot", bTargetHasSnapshot);
       oDetailModel.setProperty("/tableLeftRowCount", iTotalLeft);
       oDetailModel.setProperty("/tableRightRowCount", iTotalRight);
       oDetailModel.setProperty("/tableLeftRowCountText", iTotalLeft + " total rows");
-      oDetailModel.setProperty("/tableRightRowCountText", iTotalRight + " total rows");
+      oDetailModel.setProperty("/tableRightRowCountText", bTargetHasSnapshot ? (iTotalRight + " total rows") : "No snapshot");
 
-      oDetailModel.setProperty("/tableDiffTotalCount", iTotalDiff);
-      oDetailModel.setProperty("/tableDiffUpdateCount", oSummary.updated || 0);
-      oDetailModel.setProperty("/tableDiffInsertCount", oSummary.inserted || 0);
-      oDetailModel.setProperty("/tableDiffDeleteCount", oSummary.deleted || 0);
+      oDetailModel.setProperty("/tableDiffTotalCount", bTargetHasSnapshot ? iTotalDiff : 0);
+      oDetailModel.setProperty("/tableDiffUpdateCount", bTargetHasSnapshot ? (oSummary.updated || 0) : 0);
+      oDetailModel.setProperty("/tableDiffInsertCount", bTargetHasSnapshot ? (oSummary.inserted || 0) : 0);
+      oDetailModel.setProperty("/tableDiffDeleteCount", bTargetHasSnapshot ? (oSummary.deleted || 0) : 0);
       oDetailModel.setProperty("/tableDiffIsCapped", !!oSummary.isCapped);
-      oDetailModel.setProperty("/tableDataIsIdentical", iTotalDiff === 0);
 
-      if (iTotalDiff === 0) {
+      if (!bTargetHasSnapshot) {
+        oDetailModel.setProperty("/tableDataIsIdentical", false);
+        oDetailModel.setProperty("/tableDiffSummaryText", "Target has no snapshot data. Displaying Local active data (" + iTotalLeft + " rows).");
+        oDetailModel.setProperty("/tableDiffSummaryState", "Information");
+      } else if (iTotalDiff === 0) {
+        oDetailModel.setProperty("/tableDataIsIdentical", true);
         oDetailModel.setProperty("/tableDiffSummaryText", "Data 100% Identical (" + iTotalLeft + " rows)");
         oDetailModel.setProperty("/tableDiffSummaryState", "Success");
         return;
+      } else {
+        oDetailModel.setProperty("/tableDataIsIdentical", false);
+        oDetailModel.setProperty("/tableDiffSummaryText", iTotalDiff + " difference(s) detected (Ins: " + (oSummary.inserted || 0) + ", Mod: " + (oSummary.updated || 0) + ", Del: " + (oSummary.deleted || 0) + ")");
+        oDetailModel.setProperty("/tableDiffSummaryState", "Warning");
       }
-
-      oDetailModel.setProperty("/tableDiffSummaryText", iTotalDiff + " difference(s) detected (Ins: " + (oSummary.inserted || 0) + ", Mod: " + (oSummary.updated || 0) + ", Del: " + (oSummary.deleted || 0) + ")");
-      oDetailModel.setProperty("/tableDiffSummaryState", "Warning");
 
       var sFilterKey = oDetailModel.getProperty("/tableDiffFilterKey") || "ALL";
       var aFilteredDiffs = aDiffRows;
-      if (sFilterKey !== "ALL") {
+      if (bTargetHasSnapshot && sFilterKey !== "ALL") {
         aFilteredDiffs = aDiffRows.filter(function (d) { return d.diffType === sFilterKey; });
       }
 
@@ -651,13 +678,15 @@ sap.ui.define([
         oL._changedFields = d.changedFields || [];
         oL._rowIndex = idx + 1;
 
-        oR._diffType = d.diffType;
-        oR._keyValue = d.keyValue;
-        oR._changedFields = d.changedFields || [];
-        oR._rowIndex = idx + 1;
+        if (bTargetHasSnapshot && d.diffType !== "LOCAL_ONLY") {
+          oR._diffType = d.diffType;
+          oR._keyValue = d.keyValue;
+          oR._changedFields = d.changedFields || [];
+          oR._rowIndex = idx + 1;
+          aRightRows.push(oR);
+        }
 
         aLeftRows.push(oL);
-        aRightRows.push(oR);
       });
 
       var oTblLeft = this.byId("idTableDataLeft");
@@ -671,11 +700,20 @@ sap.ui.define([
 
       if (oTblRight) {
         this._buildDynamicDiffColumns(oTblRight, aCols, "R");
+        if (!bTargetHasSnapshot) {
+          oTblRight.setNoData("Target object is not snapshotted yet");
+        }
         oTblRight.setModel(new JSONModel(aRightRows), "tblRight");
         oTblRight.bindRows("tblRight>/");
       }
     },
 
+    /**
+     * Build dynamic diff columns for left or right table
+     * @param {sap.ui.table.Table} oTable Target sap.ui.table.Table control
+     * @param {object[]} aCols Columns metadata array
+     * @param {string} sSide 'L' for Local or 'R' for Target
+     */
     _buildDynamicDiffColumns: function (oTable, aCols, sSide) {
       oTable.destroyColumns();
 
@@ -690,6 +728,7 @@ sap.ui.define([
               if (sType === "UPDATE") return "Modified";
               if (sType === "INSERT") return sSide === "L" ? "Missing (Local)" : "Inserted (Target)";
               if (sType === "DELETE") return sSide === "L" ? "Deleted (Target)" : "Missing (Target)";
+              if (sType === "LOCAL_ONLY") return sSide === "L" ? "Local Active" : "No Snapshot";
               return sType || "";
             }
           },
@@ -699,6 +738,7 @@ sap.ui.define([
               if (sType === "UPDATE") return "Warning";
               if (sType === "INSERT") return sSide === "L" ? "None" : "Success";
               if (sType === "DELETE") return sSide === "L" ? "Error" : "None";
+              if (sType === "LOCAL_ONLY") return sSide === "L" ? "Information" : "None";
               return "None";
             }
           },
@@ -708,6 +748,7 @@ sap.ui.define([
               if (sType === "UPDATE") return "sap-icon://edit";
               if (sType === "INSERT") return sSide === "L" ? "sap-icon://border" : "sap-icon://add";
               if (sType === "DELETE") return sSide === "L" ? "sap-icon://delete" : "sap-icon://border";
+              if (sType === "LOCAL_ONLY") return sSide === "L" ? "sap-icon://database" : "";
               return "";
             }
           }
@@ -1237,12 +1278,38 @@ sap.ui.define([
       return parseInt(sVer, 10).toString();
     },
 
+    formatVersionNoWithActive: function(sVer, bIsActive) {
+      if (!sVer) return "";
+      if (padVers(sVer) === "99998") return "Active";
+      var sClean = parseInt(sVer, 10).toString();
+      if (bIsActive) {
+        return "Active (" + sClean + ")";
+      }
+      return sClean;
+    },
+
     formatDate: function(sDate) {
       if (!sDate) return "";
-      if (sDate.length === 8) {
-        return sDate.substr(0,4) + "-" + sDate.substr(4,2) + "-" + sDate.substr(6,2);
+      var s = String(sDate).trim();
+      if (s.length === 8 && /^\d{8}$/.test(s)) {
+        return s.substr(0,4) + "-" + s.substr(4,2) + "-" + s.substr(6,2);
       }
-      return sDate;
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        return s.substring(0, 10);
+      }
+      return s;
+    },
+
+    formatTime: function(sTime) {
+      if (!sTime) return "";
+      var s = String(sTime).trim();
+      if (s.length === 6 && /^\d{6}$/.test(s)) {
+        return s.substr(0,2) + ":" + s.substr(2,2) + ":" + s.substr(4,2);
+      }
+      if (/^\d{2}:\d{2}/.test(s)) {
+        return s.substring(0, 8);
+      }
+      return s;
     }
 
   });

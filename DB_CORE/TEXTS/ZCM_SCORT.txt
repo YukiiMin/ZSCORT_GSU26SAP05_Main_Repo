@@ -1,0 +1,40 @@
+001	Transport Request/Task &1 does not exist.
+002	Transport Request &1 is already in Released status.
+003	Transport Request &1 released successfully.
+004	Release failed for &1: &2
+010	Target Apply started for TR &1.
+011	Target Apply completed: &1 objects saved to snapshot, &2 skipped.
+020	Object &1 &2: Source code not found on system &3.
+030	AI Assistant: Syntax and quality audit completed for &1 &2.
+031	AI Assistant: Transport recommendation evaluated with impact &1.
+032	All Gemini API keys in pool exhausted or network unreachable.
+033	SAP AI Core Destination &1 is unavailable.
+034	Invalid AI Action &1 requested. Expected SYNTAX or TRANSPORT.
+040	HTTP &1 Method not allowed. Only POST is supported.
+041	Request payload body is empty.
+050	Internal processing error: &1
+060	Object type &1 is not supported.
+061	Object &1 &2: Source code not found on local system.
+062	Object &1 &2: Initial apply to Target repository.
+063	Object &1 &2: Invalid or corrupted hex snapshot on Target.
+064	Object &1 &2: Source and Target code hashes are identical.
+065	Object &1 &2: Source and Target code hashes are different.
+066	Transport Request &1 not found in E070.
+067	Transport Request &1 status &2 is not released.
+068	Transport Request &1 contains no comparable development objects.
+069	Missing Transport Request parameter for action &1.
+070	Task &1 released successfully. Merged to Request &2.
+071	&1 is a subtask of &2. Specify the parent request.
+072	Transport Request &1 is not a Workbench Request (type &2).
+073	Release for &1 is incomplete (status &2, code &3).
+074	Release dependent task &1 first.
+075	Request &1 has &2 inactive object(s). Please activate before release.
+076	Inactive object: &1 &2 (User: &3).
+077	Release check failed for &1: Inactive objects exist (&2).
+078	Object check error for &1: &2
+079	CTS initialization failed.
+080	Object is locked in another request.
+081	No authorization to release request &1.
+082	Invalid request &1.
+083	Object check error for &1: check syntax, locks, or active state.
+084	Release for &1 started in background (status O).

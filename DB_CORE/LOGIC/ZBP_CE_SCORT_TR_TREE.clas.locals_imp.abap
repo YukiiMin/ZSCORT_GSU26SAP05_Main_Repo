@@ -107,7 +107,7 @@ CLASS lhc_TrTree IMPLEMENTATION.
 
       lv_release = if_abap_behv=>fc-o-enabled.
       lv_apply   = if_abap_behv=>fc-o-enabled.
-      IF lv_status = 'R'.
+      IF lv_status = 'R' OR lv_status = 'N'.
         lv_release = if_abap_behv=>fc-o-disabled.
       ELSEIF lv_status IS NOT INITIAL.
         lv_apply = if_abap_behv=>fc-o-disabled.
@@ -175,9 +175,12 @@ CLASS lhc_TrTree IMPLEMENTATION.
       IF sy-subrc <> 0.
         lv_ok = abap_false.
         IF lv_fm_msg IS INITIAL.
-          lv_fm_msg = |subrc { sy-subrc }|.
+          lv_fm_msg = CONV #( sy-subrc ).
         ENDIF.
-        lv_msg = |Release LUW failed: { lv_fm_msg }|.
+        lv_msg = zcm_scort=>get_text_by_key(
+                   is_t100_key = zcm_scort=>release_failed
+                   iv_attr1    = CONV #( lv_trkorr )
+                   iv_attr2    = CONV #( lv_fm_msg ) ).
       ELSE.
         lv_ok  = xsdbool( lv_fm_ok = abap_true OR lv_fm_ok = 'X' ).
         lv_msg = CONV string( lv_fm_msg ).
@@ -253,9 +256,11 @@ CLASS lhc_TrTree IMPLEMENTATION.
       IF sy-subrc <> 0.
         lv_ok = abap_false.
         IF lv_fm_msg IS INITIAL.
-          lv_fm_msg = |subrc { sy-subrc }|.
+          lv_fm_msg = CONV #( sy-subrc ).
         ENDIF.
-        lv_msg = |Apply LUW failed: { lv_fm_msg }|.
+        lv_msg = zcm_scort=>get_text_by_key(
+                   is_t100_key = zcm_scort=>internal_error
+                   iv_attr1    = CONV #( lv_fm_msg ) ).
       ELSE.
         lv_ok  = xsdbool( lv_fm_ok = abap_true OR lv_fm_ok = 'X' ).
         lv_msg = CONV string( lv_fm_msg ).
@@ -280,7 +285,7 @@ CLASS lhc_TrTree IMPLEMENTATION.
                                     iv_text = COND #( WHEN lv_msg IS NOT INITIAL THEN lv_msg
                                                      ELSE zcm_scort=>get_text_by_key(
                                                             is_t100_key = zcm_scort=>internal_error
-                                                            iv_attr1    = |Apply failed for { lv_trkorr }| ) ) ) ) TO reported-trtree.
+                                                            iv_attr1    = CONV #( lv_trkorr ) ) ) ) ) TO reported-trtree.
       ENDIF.
     ENDLOOP.
   ENDMETHOD.

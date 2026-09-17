@@ -188,6 +188,66 @@
      <MSGNR>074</MSGNR>
      <TEXT>Release dependent task &amp;1 first.</TEXT>
     </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>075</MSGNR>
+     <TEXT>Request &amp;1 has &amp;2 inactive object(s). Please activate before release.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>076</MSGNR>
+     <TEXT>Inactive object: &amp;1 &amp;2 (User: &amp;3).</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>077</MSGNR>
+     <TEXT>Release check failed for &amp;1: Inactive objects exist (&amp;2).</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>078</MSGNR>
+     <TEXT>Object check error for &amp;1: &amp;2</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>079</MSGNR>
+     <TEXT>CTS initialization failed.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>080</MSGNR>
+     <TEXT>Object is locked in another request.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>081</MSGNR>
+     <TEXT>No authorization to release request &amp;1.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>082</MSGNR>
+     <TEXT>Invalid request &amp;1.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>083</MSGNR>
+     <TEXT>Object check error for &amp;1: check syntax, locks, or active state.</TEXT>
+    </T100>
+    <T100>
+     <SPRSL>E</SPRSL>
+     <ARBGB>ZCM_SCORT</ARBGB>
+     <MSGNR>084</MSGNR>
+     <TEXT>Release for &amp;1 started in background (status O).</TEXT>
+    </T100>
    </T100>
   </asx:values>
  </asx:abap>

@@ -1,0 +1,80 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+  <Dialog
+    id="idInactiveObjectsDialog"
+    title="{inactiveModel>/dialogTitle}"
+    icon="sap-icon://alert"
+    state="Error"
+    contentWidth="44rem"
+    contentHeight="28rem"
+    resizable="true"
+    draggable="true">
+
+    <content>
+      <VBox class="sapUiSmallMargin">
+        <MessageStrip
+          text="{inactiveModel>/description}"
+          type="Error"
+          showIcon="true"
+          class="sapUiSmallMarginBottom" />
+
+        <Table
+          id="tblInactiveObjects"
+          items="{inactiveModel>/objects}"
+          inset="false"
+          noDataText="{i18n>noInactiveObjects}"
+          mode="None">
+          <columns>
+            <Column width="6.5rem">
+              <Text text="{i18n>colInactiveType}" />
+            </Column>
+            <Column width="18rem">
+              <Text text="{i18n>colInactiveName}" />
+            </Column>
+            <Column width="9rem">
+              <Text text="{i18n>colInactiveUser}" />
+            </Column>
+            <Column width="7.5rem">
+              <Text text="{i18n>colInactiveStatus}" />
+            </Column>
+          </columns>
+          <items>
+            <ColumnListItem>
+              <cells>
+                <HBox alignItems="Center">
+                  <core:Icon src="sap-icon://document-text" size="0.9rem" class="sapUiTinyMarginEnd" />
+                  <ObjectIdentifier title="{inactiveModel>objectType}" />
+                </HBox>
+                <Link
+                  text="{inactiveModel>objectName}"
+                  press=".onInactiveObjectNamePress"
+                  tooltip="{i18n>btnFindInObjSearch}" />
+                <Text text="{inactiveModel>userName}" />
+                <ObjectStatus
+                  text="{inactiveModel>status}"
+                  state="Warning"
+                  icon="sap-icon://status-inactive" />
+              </cells>
+            </ColumnListItem>
+          </items>
+        </Table>
+      </VBox>
+    </content>
+
+    <beginButton>
+      <Button
+        text="{i18n>btnCopyInactiveList}"
+        icon="sap-icon://copy"
+        press=".onCopyInactiveObjects" />
+    </beginButton>
+
+    <endButton>
+      <Button
+        text="{i18n>btnClose}"
+        type="Emphasized"
+        press=".onCloseInactiveObjectsDialog" />
+    </endButton>
+
+  </Dialog>
+</core:FragmentDefinition>

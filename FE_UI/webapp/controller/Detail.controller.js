@@ -22,9 +22,15 @@ sap.ui.define([
         parentTrkorr: "",
         owner: "",
         description: "",
+        as4date: "",
         trStatus: "",
+        isUnreleased: true,
         busy: false,
         objects: [],
+        parentObjects: [],
+        parentObjectsCount: 0,
+        activeTasks: [],
+        activeTasksCount: 0,
         message: "",
         applyObjects: [],
         applySelectedCount: 0,
@@ -69,46 +75,62 @@ sap.ui.define([
       this._loadObjects(sTrkorr);
     },
 
-    _trServiceUri: function () {
-      var sUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.trService.uri;
-      return String(sUri || "").replace(/\/?$/, "/");
-    },
+
 
     _loadTrHeader: function (sTrkorr) {
       var oM = this.getView().getModel("detail");
-      var sUrl = this._trServiceUri() + "TrTree('" + String(sTrkorr).replace(/'/g, "''") + "')";
-      ValueHelp.fetchJson(sUrl, 10000).then(function (oData) {
-        if (oData) {
-          if (oData.As4date) {
-            oM.setProperty("/as4date", oData.As4date);
-          }
-          oM.setProperty("/nodeType", oData.NodeType || "");
-          oM.setProperty("/parentTrkorr", oData.ParentTrkorr || "");
-          oM.setProperty("/owner", oData.Owner || "");
-          oM.setProperty("/description", oData.Description || "");
-          oM.setProperty("/trStatus", oData.TrStatus || "");
+      // Use $filter query — fetchJson always returns array (oJson.value).
+      // Read-by-key on a custom RAP entity returns the same collection format.
+      var sSafe = String(sTrkorr).replace(/'/g, "''");
+      var sUrl = this._trServiceUri() + "TrTree?$filter=Trkorr eq '" + sSafe + "'&$top=50";
+      ValueHelp.fetchJson(sUrl, 10000).then(function (aData) {
+        if (!aData || !aData.length) { return; }
+        // Find the TR-level node (TreeLevel=0 or NodeType='TR'). Fall back to first item.
+        var oTr = aData.find(function (n) {
+          return n.NodeType === "TR" || n.TreeLevel === 0;
+        }) || aData[0];
+        if (!oTr) { return; }
+        if (oTr.As4date) {
+          oM.setProperty("/as4date", oTr.As4date);
         }
+        oM.setProperty("/nodeType", oTr.NodeType || "");
+        oM.setProperty("/parentTrkorr", oTr.ParentTrkorr || "");
+        oM.setProperty("/owner", oTr.Owner || "");
+        oM.setProperty("/description", oTr.Description || "");
+        oM.setProperty("/trStatus", oTr.TrStatus || "");
+        oM.setProperty("/isUnreleased", (oTr.TrStatus === "D" || oTr.TrStatus === "L" || !oTr.TrStatus));
       }).catch(function () {
         // silently ignore error if header cannot be loaded
       });
     },
 
-    _serviceUri: function () {
-      var oModel = this.getOwnerComponent().getModel();
-      var sUri = oModel && oModel.getServiceUrl && oModel.getServiceUrl();
-      return sUri || this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri;
-    },
-
     /**
      * Enrich TR objects with PackageName, PersonResponsible, and CreatedOn from LocalObjects and TrObjectSearch.
      */
+    _deduplicateObjects: function (aList) {
+      if (!aList || !aList.length) { return []; }
+      var mSeen = {};
+      var aUnique = [];
+      aList.forEach(function (o) {
+        var sType = String(o.ObjectType || o.ObjType || "").trim().toUpperCase();
+        var sName = String(o.ObjectName || o.ObjName || "").trim().toUpperCase();
+        if (!sType || !sName) { return; }
+        var sKey = sType + "_" + sName;
+        if (!mSeen[sKey]) {
+          mSeen[sKey] = true;
+          aUnique.push(o);
+        }
+      });
+      return aUnique;
+    },
+
     _enrichObjectsMetadata: function (aObjects, sTrkorr) {
       if (!aObjects || !aObjects.length) {
         return Promise.resolve(aObjects);
       }
-
+      aObjects = this._deduplicateObjects(aObjects);
       var sTrUri = this._trServiceUri();
-      var sObjUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.objService.uri.replace(/\/?$/, "/");
+      var sObjUri = this._objServiceUri();
       var sTrObjFilter = "(Trkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "' or ParentTrkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "')";
       var sTrObjUrl = sTrUri + "TrObjectSearch?$filter=" + encodeURIComponent(sTrObjFilter);
 
@@ -133,6 +155,7 @@ sap.ui.define([
         aPromises.push(ValueHelp.fetchJson(sUrl, 15000).catch(function () { return []; }));
       });
 
+      var that = this;
       return Promise.all(aPromises).then(function (aResults) {
         var aTrObjs = aResults[0] || [];
         var mTrMap = {};
@@ -168,7 +191,7 @@ sap.ui.define([
           o.As4date = oLocal.CreatedOn || oTr.CreatedOn || o.As4date || "";
         });
 
-        return aObjects;
+        return that._deduplicateObjects(aObjects);
       });
     },
 
@@ -189,8 +212,10 @@ sap.ui.define([
         "Trkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "'",
         "ServerId eq '" + String(sServerId).replace(/'/g, "''") + "'"
       ].join(" and ");
-      var sUrl = this._serviceUri().replace(/\/?$/, "/") +
-        "TrCmp?$filter=" + encodeURIComponent(sFilter);
+      var sUrl =
+        this._mainServiceUri() +
+        "TrCmp?$filter=" +
+        encodeURIComponent(sFilter);
 
       ValueHelp.fetchJson(sUrl, 25000).then(function (aData) {
         aData = aData || [];
@@ -226,11 +251,19 @@ sap.ui.define([
                 Message: "TR Modifiable (Unreleased)"
               });
             });
-            that._enrichObjectsMetadata(aFormatted, sTrkorr).then(function (aEnriched) {
-              oM.setProperty("/objects", aEnriched);
+            var aUniqueFormatted = that._deduplicateObjects(aFormatted);
+            that._enrichObjectsMetadata(aUniqueFormatted, sTrkorr).then(function (aEnriched) {
+              var aDedupEnriched = that._deduplicateObjects(aEnriched);
+              that._loadActiveTasks(sTrkorr);
+              oM.setProperty("/parentObjects", aDedupEnriched);
+              oM.setProperty("/parentObjectsCount", aDedupEnriched.length);
+              oM.setProperty("/objects", aDedupEnriched);
               oM.setProperty("/busy", false);
             });
           }).catch(function () {
+            that._loadActiveTasks(sTrkorr);
+            oM.setProperty("/parentObjects", []);
+            oM.setProperty("/parentObjectsCount", 0);
             oM.setProperty("/objects", []);
             oM.setProperty("/busy", false);
           });
@@ -239,6 +272,7 @@ sap.ui.define([
 
         oM.setProperty("/isUnreleased", false);
         if (!aData.length) {
+          that._loadActiveTasks(sTrkorr);
           oM.setProperty("/objects", []);
           oM.setProperty("/busy", false);
           oM.setProperty("/message", "No objects for this TR (or empty E071).");
@@ -246,7 +280,12 @@ sap.ui.define([
           return;
         }
 
-        that._enrichObjectsMetadata(aData, sTrkorr).then(function (aEnriched) {
+        var aUniqueData = that._deduplicateObjects(aData);
+        that._enrichObjectsMetadata(aUniqueData, sTrkorr).then(function (aEnriched) {
+          aEnriched = that._deduplicateObjects(aEnriched);
+          that._loadActiveTasks(sTrkorr);
+          oM.setProperty("/parentObjects", aEnriched);
+          oM.setProperty("/parentObjectsCount", aEnriched.length);
           oM.setProperty("/objects", aEnriched);
           oM.setProperty("/busy", false);
           var nOk = aEnriched.filter(function (r) {
@@ -260,7 +299,10 @@ sap.ui.define([
             oM.setProperty("/message", nOk + " comparable; " + nSkip + " skipped.");
           }
         }).catch(function () {
-          oM.setProperty("/objects", aData);
+          that._loadActiveTasks(sTrkorr);
+          oM.setProperty("/parentObjects", aUniqueData);
+          oM.setProperty("/parentObjectsCount", aUniqueData.length);
+          oM.setProperty("/objects", aUniqueData);
           oM.setProperty("/busy", false);
         });
       }).catch(function (oErr) {
@@ -270,15 +312,74 @@ sap.ui.define([
       });
     },
 
-    _invokeTrTreeAction: function (sActionName, sTrkorr) {
+    _loadActiveTasks: function (sTrkorr) {
+      var oM = this.getView().getModel("detail");
+      var sFilter = "ParentTrkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "'";
+      var sUrl = this._trServiceUri() + "TrTree?$filter=" + sFilter;
+
+      return ValueHelp.fetchJson(sUrl, 10000).then(function (aData) {
+        aData = aData || [];
+        var aActive = [];
+        var mSeen = {};
+        aData.forEach(function (r) {
+          var sPkg = "";
+          var mPkg = (r.Description || "").match(/\[(.*?)\]/);
+          if (mPkg && mPkg[1]) {
+            sPkg = mPkg[1];
+          }
+          aActive.push({
+            Trkorr: r.Trkorr || "",
+            ParentTrkorr: r.ParentTrkorr || sTrkorr,
+            Owner: r.Owner || "",
+            ObjectType: r.ObjType || r.ObjectType || "",
+            ObjectName: r.ObjName || r.ObjectName || (r.Description || ""),
+            PackageName: sPkg,
+            TrStatus: r.TrStatus || "D",
+            Description: r.Description || "",
+            As4date: r.As4date || ""
+          });
+          if (r.Trkorr) {
+            mSeen[r.Trkorr] = true;
+          }
+        });
+
+        oM.setProperty("/activeTasks", aActive);
+        var iActiveCount = Object.keys(mSeen).length || aActive.length;
+        oM.setProperty("/activeTasksCount", iActiveCount);
+        return aActive;
+      }).catch(function () {
+        oM.setProperty("/activeTasks", []);
+        oM.setProperty("/activeTasksCount", 0);
+        return [];
+      });
+    },
+
+    _invokeTrTreeAction: function (sActionName, sKey) {
       var oOdm = this.getOwnerComponent().getModel("trModel");
       if (!oOdm) {
         return Promise.reject(new Error("TR service (trModel) not available"));
       }
-      var sKey = String(sTrkorr || "").toUpperCase().replace(/'/g, "''");
+      sKey = String(sKey || "").toUpperCase().replace(/'/g, "''");
       var sNs = "com.sap.gateway.srvd.zsd_scort_tr_search.v0001";
       var sPath = "/TrTree('" + sKey + "')/" + sNs + "." + sActionName + "(...)";
       return oOdm.bindContext(sPath).execute();
+    },
+
+    _partitionTrObjects: function (aAllObjs, sParentTr) {
+      var aParent = [];
+      var aActive = [];
+      (aAllObjs || []).forEach(function (o) {
+        var bIsActiveTask = (o.Trkorr && o.Trkorr !== sParentTr && o.TrStatus !== "R");
+        if (bIsActiveTask) {
+          aActive.push(o);
+        } else {
+          aParent.push(o);
+        }
+      });
+      return {
+        parentObjects: this._deduplicateObjects(aParent),
+        activeTasks: aActive
+      };
     },
 
     onReleaseTrInDetail: function () {
@@ -286,15 +387,43 @@ sap.ui.define([
       if (!sTrkorr) { return; }
       var that = this;
       var oM = this.getView().getModel("detail");
+      var sNodeType = oM.getProperty("/nodeType");
+      var bIsParentTr = (sNodeType === "TR" || !oM.getProperty("/parentTrkorr"));
       oM.setProperty("/busy", true);
-      MessageToast.show("Releasing TR " + sTrkorr + "…");
+      MessageToast.show("Releasing " + (bIsParentTr ? "TR " : "Task ") + sTrkorr + "…");
       this._invokeTrTreeAction("ReleaseRequest", sTrkorr).then(function () {
         oM.setProperty("/busy", false);
-        MessageToast.show("Released OK: " + sTrkorr);
+        MessageToast.show((bIsParentTr ? "TR " : "Task ") + sTrkorr + " released successfully.");
         that._loadObjects(sTrkorr);
       }).catch(function (oError) {
         oM.setProperty("/busy", false);
         MessageBox.error("Release failed: " + (oError.message || oError));
+      });
+    },
+
+    onReleaseChildTaskPress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("detail");
+      if (!oCtx) { return; }
+      var sTask = oCtx.getProperty("Trkorr");
+      if (!sTask) { return; }
+      var that = this;
+      var oM = this.getView().getModel("detail");
+      var sParentTr = oM.getProperty("/trkorr");
+
+      MessageBox.confirm("Release task " + sTask + "?", {
+        title: "Release Task",
+        onClose: function (sAction) {
+          if (sAction !== MessageBox.Action.OK) { return; }
+          oM.setProperty("/busy", true);
+          that._invokeTrTreeAction("ReleaseRequest", sTask).then(function () {
+            oM.setProperty("/busy", false);
+            MessageToast.show("Task " + sTask + " released successfully.");
+            that._loadObjects(sParentTr);
+          }).catch(function (oErr) {
+            oM.setProperty("/busy", false);
+            MessageBox.error("Release task failed: " + (oErr.message || oErr));
+          });
+        }
       });
     },
 
@@ -327,6 +456,7 @@ sap.ui.define([
           selected: true,
           ObjectType: o.ObjectType || o.ObjType || "",
           ObjectName: o.ObjectName || o.ObjName || "",
+          VersionNo: o.VersionNo || o.Versno || o.TargetVers || "Active",
           PackageName: o.PackageName || o.TadirDevclass || "",
           Action: sAction,
           CompareStatus: o.CompareStatus || "MODIFIABLE",
@@ -627,7 +757,15 @@ sap.ui.define([
       if (!oCtx) { return; }
       var sObjectType = oCtx.getProperty("ObjectType");
       var sObjectName = oCtx.getProperty("ObjectName");
-      this._openSourceDialog(sObjectType, sObjectName, "L", oCtx.getObject());
+      var oM = this.getView().getModel("detail");
+      var sTrkorr = oM ? oM.getProperty("/trkorr") : "";
+      var bIsUnreleased = oM ? oM.getProperty("/isUnreleased") : false;
+      var oItem = Object.assign({}, oCtx.getObject());
+      if (sTrkorr && !bIsUnreleased) {
+        oItem.Trkorr = sTrkorr;
+        oItem.TrStatus = "R";
+      }
+      this._openSourceDialog(sObjectType, sObjectName, "L", oItem);
     },
 
     onTableObjectRowSelectionChange: function () { /* reserved */ },

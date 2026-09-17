@@ -92,15 +92,25 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
           ls_entity-VersionNo      = ls_tgt-version_no.
           IF ls_filter-object_type = 'TABL' AND ls_tgt-text CS '===SCORT_TABLE_DATA_START==='.
             SPLIT ls_tgt-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_t) DATA(lv_data_t).
+            DATA(lv_len_t) = strlen( lv_ddl_t ).
+            IF lv_len_t > 0 AND substring( val = lv_ddl_t off = lv_len_t - 1 len = 1 ) = cl_abap_char_utilities=>newline.
+              lv_ddl_t = substring( val = lv_ddl_t off = 0 len = lv_len_t - 1 ).
+              lv_len_t = strlen( lv_ddl_t ).
+              IF lv_len_t > 0 AND substring( val = lv_ddl_t off = lv_len_t - 1 len = 1 ) = cl_abap_char_utilities=>cr_lf(1).
+                lv_ddl_t = substring( val = lv_ddl_t off = 0 len = lv_len_t - 1 ).
+              ENDIF.
+            ENDIF.
             ls_entity-SourceCodeText = lv_ddl_t.
+            ls_entity-LineCount      = lines( zcl_scort_hash_utl=>text_to_lines( lv_ddl_t ) ).
+            ls_entity-SrcHash        = CONV #( zcl_scort_hash_utl=>calculate_checksum( lv_ddl_t ) ).
             ls_entity-MetadataText   = condense( lv_data_t ).
           ELSE.
             ls_entity-SourceCodeText = ls_tgt-text.
-          ENDIF.
-          ls_entity-LineCount      = ls_tgt-line_count.
-          ls_entity-SrcHash        = CONV #( ls_tgt-hash_stored ).
-          IF ls_entity-SrcHash IS INITIAL.
-            ls_entity-SrcHash = CONV #( ls_tgt-hash_calc ).
+            ls_entity-LineCount      = ls_tgt-line_count.
+            ls_entity-SrcHash        = CONV #( ls_tgt-hash_stored ).
+            IF ls_entity-SrcHash IS INITIAL.
+              ls_entity-SrcHash = CONV #( ls_tgt-hash_calc ).
+            ENDIF.
           ENDIF.
           ls_entity-Message = ls_tgt-message.
         ELSE.
@@ -113,13 +123,23 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
             ls_entity-VersionNo = ls_ver-version_no.
             IF ls_filter-object_type = 'TABL' AND ls_ver-text CS '===SCORT_TABLE_DATA_START==='.
               SPLIT ls_ver-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_v) DATA(lv_data_v).
+              DATA(lv_len_v) = strlen( lv_ddl_v ).
+              IF lv_len_v > 0 AND substring( val = lv_ddl_v off = lv_len_v - 1 len = 1 ) = cl_abap_char_utilities=>newline.
+                lv_ddl_v = substring( val = lv_ddl_v off = 0 len = lv_len_v - 1 ).
+                lv_len_v = strlen( lv_ddl_v ).
+                IF lv_len_v > 0 AND substring( val = lv_ddl_v off = lv_len_v - 1 len = 1 ) = cl_abap_char_utilities=>cr_lf(1).
+                  lv_ddl_v = substring( val = lv_ddl_v off = 0 len = lv_len_v - 1 ).
+                ENDIF.
+              ENDIF.
               ls_entity-SourceCodeText = lv_ddl_v.
+              ls_entity-LineCount      = lines( zcl_scort_hash_utl=>text_to_lines( lv_ddl_v ) ).
+              ls_entity-SrcHash        = CONV #( zcl_scort_hash_utl=>calculate_checksum( lv_ddl_v ) ).
               ls_entity-MetadataText   = condense( lv_data_v ).
             ELSE.
               ls_entity-SourceCodeText = ls_ver-text.
+              ls_entity-LineCount      = ls_ver-line_count.
+              ls_entity-SrcHash        = CONV #( ls_ver-hash ).
             ENDIF.
-            ls_entity-LineCount      = ls_ver-line_count.
-            ls_entity-SrcHash        = CONV #( ls_ver-hash ).
             ls_entity-Message        = ls_ver-message.
           ELSE.
             DATA(ls_ori) = zcl_scort_l_reader=>read_active(

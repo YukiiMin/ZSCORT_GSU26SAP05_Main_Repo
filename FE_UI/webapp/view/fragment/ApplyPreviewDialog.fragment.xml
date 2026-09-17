@@ -119,6 +119,14 @@
               </table:template>
             </table:Column>
 
+            <!-- Version -->
+            <table:Column width="6rem" filterProperty="VersionNo" sortProperty="VersionNo" hAlign="Center">
+              <Label text="{i18n>versionNo}" />
+              <table:template>
+                <Text text="{path: 'detail>VersionNo', formatter: '.formatVersionNo'}" wrapping="false" />
+              </table:template>
+            </table:Column>
+
             <!-- Package -->
             <table:Column width="9rem" filterProperty="PackageName" sortProperty="PackageName">
               <Label text="{i18n>colPackage}" />

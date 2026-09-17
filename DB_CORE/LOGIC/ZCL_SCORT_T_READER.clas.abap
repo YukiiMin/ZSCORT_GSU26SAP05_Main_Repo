@@ -33,6 +33,8 @@ CLASS zcl_scort_t_reader DEFINITION
         descript    TYPE as4text,
         is_current  TYPE abap_bool,
         src_preview TYPE c LENGTH 255,
+        datum       TYPE as4date,
+        uzeit       TYPE as4time,
         message     TYPE string,
       END OF ty_version,
       tt_version TYPE STANDARD TABLE OF ty_version WITH DEFAULT KEY.
@@ -224,6 +226,8 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
         created_by  TYPE as4user,
         src_trkorr  TYPE trkorr,
         src_preview TYPE c LENGTH 255,
+        created_at  TYPE as4date,
+        created_tm  TYPE as4time,
       END OF ls_db,
       lt_db LIKE STANDARD TABLE OF ls_db WITH DEFAULT KEY.
     DATA ls_out      TYPE ty_version.
@@ -240,7 +244,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
         AND obj_name = @lv_obj_name
       INTO @lv_cur.
 
-    SELECT version_no, src_hash, created_by, src_trkorr, src_preview
+    SELECT version_no, src_hash, created_by, src_trkorr, src_preview, created_at, created_tm
       FROM za05_scort_t_src
       WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
         AND object   = @iv_object_type
@@ -249,6 +253,10 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       INTO CORRESPONDING FIELDS OF TABLE @lt_db
       UP TO 200 ROWS.
 
+    IF lv_cur IS INITIAL AND lt_db IS NOT INITIAL.
+      lv_cur = lt_db[ 1 ]-version_no.
+    ENDIF.
+
     LOOP AT lt_db INTO ls_db.
       CLEAR ls_out.
       ls_out-version_no  = ls_db-version_no.
@@ -256,6 +264,8 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
       ls_out-author      = ls_db-created_by.
       ls_out-trkorr      = ls_db-src_trkorr.
       ls_out-src_preview = ls_db-src_preview.
+      ls_out-datum       = ls_db-created_at.
+      ls_out-uzeit       = ls_db-created_tm.
       ls_out-is_current  = boolc( lv_cur IS NOT INITIAL AND ls_db-version_no = lv_cur ).
       lv_label = CONV string( ls_db-version_no ).
       SHIFT lv_label LEFT DELETING LEADING '0'.

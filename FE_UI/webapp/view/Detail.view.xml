@@ -47,8 +47,189 @@
           </attributes>
         </ObjectHeader>
 
+        <!-- Parent TR: Tab Bar to separate Parent Objects vs Active Tasks -->
+        <IconTabBar
+          id="idParentTrTabBar"
+          visible="{= ${detail>/nodeType} === 'TR' || !${detail>/parentTrkorr} }"
+          expandable="false"
+          stretchContentHeight="true"
+          class="sapUiNoContentPadding">
+          <layoutData>
+            <FlexItemData growFactor="1" />
+          </layoutData>
+          <items>
+
+            <!-- TAB 1: Object List của TR Cha (từ Task con đã release hoặc trực tiếp TR Cha) -->
+            <IconTabFilter
+              key="parentObjects"
+              text="{i18n>tabParentObjects}"
+              icon="sap-icon://folder"
+              count="{detail>/parentObjectsCount}">
+              <content>
+                <table:Table
+                  id="idParentObjectsTable"
+                  selectionMode="None"
+                  visibleRowCountMode="Auto"
+                  minAutoRowCount="6"
+                  rowHeight="36"
+                  columnHeaderHeight="36"
+                  busy="{detail>/busy}"
+                  noData="{= ${detail>/message} || 'No objects in Parent TR' }"
+                  rows="{path: 'detail>/parentObjects'}">
+                  <table:columns>
+                    <table:Column width="4.5rem" hAlign="Center">
+                      <Label text="{i18n>colType}" />
+                      <table:template>
+                        <Text text="{detail>ObjectType}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="14rem">
+                      <Label text="{i18n>colObjName}" />
+                      <table:template>
+                        <ObjectIdentifier title="{detail>ObjectName}" titleActive="false" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="9rem">
+                      <Label text="{i18n>colPackage}" />
+                      <table:template>
+                        <Text text="{= ${detail>PackageName} || ${detail>TadirDevclass} || '' }" wrapping="false" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="8rem">
+                      <Label text="{i18n>authorLabel}" />
+                      <table:template>
+                        <Text text="{= ${detail>Author} || ${detail>PersonResponsible} || ${detail>Owner} || '' }" wrapping="false" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="7.5rem">
+                      <Label text="{i18n>colCreated}" />
+                      <table:template>
+                        <Text text="{path:'detail>Datum', formatter:'.formatDate'} {= ${detail>Datum} ? '' : (${detail>CreatedOn} ? ${path:'detail>CreatedOn', formatter:'.formatDate'} : (${detail>As4date} ? ${path:'detail>As4date', formatter:'.formatDate'} : '')) }" wrapping="false" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="8.5rem">
+                      <Label text="{i18n>colStatus}" />
+                      <table:template>
+                        <ObjectStatus
+                          text="{detail>CompareStatus}"
+                          state="{path: 'detail>CompareStatus', formatter: '.formatCompareStatus'}"
+                          icon="{path: 'detail>CompareStatus', formatter: '.formatCompareIcon'}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="6rem" hAlign="Center">
+                      <Label text="{i18n>colActions}" />
+                      <table:template>
+                        <HBox justifyContent="Center">
+                          <Button
+                            tooltip="{= ${detail>CompareStatus} === 'MODIFIABLE' ? ${i18n>compareAvailableAfterRelease} : ${i18n>openCompareTooltip} }"
+                            icon="sap-icon://compare-2"
+                            type="Transparent"
+                            enabled="{= ${detail>CompareStatus} !== 'NOT_SUPPORTED' &amp;&amp; ${detail>CompareStatus} !== 'MODIFIABLE' }"
+                            press=".onButtonComparePress"
+                            class="sapUiTinyMarginEnd" />
+                          <Button
+                            tooltip="{i18n>viewSourceTooltip}"
+                            icon="sap-icon://document-text"
+                            type="Transparent"
+                            press=".onButtonViewSourcePress" />
+                        </HBox>
+                      </table:template>
+                    </table:Column>
+                  </table:columns>
+                </table:Table>
+              </content>
+            </IconTabFilter>
+
+            <!-- TAB 2: Active Tasks (các object đang thuộc Task con chưa release) -->
+            <IconTabFilter
+              key="activeTasks"
+              text="{i18n>tabActiveTasks}"
+              icon="sap-icon://task"
+              count="{detail>/activeTasksCount}">
+              <content>
+                <table:Table
+                  id="idActiveTasksTable"
+                  selectionMode="None"
+                  visibleRowCountMode="Auto"
+                  minAutoRowCount="6"
+                  rowHeight="36"
+                  columnHeaderHeight="36"
+                  busy="{detail>/busy}"
+                  noData="No active unreleased tasks"
+                  rows="{path: 'detail>/activeTasks'}">
+                  <table:columns>
+                    <table:Column width="8rem">
+                      <Label text="{i18n>colTask}" />
+                      <table:template>
+                        <ObjectIdentifier title="{detail>Trkorr}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="7rem">
+                      <Label text="{i18n>ownerFilter}" />
+                      <table:template>
+                        <Text text="{detail>Owner}" wrapping="false" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="4.5rem" hAlign="Center">
+                      <Label text="{i18n>colType}" />
+                      <table:template>
+                        <Text text="{detail>ObjectType}" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="14rem">
+                      <Label text="{i18n>colObjName}" />
+                      <table:template>
+                        <ObjectIdentifier title="{detail>ObjectName}" titleActive="false" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="8rem">
+                      <Label text="{i18n>colPackage}" />
+                      <table:template>
+                        <Text text="{= ${detail>PackageName} || ${detail>TadirDevclass} || '' }" wrapping="false" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="8.5rem">
+                      <Label text="{i18n>statusFilter}" />
+                      <table:template>
+                        <ObjectStatus
+                          text="{= ${detail>TrStatus} === 'R' ? 'R — Released' : (${detail>TrStatus} === 'D' ? 'D — Modifiable' : (${detail>TrStatus} || 'Modifiable')) }"
+                          state="{= ${detail>TrStatus} === 'R' ? 'Success' : 'Warning' }"
+                          icon="{= ${detail>TrStatus} === 'R' ? 'sap-icon://sys-enter-2' : 'sap-icon://edit' }" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="9rem" hAlign="Center">
+                      <Label text="{i18n>colActions}" />
+                      <table:template>
+                        <HBox justifyContent="Center">
+                          <Button
+                            text="{i18n>btnRelease}"
+                            icon="sap-icon://shipping-status"
+                            type="Emphasized"
+                            press=".onReleaseChildTaskPress"
+                            tooltip="Release this task"
+                            visible="{= ${detail>TrStatus} !== 'R' }"
+                            enabled="{= ${detail>TrStatus} !== 'R' }"
+                            class="sapUiTinyMarginEnd" />
+                          <Button
+                            tooltip="{i18n>viewSourceTooltip}"
+                            icon="sap-icon://document-text"
+                            type="Transparent"
+                            press=".onButtonViewSourcePress" />
+                        </HBox>
+                      </table:template>
+                    </table:Column>
+                  </table:columns>
+                </table:Table>
+              </content>
+            </IconTabFilter>
+
+          </items>
+        </IconTabBar>
+
+        <!-- Single Task View: when viewing a child TASK directly -->
         <table:Table
           id="idObjectsTable"
+          visible="{= ${detail>/nodeType} === 'TASK' &amp;&amp; !!${detail>/parentTrkorr} }"
           selectionMode="None"
           visibleRowCountMode="Auto"
           minAutoRowCount="6"

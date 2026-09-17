@@ -53,7 +53,7 @@ FUNCTION z_scort_tr_release_local
     ev_message = zcm_scort=>get_text_by_key(
                    is_t100_key = zcm_scort=>release_failed
                    iv_attr1    = CONV #( iv_trkorr )
-                   iv_attr2    = 'Unknown error' ).
+                   iv_attr2    = CONV #( lv_status ) ).
   ENDIF.
 
 ENDFUNCTION.

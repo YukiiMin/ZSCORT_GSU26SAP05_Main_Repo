@@ -51,6 +51,12 @@
 - In Git Workflow & Version Control:
   - NEVER execute `git push` or any remote publishing command unless explicitly and directly instructed by the user in their prompt.
   - Local operations (`git status`, `git diff`, `git add`, `git commit`) are permitted to preserve local history, but remote push requires explicit user command.
+- In Document Conversion & Markdown Decoupling:
+  - ALWAYS guarantee 100% data and formatting fidelity in PDF -> DOCX first (header background Peach #FFE8E0 via <w:shd>, all bullet items preserved via w:numPr, and native Tab Stop dot leaders).
+  - Word Table Invariants: 100% table rows MUST have <w:cantSplit/> (prevent row page-split); row 0 MUST have <w:tblHeader/> (repeat headers across pages); 100% cells MUST have <w:vAlign w:val="center"/> (vertical center alignment). Index columns (#) centered horizontally; text columns left-aligned.
+  - Mermaid Technical Diagram Invariants: Prefer flowchart LR Tree Fan-out; orthogonal L-shaped routing (curve: 'stepAfter') with explicit action labels; distinct stroke weights (thickBox 2.5px, default 1.5px, modalBox dashed 4 4); always render at scale: 3 (300+ DPI); maintain 1.6:1 to 2:1 aspect ratio.
+  - Use Decoupled Architecture: Data layer in pure Markdown [name].md (clean GFM, no style tags) and Style layer in [name].style.yaml (geometry, typography, headings, tables).
+  - Re-compilation from Markdown to DOCX/PDF must auto-link [name].style.yaml or respect --style to reproduce 100% faithful documents.
 - For tasks requiring more than 3 steps, maintain a .agent_scratchpad.md file at the workspace root.
 - Structure of scratchpad:
   - Current Goal

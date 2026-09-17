@@ -6,7 +6,7 @@
   xmlns:layout="sap.ui.layout">
   <Dialog
     id="idViewSourceDialog"
-    title="{i18n>viewSourceTitle}: {appView>/viewSourceType} {appView>/viewSourceName} — [{= ${appView>/viewSourceServer} === 'T' ? ${i18n>tabTarget} : ${i18n>tabLocal} }]"
+    title="{i18n>viewSourceTitle}: {appView>/viewSourceType} {appView>/viewSourceName}{= ${appView>/viewSourceVersionNo} ? (' — Version ' + ${appView>/viewSourceVersionNo}) : '' } — [{= ${appView>/viewSourceServer} === 'T' ? ${i18n>tabTarget} : ${i18n>tabLocal} }]"
     contentWidth="88vw"
     contentHeight="85vh"
     resizable="true"
@@ -16,7 +16,20 @@
 
     <customHeader>
       <Toolbar>
-        <Title text="{i18n>viewSourceTitle}: {appView>/viewSourceType} {appView>/viewSourceName}" />
+        <HBox alignItems="Center">
+          <Title text="{i18n>viewSourceTitle}: {= ${appView>/viewSourceIsStructure} ? 'Structure' : ${appView>/viewSourceType} } {appView>/viewSourceName}" />
+          <ObjectStatus
+            text="{= ${appView>/viewSourceIsStructure} ? 'Structure' : (${appView>/viewSourceType} === 'TABL' ? 'Database Table' : '') }"
+            state="{= ${appView>/viewSourceIsStructure} ? 'Indication05' : 'Information' }"
+            visible="{= ${appView>/viewSourceType} === 'TABL' }"
+            class="sapUiTinyMarginBegin" />
+          <ObjectStatus
+            text="{= ${appView>/viewSourceVersionNo} === 'Active' ? 'Active' : ('Version: ' + ${appView>/viewSourceVersionNo}) }"
+            state="Information"
+            icon="sap-icon://history"
+            visible="{= !!${appView>/viewSourceVersionNo} }"
+            class="sapUiTinyMarginBegin" />
+        </HBox>
         <ToolbarSpacer />
         <ObjectStatus
           text="{= ${appView>/viewSourceServer} === 'T' ? ${i18n>tabTarget} : ${i18n>tabLocal} }"
@@ -97,7 +110,7 @@
             key="tableData"
             text="Table Data"
             icon="sap-icon://table-view"
-            visible="{= ${appView>/viewSourceType} === 'TABL' }">
+            visible="{= ${appView>/viewSourceType} === 'TABL' &amp;&amp; !${appView>/viewSourceIsStructure} }">
             <VBox height="100%" width="100%" class="sapUiNoContentPadding">
               <OverflowToolbar>
                 <Title text="Data Preview" level="H5" />
@@ -135,6 +148,17 @@
                     visible="{= !!${appView>/viewSourceMetaData/ExistenceStatus} }"
                     text="{appView>/viewSourceMetaData/ExistenceStatus}"
                     state="{path:'appView>/viewSourceMetaData/ExistenceStatus', formatter:'.formatExistenceState'}" />
+
+                  <Label text="Version" visible="{= !!${appView>/viewSourceMetaData/VersionNo} }" />
+                  <ObjectStatus
+                    visible="{= !!${appView>/viewSourceMetaData/VersionNo} }"
+                    text="{path:'appView>/viewSourceMetaData/VersionNo', formatter:'.formatVersionNo'}"
+                    state="Information" />
+
+                  <Label text="{i18n>colTRNumber}" visible="{= !!${appView>/viewSourceMetaData/Korrnum} || !!${appView>/viewSourceMetaData/Trkorr} }" />
+                  <Text
+                    visible="{= !!${appView>/viewSourceMetaData/Korrnum} || !!${appView>/viewSourceMetaData/Trkorr} }"
+                    text="{= ${appView>/viewSourceMetaData/Korrnum} || ${appView>/viewSourceMetaData/Trkorr} }" />
 
                   <Label text="{i18n>colPackage}" />
                   <Text text="{= (${appView>/viewSourceServer} === 'T' ? (${appView>/viewSourceMetaData/TargetPackage} || ${appView>/viewSourceMetaData/PackageName}) : (${appView>/viewSourceMetaData/LocalPackage} || ${appView>/viewSourceMetaData/PackageName} || ${appView>/viewSourceMetaData/TadirDevclass})) || 'N/A'}" />

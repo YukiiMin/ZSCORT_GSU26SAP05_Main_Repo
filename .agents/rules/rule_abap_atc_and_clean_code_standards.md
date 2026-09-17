@@ -70,6 +70,47 @@ description: Comprehensive ATC, SLIN, SAP Table Buffering, and Clean ABAP Standa
        INTO TABLE @DATA(lt_results).
      ```
 
+### 2.2. FOR ALL ENTRIES Strict Type Length Invariant
+
+- ABAP `FOR ALL ENTRIES IN itab WHERE field = @itab-field` strict-checks **exact byte length** của từng field, không chỉ domain name. Hai field cùng domain (ví dụ `TROBJ_NAME`) nhưng khác length (`e071-obj_name` = CHAR120 vs `tadir-obj_name` = CHAR40) sẽ gây Activation Problem.
+- **Quy tắc bắt buộc khi dùng E071 làm driver để query TADIR:**
+  Tạo intermediate driver table với type lấy từ **bảng đích** (TADIR), không phải bảng nguồn:
+  ```abap
+  TYPES: BEGIN OF ty_tadir_fae,
+           pgmid    TYPE tadir-pgmid,
+           object   TYPE tadir-object,
+           obj_name TYPE tadir-obj_name,   " CHAR40 — match bảng đích
+         END OF ty_tadir_fae.
+  DATA lt_tadir_fae TYPE STANDARD TABLE OF ty_tadir_fae WITH DEFAULT KEY.
+
+  LOOP AT lt_child_e071 INTO ls_cobj.
+    APPEND VALUE ty_tadir_fae(
+      pgmid    = ls_cobj-pgmid
+      object   = ls_cobj-object
+      obj_name = CONV #( ls_cobj-obj_name )  " ABAP tự truncate CHAR120→CHAR40
+    ) TO lt_tadir_fae.
+  ENDLOOP.
+  SORT lt_tadir_fae BY pgmid object obj_name.
+  DELETE ADJACENT DUPLICATES FROM lt_tadir_fae COMPARING pgmid object obj_name.
+
+  SELECT pgmid, object, obj_name, devclass
+    FROM tadir
+    FOR ALL ENTRIES IN @lt_tadir_fae
+    WHERE pgmid = @lt_tadir_fae-pgmid AND object = @lt_tadir_fae-object
+      AND obj_name = @lt_tadir_fae-obj_name
+    INTO CORRESPONDING FIELDS OF TABLE @lt_child_tadir.
+  ```
+- **`ORDER BY` không được phép trong `FOR ALL ENTRIES`** — thay bằng `SORT itab BY ...` sau SELECT.
+- **SELECT partial columns vào full DB type** (`TYPE STANDARD TABLE OF tadir`) bắt buộc dùng `INTO CORRESPONDING FIELDS OF TABLE`, không phải `INTO TABLE`.
+- **Inline `@( |...|)` trong ABAP SQL WHERE không hợp lệ** — tính sẵn vào biến trước:
+  ```abap
+  DATA lv_like TYPE vrsd-objname.
+  lv_like = |{ ls_obj-obj_name WIDTH = 30 PAD = '=' }%|.
+  SELECT ... WHERE objname LIKE @lv_like ...
+  ```
+
+
+
 ---
 
 ## 3. Field Usage Optimization (Problematic SELECT * Statements)
@@ -100,3 +141,11 @@ description: Comprehensive ATC, SLIN, SAP Table Buffering, and Clean ABAP Standa
      DATA ls_src LIKE LINE OF result.
      ```
      Không dùng kiểu Projected Entity (`zcr_scort_obj_src`) để tránh cảnh báo tương thích kiểu `MESSAGE GFW`.
+4. **Cấm Comment Giải Thích Code Trong ABAP Class:**
+   - **Nghiêm cấm** thêm inline comment (`"...`) để giải thích *logic* hoặc *mục đích* của đoạn code (ví dụ: `" Build driver table because...`, `" Convert here because field length differs...`).
+   - Code phải **tự giải thích** qua tên biến và cấu trúc rõ ràng. Tên biến như `lt_tadir_fae`, `lv_name_like_pad` đã đủ rõ nghĩa.
+   - Comment chỉ được phép cho:
+     - Pseudo-comment ATC/SLIN chính thống: `"#EC CI_SGLSELECT`, `"#EC CI_BUFFJOIN`, `"#EC NEEDED`
+     - Section label không giải thích: `" --- Header Data ---`
+   - **Không** thêm bất kỳ comment nào khi fix bug, refactor, hay thêm workaround vào class body.
+

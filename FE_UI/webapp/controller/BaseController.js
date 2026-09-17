@@ -8,8 +8,9 @@ sap.ui.define([
   "zscort/app/util/AiReview",
   "zscort/app/util/AiPanelRenderer",
   "sap/ui/model/json/JSONModel",
-  "zscort/app/util/AdtFormParser"
-], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat, AiReview, AiPanelRenderer, JSONModel, AdtFormParser) {
+  "zscort/app/util/AdtFormParser",
+  "zscort/app/util/ValueHelp"
+], function (Controller, Fragment, MessageToast, fLibrary, CodeHost, DateFormat, AiReview, AiPanelRenderer, JSONModel, AdtFormParser, ValueHelp) {
   "use strict";
 
   var LayoutType = fLibrary.LayoutType;
@@ -90,7 +91,7 @@ sap.ui.define([
     _openSourceDialog: function (sObjType, sObjName, sServerType, oMetaData) {
       var oView = this.getView();
       var oApp = this._app();
-      var oM = oView.getModel("objSearch") || oView.getModel("detail") || oApp;
+      var oM = oView.getModel("objSearch") || oView.getModel("detail") || oView.getModel("trSearch") || oApp;
       var that = this;
 
       function setProp(sKey, v) {
@@ -100,9 +101,14 @@ sap.ui.define([
         }
       }
 
+      var sVN = oMetaData && oMetaData.VersionNo ? this.padVers(oMetaData.VersionNo) : "";
+      var sDisplayVers = sVN ? (sVN === "99998" || sVN === "ACTIVE" ? "Active" : sVN) : "";
+
       setProp("viewSourceType", sObjType);
       setProp("viewSourceName", sObjName);
       setProp("viewSourceServer", sServerType);
+      setProp("viewSourceVersionNo", sDisplayVers);
+      setProp("viewSourceRawVersionNo", sVN);
       setProp("viewSourceMessage", "Loading...");
       setProp("viewSourceHash", "");
       setProp("viewSourceCode", "");
@@ -176,81 +182,175 @@ sap.ui.define([
         return;
       }
 
-      // CDS key order: ServerType, ObjectType, ObjectName
-      var sPath = "/SourceCodeView(ServerType='" + sServerType +
-        "',ObjectType='" + sObjType +
-        "',ObjectName='" + sObjName.replace(/'/g, "''") + "')";
-      var oContext = oOdm.bindContext(sPath);
-
-      oContext.requestObject().then(function (oData) {
-        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP", "SRVD"];
-        var bNotSupported = aNotSupportedTypes.indexOf(sObjType) !== -1 || oData.Message === "NOT_SUPPORTED";
-
-        if (bNotSupported) {
-          setProp("viewSourceMessage", "NOT_SUPPORTED");
+      function fetchActive() {
+        var sPath = "/SourceCodeView(ServerType='" + sServerType +
+          "',ObjectType='" + sObjType +
+          "',ObjectName='" + sObjName.replace(/'/g, "''") + "')";
+        var oContext = oOdm.bindContext(sPath);
+        oContext.requestObject().then(function (oData) {
+          var sActiveMsg = (sVN === "99998" || sVN === "ACTIVE") ? "Active Version" : null;
+          that._processSourceCodeData(oData, sObjType, sServerType, oM, sActiveMsg);
+        }).catch(function (oErr) {
+          setProp("viewSourceMessage", "Error: " + (oErr.message || oErr));
           setProp("viewSourceHash", "");
-          that._pendingSourceCode = "";
-        } else {
-          setProp("viewSourceMessage", oData.Message || "OK");
-          setProp("viewSourceHash", oData.SrcHash || "");
-          that._pendingSourceCode = oData.SourceCodeText || "";
-        }
-        that._pendingObjType = sObjType;
+          that._pendingSourceCode = "/* Error loading source */";
+          that._renderCodeHost(that._pendingSourceCode, sObjType);
+        });
+      }
 
-        if (sObjType === "DOMA") {
-          var oDomData = AdtFormParser.parseDomain(that._pendingSourceCode);
-          if (that._oSourceDialog) {
-            that._oSourceDialog.setModel(new JSONModel(oDomData), "adtDomain");
+      // Check if viewing a specific version or historical version for a Released TR
+      var sVN = that.padVers(oMetaData.VersionNo);
+      if (sVN && sVN !== "ACTIVE" && sVN !== "99998") {
+        var sVersUrl = that._objServiceUri() + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq '" + sServerType + "' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sVN + "'");
+        ValueHelp.fetchJson(sVersUrl, 10000).then(function (aItems) {
+          if (aItems && aItems.length) {
+            var sLineCount = aItems[0].LineCount ? " (" + aItems[0].LineCount + " lines)" : "";
+            that._processSourceCodeData(aItems[0], sObjType, sServerType, oM, "Version " + sVN + sLineCount);
+          } else {
+            setProp("viewSourceMessage", "Version " + sVN + " not found or unreadable");
+            setProp("viewSourceHash", "");
+            that._pendingSourceCode = "/* Version " + sVN + " not found or unreadable */";
+            that._renderCodeHost(that._pendingSourceCode, sObjType);
           }
-        } else if (sObjType === "DTEL") {
-          var oDtelData = AdtFormParser.parseDataElement(that._pendingSourceCode);
-          if (that._oSourceDialog) {
-            that._oSourceDialog.setModel(new JSONModel(oDtelData), "adtDtel");
+        }).catch(function (oErr) {
+          setProp("viewSourceMessage", "Error loading Version " + sVN + ": " + (oErr && oErr.message ? oErr.message : oErr));
+          setProp("viewSourceHash", "");
+          that._pendingSourceCode = "/* Error loading Version " + sVN + " */";
+          that._renderCodeHost(that._pendingSourceCode, sObjType);
+        });
+        return;
+      }
+
+      if (sServerType === "L" && (oMetaData.Trkorr || oMetaData.ParentTrkorr) && oMetaData.TrStatus === "R") {
+        var sReqTrkorr = oMetaData.Trkorr || oMetaData.ParentTrkorr;
+        var sVUrl = that._mainServiceUri() + "Version?$filter=" + encodeURIComponent("ServerType eq 'L' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "'");
+        ValueHelp.fetchJson(sVUrl, 10000).then(function (aVers) {
+          var oMapped = (aVers || []).find(function (v) {
+            return (oMetaData.Trkorr && v.Korrnum === oMetaData.Trkorr) ||
+                   (oMetaData.ParentTrkorr && v.Korrnum === oMetaData.ParentTrkorr);
+          });
+          if (oMapped && oMapped.VersionNo && oMapped.VersionNo !== "99998") {
+            var sMappedVN = that.padVers(oMapped.VersionNo);
+            setProp("viewSourceVersionNo", sMappedVN);
+            setProp("viewSourceRawVersionNo", sMappedVN);
+            var sSrcUrl = that._objServiceUri() + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq 'L' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sMappedVN + "'");
+            ValueHelp.fetchJson(sSrcUrl, 10000).then(function (aSrc) {
+              if (aSrc && aSrc.length) {
+                var sNote = "Version " + sMappedVN + " (Snapshot mapped to Released TR " + (oMapped.Korrnum || sReqTrkorr) + ")";
+                that._processSourceCodeData(aSrc[0], sObjType, sServerType, oM, sNote);
+              } else {
+                fetchActive();
+              }
+            }).catch(fetchActive);
+          } else {
+            fetchActive();
           }
-        } else if (sObjType === "MSAG") {
-          var oMsagData = AdtFormParser.parseMessageClass(that._pendingSourceCode);
-          if (that._oSourceDialog) {
-            that._oSourceDialog.setModel(new JSONModel(oMsagData), "adtMsag");
-          }
-        } else if (sObjType === "DEVC") {
-          var oDevcData = AdtFormParser.parsePackage(that._pendingSourceCode);
-          if (that._oSourceDialog) {
-            that._oSourceDialog.setModel(new JSONModel(oDevcData), "adtDevc");
-          }
-        } else if (sObjType === "TTYP") {
-          var oTtypData = AdtFormParser.parseTableType(that._pendingSourceCode);
-          if (that._oSourceDialog) {
-            that._oSourceDialog.setModel(new JSONModel(oTtypData), "adtTtyp");
-          }
-        } else if (sObjType === "TABL") {
+        }).catch(fetchActive);
+        return;
+      }
+
+      fetchActive();
+    },
+
+    /**
+     * Process and display loaded source code data across views.
+     * @private
+     */
+    _processSourceCodeData: function (oData, sObjType, sServerType, oM, sCustomMessage) {
+      var that = this;
+      var oApp = this._app();
+      function setProp(sKey, v) {
+        oM.setProperty("/" + sKey, v);
+        if (oApp && oApp !== oM) {
+          oApp.setProperty("/" + sKey, v);
+        }
+      }
+
+      var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP", "SRVD"];
+      var bNotSupported = aNotSupportedTypes.indexOf(sObjType) !== -1 || (oData && oData.Message === "NOT_SUPPORTED");
+
+      if (bNotSupported) {
+        setProp("viewSourceMessage", "NOT_SUPPORTED");
+        setProp("viewSourceHash", "");
+        that._pendingSourceCode = "";
+      } else {
+        setProp("viewSourceMessage", sCustomMessage || (oData ? oData.Message : "") || "OK");
+        setProp("viewSourceHash", (oData ? oData.SrcHash : "") || "");
+        that._pendingSourceCode = (oData ? oData.SourceCodeText : "") || "";
+      }
+      that._pendingObjType = sObjType;
+
+      var bIsStructure = sObjType === "TABL" && (
+        (that._pendingSourceCode && (that._pendingSourceCode.indexOf("define structure") !== -1 || that._pendingSourceCode.indexOf("#STRUCTURE") !== -1)) ||
+        (oData && oData.Message && oData.Message.indexOf("structure") !== -1)
+      );
+      setProp("viewSourceIsStructure", bIsStructure);
+      setProp("viewSourceSubCategory", bIsStructure ? "Structure" : (sObjType === "TABL" ? "Database Table" : ""));
+
+      if (sObjType === "DOMA") {
+        var oDomaData = AdtFormParser.parseDomain(that._pendingSourceCode);
+        if (that._oSourceDialog) {
+          that._oSourceDialog.setModel(new JSONModel(oDomaData), "adtDomain");
+        }
+      } else if (sObjType === "DTEL") {
+        var oDtelData = AdtFormParser.parseDataElement(that._pendingSourceCode);
+        if (that._oSourceDialog) {
+          that._oSourceDialog.setModel(new JSONModel(oDtelData), "adtDtel");
+        }
+      } else if (sObjType === "MSAG") {
+        var oMsagData = AdtFormParser.parseMessageClass(that._pendingSourceCode);
+        if (that._oSourceDialog) {
+          that._oSourceDialog.setModel(new JSONModel(oMsagData), "adtMsag");
+        }
+      } else if (sObjType === "DEVC") {
+        var oDevcData = AdtFormParser.parsePackage(that._pendingSourceCode);
+        if (that._oSourceDialog) {
+          that._oSourceDialog.setModel(new JSONModel(oDevcData), "adtDevc");
+        }
+      } else if (sObjType === "TTYP") {
+        var oTtypData = AdtFormParser.parseTableType(that._pendingSourceCode);
+        if (that._oSourceDialog) {
+          that._oSourceDialog.setModel(new JSONModel(oTtypData), "adtTtyp");
+        }
+      } else if (sObjType === "TABL") {
+        if (!bIsStructure && oData && oData.MetadataText) {
           that._renderViewSourceTableData(oData.MetadataText);
         }
+      }
 
-        var oTabBar = Fragment.byId("idViewSourceDialog", "idViewSourceIconTabBar") ||
-          (that._oSourceDialog && that._oSourceDialog.getContent ? that._oSourceDialog.getContent()[0] : null);
-        if (oTabBar && oTabBar.setSelectedKey) {
-          if (bNotSupported) {
-            oTabBar.setSelectedKey("metadata");
-          } else if (sObjType === "DOMA" || sObjType === "DTEL" || sObjType === "MSAG" || sObjType === "DEVC" || sObjType === "TTYP") {
-            oTabBar.setSelectedKey("adtForm");
-          } else {
-            oTabBar.setSelectedKey("source");
-          }
+      var oTabBar = null;
+      if (that.getView && that.getView().byId) {
+        oTabBar = that.getView().byId("idViewSourceIconTabBar");
+      }
+      if (!oTabBar && that._oSourceDialog && that._oSourceDialog.findAggregatedObjects) {
+        var aBars = that._oSourceDialog.findAggregatedObjects(false, function (oCtrl) {
+          return oCtrl && oCtrl.getId && oCtrl.getId().indexOf("idViewSourceIconTabBar") !== -1;
+        });
+        if (aBars && aBars.length > 0) {
+          oTabBar = aBars[0];
         }
+      }
+      if (oTabBar && oTabBar.setSelectedKey) {
+        if (bNotSupported) {
+          oTabBar.setSelectedKey("metadata");
+        } else if (sObjType === "DOMA" || sObjType === "DTEL" || sObjType === "MSAG" || sObjType === "DEVC" || sObjType === "TTYP") {
+          oTabBar.setSelectedKey("adtForm");
+        } else {
+          oTabBar.setSelectedKey("source");
+        }
+      }
 
-        if (!bNotSupported) {
-          that._renderCodeHost(that._pendingSourceCode, sObjType);
-        }
-      }).catch(function (oErr) {
-        setProp("viewSourceMessage", "Error: " + (oErr.message || oErr));
-        setProp("viewSourceHash", "");
-        that._pendingSourceCode = "/* Error loading source */";
+      setProp("viewSourceCode", that._pendingSourceCode);
+
+      if (!bNotSupported) {
         that._renderCodeHost(that._pendingSourceCode, sObjType);
-      });
+      }
 
       // Fetch metadata if it's missing (e.g. opened from TrSearch where we don't have Package/Author)
+      var oOdm = this.getOwnerComponent().getModel("objModel");
       var oMetaData = oM.getProperty("/viewSourceMetaData") || {};
-      if (!oMetaData.PackageName && !oMetaData.TadirDevclass) {
+      var sObjName = oM.getProperty("/viewSourceName") || (oMetaData && oMetaData.ObjectName) || "";
+      if (oOdm && sObjName && !oMetaData.PackageName && !oMetaData.TadirDevclass && !oMetaData.VersionNo) {
         var sEntity = sServerType === "T" ? "TargetObjects" : "LocalObjects";
         var oListBinding = oOdm.bindList("/" + sEntity, null, null, null, {
           "$filter": "ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "'"
@@ -269,8 +369,13 @@ sap.ui.define([
       if (this._pendingSourceCode !== null && this._pendingSourceCode !== undefined) {
         this._renderCodeHost(this._pendingSourceCode, this._pendingObjType);
       }
-      if (this._pendingObjType === "TABL" && this._pendingTableDataJson) {
-        this._renderViewSourceTableData(this._pendingTableDataJson);
+      var oApp = this._app();
+      var bIsStructure = oApp && oApp.getProperty("/viewSourceIsStructure");
+      if (this._pendingObjType === "TABL" && !bIsStructure) {
+        var sDataToRender = this._pendingTableDataJson || (this._aViewSourceTableRows ? JSON.stringify(this._aViewSourceTableRows) : "");
+        if (sDataToRender) {
+          this._renderViewSourceTableData(sDataToRender);
+        }
       }
     },
 
@@ -285,11 +390,30 @@ sap.ui.define([
         }, 50);
       } else if (sKey === "tableData") {
         setTimeout(function () {
-          if (that._aViewSourceTableRows) {
-            that._renderViewSourceTableData(JSON.stringify(that._aViewSourceTableRows));
+          var sDataToRender = (that._aViewSourceTableRows && that._aViewSourceTableRows.length > 0)
+            ? JSON.stringify(that._aViewSourceTableRows)
+            : that._pendingTableDataJson;
+          if (sDataToRender) {
+            that._renderViewSourceTableData(sDataToRender);
           }
         }, 50);
       }
+    },
+
+    _getViewSourceTable: function () {
+      var oTable = null;
+      if (this.getView && this.getView().byId) {
+        oTable = this.getView().byId("idViewSourceDataTable");
+      }
+      if (!oTable && this._oSourceDialog && this._oSourceDialog.findAggregatedObjects) {
+        var aMatches = this._oSourceDialog.findAggregatedObjects(false, function (oCtrl) {
+          return oCtrl && oCtrl.getId && oCtrl.getId().indexOf("idViewSourceDataTable") !== -1;
+        });
+        if (aMatches && aMatches.length > 0) {
+          oTable = aMatches[0];
+        }
+      }
+      return oTable || sap.ui.getCore().byId("idViewSourceDataTable");
     },
 
     _renderViewSourceTableData: function (sJson) {
@@ -304,8 +428,7 @@ sap.ui.define([
       }
       this._aViewSourceTableRows = aData;
 
-      var oTable = Fragment.byId("idViewSourceDialog", "idViewSourceDataTable") ||
-        (this._oSourceDialog && this._oSourceDialog.getContent && sap.ui.getCore().byId("idViewSourceDataTable"));
+      var oTable = this._getViewSourceTable();
 
       var oApp = this._app();
       if (oApp) {
@@ -349,8 +472,7 @@ sap.ui.define([
           });
         });
       }
-      var oTable = Fragment.byId("idViewSourceDialog", "idViewSourceDataTable") ||
-        sap.ui.getCore().byId("idViewSourceDataTable");
+      var oTable = this._getViewSourceTable();
       if (oTable) {
         oTable.setModel(new JSONModel(aFiltered), "tblData");
         oTable.bindRows("tblData>/");
@@ -573,6 +695,78 @@ sap.ui.define([
       var oUrl = new URL(window.location.href);
       oUrl.searchParams.set("sap-language", sNorm.toUpperCase());
       window.location.href = oUrl.toString();
+    },
+
+    /**
+     * Normalize version number to 5-digit string or upper-case keyword (e.g. '1' -> '00001', 'ACTIVE').
+     * @param {string|number} [v]
+     * @returns {string}
+     */
+    padVers: function (v) {
+      var s = String(v === undefined || v === null ? "" : v).trim();
+      if (!s) { return ""; }
+      if (/^\d+$/.test(s)) { return ("00000" + s).slice(-5); }
+      return s.toUpperCase();
+    },
+
+    /**
+     * Format SAP version number (e.g. '00002' -> '2', '99998' -> 'Active').
+     * @param {string} [sVer] Version number string
+     * @returns {string} Formatted version string
+     */
+    formatVersionNo: function (sVer) {
+      if (!sVer) return "";
+      var s = String(sVer).trim();
+      if (s === "99998" || s.toLowerCase() === "active") return "Active";
+      var n = parseInt(s, 10);
+      return isNaN(n) ? s : String(n);
+    },
+
+    /**
+     * Get Compare (mainService) OData service URI.
+     * @returns {string} Service URI with trailing slash
+     */
+    _mainServiceUri: function () {
+      try {
+        var s = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.mainService.uri;
+        if (s) { return String(s).replace(/\/?$/, "/"); }
+      } catch (e) { /* ignore */ }
+      var m = this.getOwnerComponent().getModel();
+      return (m && m.getServiceUrl) ? m.getServiceUrl().replace(/\/?$/, "/") : "/sap/opu/odata4/sap/zui_scort_compare_o4/srvd/sap/zsd_scort_compare/0001/";
+    },
+
+    /**
+     * Get ObjSearch (objService) OData service URI.
+     * @returns {string} Service URI with trailing slash
+     */
+    _objServiceUri: function () {
+      try {
+        var s = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.objService.uri;
+        if (s) { return String(s).replace(/\/?$/, "/"); }
+      } catch (e) { /* ignore */ }
+      var m = this.getOwnerComponent().getModel("objModel");
+      return (m && m.getServiceUrl) ? m.getServiceUrl().replace(/\/?$/, "/") : "/sap/opu/odata4/sap/zui_scort_obj_search_o4/srvd/sap/zsd_scort_obj_search/0001/";
+    },
+
+    /**
+     * Get TrSearch (trService) OData service URI.
+     * @returns {string} Service URI with trailing slash
+     */
+    _trServiceUri: function () {
+      try {
+        var s = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.trService.uri;
+        if (s) { return String(s).replace(/\/?$/, "/"); }
+      } catch (e) { /* ignore */ }
+      var m = this.getOwnerComponent().getModel("trModel");
+      return (m && m.getServiceUrl) ? m.getServiceUrl().replace(/\/?$/, "/") : "/sap/opu/odata4/sap/zui_scort_tr_search_o4/srvd/sap/zsd_scort_tr_search/0001/";
+    },
+
+    /**
+     * Get OData service URI fallback.
+     * @returns {string} Service URI
+     */
+    _serviceUri: function () {
+      return this._objServiceUri();
     },
 
     /**

@@ -350,12 +350,6 @@ sap.ui.define([
       });
     },
 
-    _serviceUri: function () {
-      var oOdm = this.getOwnerComponent().getModel("objModel");
-      var sUri = oOdm && oOdm.getServiceUrl && oOdm.getServiceUrl();
-      return sUri || OBJ_SERVICE_URI;
-    },
-
     _buildEntityUrl: function (sEntity, sFilter) {
       var sUrl = this._serviceUri().replace(/\/?$/, "/") + sEntity.replace(/^\//, "");
       if (sFilter) {
@@ -722,6 +716,43 @@ sap.ui.define([
       var oObj = oCtx.getObject();
       var sServer = oObj.ExistenceStatus === "TARGET_ONLY" ? "T" : "L";
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, sServer, oObj.ExistenceStatus || "BOTH");
+    },
+
+    onButtonVersionHistoryLocalPress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("objSearch");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/versionServerType", "L");
+      }
+      this._app().setProperty("/compareInitialTab", "versionMgmt");
+      this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", oObj.ExistenceStatus || "BOTH");
+    },
+
+    onButtonVersionHistoryTargetPress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("objSearch");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/versionServerType", "T");
+      }
+      this._app().setProperty("/compareInitialTab", "versionMgmt");
+      this.navToCompare(oObj.ObjectType, oObj.ObjectName, "T", oObj.ExistenceStatus || "BOTH");
+    },
+
+    onButtonVersionHistoryMatrixPress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("objSearch");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      var sServerType = oObj.ExistenceStatus === "TARGET_ONLY" ? "T" : "L";
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/versionServerType", sServerType);
+      }
+      this._app().setProperty("/compareInitialTab", "versionMgmt");
+      this.navToCompare(oObj.ObjectType, oObj.ObjectName, sServerType, oObj.ExistenceStatus || "BOTH");
     },
 
     onColumnListItemViewSourcePress: function (oEvent) { this.onButtonViewSourcePress(oEvent); },
