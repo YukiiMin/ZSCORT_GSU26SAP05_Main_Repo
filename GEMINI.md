@@ -155,7 +155,9 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 
 ## Git Invariant
 
-**NGHIÊM CẤM `git commit` và `git push` tự động** — chỉ thực hiện khi user explicit ra lệnh (*"commit cho tôi"*, *"push git nhé"*). Chỉ được tự ý dùng `git status`, `git diff`, `git log`.
+- **NGHIÊM CẤM `git commit` và `git push` tự động** — chỉ thực hiện khi user explicit ra lệnh (*"commit cho tôi"*, *"push git nhé"*). Chỉ được tự ý dùng `git status`, `git diff`, `git log`.
+- **Scope Boundary (Repo con vs Repo chính)**: Khi làm việc trên bộ công cụ `tool/pdf_to_docx_converter`, CHỈ commit/push vào repo con (`antigravity-doc-handler`). TUYỆT ĐỐI KHÔNG commit hay push vào main repo SAP (`ZSCORT_GSU26SAP05_Main_Repo`) trừ khi người dùng chỉ định đích danh.
+
 
 ---
 
