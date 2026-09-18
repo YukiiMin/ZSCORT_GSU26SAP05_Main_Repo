@@ -101,13 +101,6 @@
             </VBox>
           </HBox>
 
-          <HBox alignItems="Center" class="scortRememberRow">
-            <CheckBox
-              id="chkRemember"
-              text="{i18n>loginRememberMe}"
-              selected="{login>/rememberMe}" />
-          </HBox>
-
           <Button
             id="btnLogon"
             text="{i18n>loginSubmitBtn}"

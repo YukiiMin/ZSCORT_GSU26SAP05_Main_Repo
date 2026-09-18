@@ -78,26 +78,51 @@ sap.ui.define(
         var isSapServer =
           window.location.hostname.indexOf('localhost') === -1 &&
           window.location.hostname.indexOf('127.0.0.1') === -1
-        var bLoggedOff = sessionStorage.getItem('scort_logged_off') === 'true'
+        var bLoggedOff =
+          sessionStorage.getItem('scort_logged_off') === 'true' ||
+          window.location.hash.indexOf('login') !== -1
         var oUserData = null
-        var sInitialUser =
-          localStorage.getItem('scort_remember_user') || 'SAP User'
+        try {
+          localStorage.removeItem('scort_remember_user')
+          localStorage.removeItem('scort_remember_flag')
+        } catch (e) {}
+        var sInitialUser = ''
 
-        if ((isRunningInFLP || isSapServer) && !bLoggedOff) {
+        if (bLoggedOff) {
+          oUserData = {
+            userId: '',
+            client: localStorage.getItem('scort_client') || '324',
+            language: sSavedLang,
+            systemId: 'S40',
+            role: 'ABAP Developer',
+            isLoggedIn: false,
+            loginTime: '',
+          }
+        } else if (isRunningInFLP || isSapServer) {
           if (isRunningInFLP && sap.ushell.Container.getUser()) {
             sInitialUser =
               sap.ushell.Container.getUser().getId() || sInitialUser
           }
-          oUserData = {
-            userId: sInitialUser.toUpperCase(),
-            client: '324',
-            language: sSavedLang,
-            systemId: 'S40',
-            role: 'ABAP Developer',
-            isLoggedIn: true,
-            loginTime: new Date().toLocaleTimeString(),
+          var sSession = sessionStorage.getItem('scort_session')
+          if (sSession) {
+            try {
+              oUserData = JSON.parse(sSession)
+            } catch (e) {
+              oUserData = null
+            }
           }
-          sessionStorage.setItem('scort_session', JSON.stringify(oUserData))
+          if (!oUserData) {
+            oUserData = {
+              userId: (sInitialUser || 'SAP USER').toUpperCase(),
+              client: localStorage.getItem('scort_client') || '324',
+              language: sSavedLang,
+              systemId: 'S40',
+              role: 'ABAP Developer',
+              isLoggedIn: true,
+              loginTime: new Date().toLocaleTimeString(),
+            }
+            sessionStorage.setItem('scort_session', JSON.stringify(oUserData))
+          }
         } else {
           var sSession = sessionStorage.getItem('scort_session')
           if (sSession) {
@@ -123,10 +148,13 @@ sap.ui.define(
         this.setModel(oUserModel, 'user')
 
         var that = this
-        if (isSapServer) {
+        if (isSapServer && !bLoggedOff) {
           fetch('/sap/bc/ui2/start_up')
             .then(function (res) {
-              return res.ok ? res.json() : null
+              if (!res.ok) {
+                throw new Error('HTTP ' + res.status + ' (' + res.statusText + ')')
+              }
+              return res.json()
             })
             .then(function (data) {
               if (data && data.id) {
@@ -146,9 +174,17 @@ sap.ui.define(
                     )
                   } catch (e) {}
                 }
+              } else {
+                throw new Error('Missing user id in /sap/bc/ui2/start_up')
               }
             })
-            .catch(function () {})
+            .catch(function (err) {
+              console.error('[SCORT Auth Error] Session startup failed:', err)
+              sap.m.MessageToast.show(
+                'Session resolution warning: ' + (err && err.message ? err.message : String(err)),
+                { duration: 5000 }
+              )
+            })
         }
 
         var oObjModel = this.getModel('objModel')

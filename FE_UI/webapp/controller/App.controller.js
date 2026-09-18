@@ -17,6 +17,13 @@ sap.ui.define([
     onRouteMatched: function (oEvent) {
       var sRouteName = oEvent.getParameter("name");
       var oAppModel = this.getOwnerComponent().getModel("appView");
+      var oUserModel = this.getOwnerComponent().getModel("user");
+      var bIsLoggedIn = oUserModel && oUserModel.getProperty("/isLoggedIn");
+
+      if (!bIsLoggedIn && sRouteName !== "login") {
+        this.getOwnerComponent().getRouter().navTo("login", {}, true);
+        return;
+      }
 
       switch (sRouteName) {
         case "login":

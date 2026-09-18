@@ -791,10 +791,21 @@ sap.ui.define([
         emphasizedAction: MessageBox.Action.YES,
         onClose: function (sAction) {
           if (sAction === MessageBox.Action.YES) {
+            sessionStorage.setItem("scort_logged_off", "true");
             sessionStorage.removeItem("scort_session");
+            try {
+              localStorage.removeItem("scort_remember_user");
+              localStorage.removeItem("scort_remember_flag");
+            } catch (e) {}
+
             var oUserModel = that.getOwnerComponent().getModel("user");
             if (oUserModel) {
               oUserModel.setProperty("/isLoggedIn", false);
+            }
+            var oAppModel = that.getOwnerComponent().getModel("appView");
+            if (oAppModel) {
+              oAppModel.setProperty("/layout", LayoutType.OneColumn);
+              oAppModel.setProperty("/currentModule", "login");
             }
             try {
               var img = new Image();
@@ -802,7 +813,12 @@ sap.ui.define([
             } catch (e) {}
 
             MessageToast.show(oBundle.getText("userLogoffBtn") + " OK");
-            that.getOwnerComponent().getRouter().navTo("login", {}, true);
+
+            setTimeout(function () {
+              var sTargetUrl = window.location.pathname + (window.location.search || "") + "#/login";
+              window.location.replace(sTargetUrl);
+              window.location.reload();
+            }, 250);
           }
         }
       });

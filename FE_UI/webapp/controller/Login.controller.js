@@ -9,55 +9,64 @@ sap.ui.define([
   return BaseController.extend("zscort.app.controller.Login", {
 
     onInit: function () {
-      var sSavedUser = localStorage.getItem("scort_remember_user") || "DEV-032";
+      localStorage.removeItem("scort_remember_user");
+      localStorage.removeItem("scort_remember_flag");
       var sSavedClient = localStorage.getItem("scort_client") || "324";
       var sSavedLang = localStorage.getItem("scort_lang") || "en";
-      var bRemember = localStorage.getItem("scort_remember_flag") !== "false";
 
       var oLoginModel = new JSONModel({
-        username: sSavedUser,
+        username: "",
         password: "",
         client: sSavedClient,
         language: sSavedLang,
-        rememberMe: bRemember,
         busy: false
       });
       this.getView().setModel(oLoginModel, "login");
 
       var oRouter = this.getRouter();
-      if (oRouter) {
-        if (oRouter.getRoute("login")) {
-          oRouter.getRoute("login").attachPatternMatched(this._onRouteMatched, this);
-        }
-        if (oRouter.getRoute("home")) {
-          oRouter.getRoute("home").attachPatternMatched(this._onRouteMatched, this);
-        }
+      if (oRouter && oRouter.getRoute("login")) {
+        oRouter.getRoute("login").attachPatternMatched(this._onRouteMatched, this);
       }
     },
 
     _onRouteMatched: function () {
       var isRunningInFLP = !!(window.sap && sap.ushell && sap.ushell.Container);
-      var isSapServer = window.location.hostname.indexOf("localhost") === -1 && window.location.hostname.indexOf("127.0.0.1") === -1;
-      var bLoggedOff = sessionStorage.getItem("scort_logged_off") === "true";
-      if ((isRunningInFLP || isSapServer) && !bLoggedOff) {
+      if (isRunningInFLP) {
         this._autoLoginFromFlp();
         return;
       }
 
-      var sSession = sessionStorage.getItem("scort_session");
-      if (sSession) {
-        try {
-          var oSessionData = JSON.parse(sSession);
-          if (oSessionData && oSessionData.isLoggedIn) {
-            this._applyUserDataAndNavigate(oSessionData);
-            return;
-          }
-        } catch (e) {
-          sessionStorage.removeItem("scort_session");
-        }
+      var oAppModel = this.getOwnerComponent().getModel("appView");
+      if (oAppModel) {
+        oAppModel.setProperty("/layout", "OneColumn");
+        oAppModel.setProperty("/currentModule", "login");
+      }
+
+      this._ensureBeginVisible();
+
+      var oLoginModel = this.getView().getModel("login");
+      if (oLoginModel) {
+        oLoginModel.setProperty("/username", "");
+        oLoginModel.setProperty("/password", "");
+        oLoginModel.setProperty("/busy", false);
       }
 
       this._hideMessage();
+    },
+
+    _ensureBeginVisible: function () {
+      try {
+        var oRoot = this.getOwnerComponent().getRootControl();
+        var oFcl = oRoot && oRoot.byId && oRoot.byId("fcl");
+        if (!oFcl) {
+          oFcl = sap.ui.getCore().byId("container-zscort.app---appView--fcl");
+        }
+        if (oFcl && typeof oFcl.toBeginColumnPage === "function") {
+          oFcl.toBeginColumnPage(this.getView());
+        }
+      } catch (e) {
+        console.error("[Login] _ensureBeginVisible failed:", e);
+      }
     },
 
     onLanguageChange: function (oEvent) {
@@ -82,7 +91,6 @@ sap.ui.define([
       var sPass = (oLoginData.password || "").trim();
       var sClient = (oLoginData.client || "").trim() || "324";
       var sLang = oLoginData.language || "en";
-      var bRemember = oLoginData.rememberMe;
 
       var oBundle = this.getResourceBundle();
 
@@ -108,14 +116,9 @@ sap.ui.define([
       }).then(function (response) {
         that.getView().getModel("login").setProperty("/busy", false);
         if (response.ok || response.status === 200) {
-          if (bRemember) {
-            localStorage.setItem("scort_remember_user", sUser);
-            localStorage.setItem("scort_client", sClient);
-            localStorage.setItem("scort_remember_flag", "true");
-          } else {
-            localStorage.removeItem("scort_remember_user");
-            localStorage.setItem("scort_remember_flag", "false");
-          }
+          localStorage.removeItem("scort_remember_user");
+          localStorage.removeItem("scort_remember_flag");
+          localStorage.setItem("scort_client", sClient);
           localStorage.setItem("scort_lang", sLang);
 
           var oUserData = {
@@ -134,7 +137,9 @@ sap.ui.define([
           that._applyUserDataAndNavigate(oUserData);
           MessageToast.show(oBundle.getText("loginSuccessMsg") || "Login successful!");
         } else {
-          that._showMessage(oBundle.getText("loginErrFailed") || "Invalid SAP credentials. Please check username/password.", MessageType.Error);
+          var sErrMsg = oBundle.getText("loginErrFailed") || "Invalid SAP credentials.";
+          sErrMsg += " (HTTP " + response.status + ": " + response.statusText + ")";
+          that._showMessage(sErrMsg, MessageType.Error);
         }
       }).catch(function (error) {
         that.getView().getModel("login").setProperty("/busy", false);
@@ -143,10 +148,10 @@ sap.ui.define([
     },
 
     _autoLoginFromFlp: function () {
-      var sUserId = "DEV-032";
+      var sUserId = "SAP_USER";
       try {
         if (sap.ushell.Container.getUser()) {
-          sUserId = sap.ushell.Container.getUser().getId() || "DEV-032";
+          sUserId = sap.ushell.Container.getUser().getId() || sUserId;
         }
       } catch (e) {
         // ignore
@@ -176,9 +181,15 @@ sap.ui.define([
       var oAppModel = this.getOwnerComponent().getModel("appView");
       if (oAppModel) {
         oAppModel.setProperty("/currentLanguage", oUserData.language);
+        oAppModel.setProperty("/currentModule", "objSearch");
+        oAppModel.setProperty("/layout", "OneColumn");
       }
 
-      this.getRouter().navTo("objSearch", {}, true);
+      setTimeout(function () {
+        var sTargetUrl = window.location.pathname + (window.location.search || "") + "#/objSearch";
+        window.location.replace(sTargetUrl);
+        window.location.reload();
+      }, 250);
     },
 
     _showMessage: function (sText, sType) {
