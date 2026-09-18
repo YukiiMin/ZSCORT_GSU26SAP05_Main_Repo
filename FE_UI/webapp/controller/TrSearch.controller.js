@@ -705,13 +705,13 @@ sap.ui.define([
             that._searchTree(true);
           }).catch(function (oErr) {
             var sErr = that._releaseErrorText(oErr);
-            that._handleReleaseError(sTrkorr, sErr);
+            that._handleReleaseError(sTrkorr, sErr, oNode);
           });
         }
       });
     },
 
-    _handleReleaseError: function (sTrkorr, sErr) {
+    _handleReleaseError: function (sTrkorr, sErr, oNode) {
       var aInactive = [];
       var mMatch = sErr.match(/\[(.*?)\]/s);
       if (mMatch && mMatch[1]) {
@@ -736,6 +736,56 @@ sap.ui.define([
             });
           }
         });
+      }
+
+      // If no bracketed list in error but message indicates inactive objects
+      if (aInactive.length === 0 && /inactive/i.test(sErr)) {
+        var collectObjs = function (node) {
+          var res = [];
+          if (!node) { return res; }
+          if (node.NodeType === "OBJ" && node.ObjName) {
+            res.push({
+              objectType: (node.ObjType || "OBJ").toUpperCase(),
+              objectName: (node.ObjName || "").toUpperCase(),
+              userName:   (node.Owner || (oNode && oNode.Owner) || "").toUpperCase(),
+              status:     "Inactive"
+            });
+          }
+          if (node.children && node.children.length) {
+            node.children.forEach(function (c) {
+              res = res.concat(collectObjs(c));
+            });
+          }
+          return res;
+        };
+
+        if (oNode) {
+          aInactive = collectObjs(oNode);
+        }
+
+        if (aInactive.length === 0) {
+          // If child objects are not loaded in the tree yet, list TR and open tasks as targets
+          if (oNode && oNode.children && oNode.children.length) {
+            oNode.children.forEach(function (c) {
+              if (c && (c.NodeType === "TASK" || c.NodeType === "OBJ")) {
+                aInactive.push({
+                  objectType: c.NodeType === "TASK" ? "TASK" : (c.ObjType || "OBJ"),
+                  objectName: c.Trkorr || c.ObjName || sTrkorr,
+                  userName:   (c.Owner || (oNode && oNode.Owner) || "").toUpperCase(),
+                  status:     "Check Inactive in ADT"
+                });
+              }
+            });
+          }
+          if (aInactive.length === 0) {
+            aInactive.push({
+              objectType: (oNode && oNode.NodeType) || "TR",
+              objectName: sTrkorr,
+              userName:   (oNode && oNode.Owner) || "",
+              status:     "Check Inactive in ADT"
+            });
+          }
+        }
       }
 
       if (aInactive.length > 0) {
