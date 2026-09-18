@@ -63,6 +63,8 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | A16 | **RAP UNION ALL: phải khai báo association ở MỌI branch** | Thiếu 1 branch → compiler báo `_Assoc is unknown column` |
 | A17 | **Kernel deep struct: dùng dynamic component lookup** | `ASSIGN COMPONENT 'ABAPTXT255' OF STRUCTURE ... TO ...` với fallback candidates |
 | A18 | **MSAG Companion File** | Khi tạo/sửa `<NAME>.msag.xml`, BẮT BUỘC tạo/cập nhật `<NAME>.md` kèm format TSV để copy nhanh vào SE91/ADT (hỗ trợ placeholder `&1`-`&4` và version <=39 chars) |
+| A19 | **Class Version: ADT Parity Invariant (`REPS` pool)** | Luôn đọc 5 Include pool chuẩn (`CP`, `CCDEF`, `CCIMP`, `CCAU`, `CCMAC`) dưới `OBJTYPE = 'REPS'`. Cấm parse metadata `CPUB`/`CPRO` của SAP GUI SE24 |
+| A20 | **T100 Message Length <= 72 chars** | Short text của T100 trong SE91 tối đa 73 ký tự; vượt quá sẽ bị cắt cụt giữa chừng |
 
 ---
 
@@ -73,6 +75,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | U1 | **`fetchJson()` LUÔN trả về array** | `oData.As4date` → undefined. Phải `aData[0]` hoặc `.find(n => n.NodeType === 'TR')` |
 | U2 | **Custom RAP Entity (ZCE_\*): dùng `$filter`** | Không dùng read-by-key `EntitySet('KEY')`. Dùng `?$filter=Trkorr eq '...'&$top=50` |
 | U3 | **OData filter: KHÔNG `encodeURIComponent()`** | Encode `'` → `%27`, phá syntax. Chỉ `.replace(/'/g, "''")` |
+| U13 | **Inactive Objects Dialog on Release Error** | Khi Release fail vì inactive objects, bắt buộc mở `InactiveObjectsDialog` hiển thị chi tiết (Type, Name, User), không chỉ hiện `MessageBox.error` 1 dòng |
 | U4 | **JSONModel `onInit`: khai báo ĐỦ properties** | `activeTasks: []`, `activeTasksCount: 0`, `parentObjects: []`, `isUnreleased: true`, `as4date: ""` phải có sẵn |
 | U5 | **WrongOverrideLinter** | Child controller KHÔNG override private methods của BaseController |
 | U6 | **Service routing tường minh** | `_trServiceUri()` cho TrTree/TrSearch; `_objServiceUri()` cho LocalObjects; `_mainServiceUri()` cho Compare/Version |

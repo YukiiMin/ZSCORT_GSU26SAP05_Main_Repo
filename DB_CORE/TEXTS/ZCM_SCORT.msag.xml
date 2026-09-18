@@ -192,7 +192,7 @@
      <SPRSL>E</SPRSL>
      <ARBGB>ZCM_SCORT</ARBGB>
      <MSGNR>075</MSGNR>
-     <TEXT>Request &amp;1 has &amp;2 inactive object(s). Please activate before release.</TEXT>
+     <TEXT>Request &amp;1: &amp;2 inactive object(s) found. Activate before release.</TEXT>
     </T100>
     <T100>
      <SPRSL>E</SPRSL>

@@ -56,9 +56,11 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD select_source.
-    DATA ls_filter TYPE ty_filters.
-    DATA lt_entity TYPE tt_entity.
-    DATA ls_entity TYPE zcr_scort_obj_src.
+    DATA ls_filter       TYPE ty_filters.
+    DATA lt_entity       TYPE tt_entity.
+    DATA ls_entity       TYPE zcr_scort_obj_src.
+    DATA lv_tgt_obj_name TYPE sobj_name.
+    DATA lv_dump_tgt     TYPE string.
 
     ls_filter = parse_filters( io_request ).
 
@@ -78,16 +80,20 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
     TRY.
         IF ls_filter-server_type = c_server_target.
           DATA ls_tgt TYPE zcl_scort_t_reader=>ty_source.
+          lv_tgt_obj_name = ls_filter-object_name.
+          IF ls_filter-object_type = 'CLAS' AND lv_tgt_obj_name CS '='.
+            SPLIT lv_tgt_obj_name AT '=' INTO lv_tgt_obj_name lv_dump_tgt.
+          ENDIF.
+          ls_entity-ObjectName = lv_tgt_obj_name.
           IF ls_filter-version_no IS NOT INITIAL.
             ls_tgt = zcl_scort_t_reader=>read_version(
                        iv_object_type = ls_filter-object_type
-                       iv_object_name = ls_filter-object_name
-
+                       iv_object_name = lv_tgt_obj_name
                        iv_version_no  = ls_filter-version_no ).
           ELSE.
             ls_tgt = zcl_scort_t_reader=>read_current(
                        iv_object_type = ls_filter-object_type
-                       iv_object_name = ls_filter-object_name ).
+                       iv_object_name = lv_tgt_obj_name ).
           ENDIF.
           ls_entity-VersionNo = ls_tgt-version_no.
           ls_entity-Message   = ls_tgt-message.
@@ -121,10 +127,27 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
         ELSE.
           IF ls_filter-version_no IS NOT INITIAL
               AND ls_filter-version_no <> zcl_scort_v_reader=>c_vers_active.
+            DATA lv_comp_inf TYPE string.
+            IF ls_filter-object_type = 'CLAS' AND ls_filter-object_name CS '========'.
+              DATA(lv_flen) = strlen( ls_filter-object_name ).
+              IF lv_flen >= 5 AND substring( val = ls_filter-object_name off = lv_flen - 5 len = 5 ) = 'CCDEF'.
+                lv_comp_inf = 'CCDEF'.
+              ELSEIF lv_flen >= 5 AND substring( val = ls_filter-object_name off = lv_flen - 5 len = 5 ) = 'CCIMP'.
+                lv_comp_inf = 'CCIMP'.
+              ELSEIF lv_flen >= 5 AND substring( val = ls_filter-object_name off = lv_flen - 5 len = 5 ) = 'CCMAC'.
+                lv_comp_inf = 'CCMAC'.
+              ELSEIF lv_flen >= 4 AND substring( val = ls_filter-object_name off = lv_flen - 4 len = 4 ) = 'CCAU'.
+                lv_comp_inf = 'CCAU'.
+              ELSE.
+                lv_comp_inf = 'CP'.
+              ENDIF.
+            ENDIF.
+
             DATA(ls_ver) = zcl_scort_v_reader=>read_version(
                              iv_object_type = ls_filter-object_type
                              iv_object_name = ls_filter-object_name
-                             iv_version_no  = ls_filter-version_no ).
+                             iv_version_no  = ls_filter-version_no
+                             iv_component   = lv_comp_inf ).
             ls_entity-VersionNo = ls_ver-version_no.
             IF ls_filter-object_type = 'TABL' AND ls_ver-text CS '===SCORT_TABLE_DATA_START==='.
               SPLIT ls_ver-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_v) DATA(lv_data_v).

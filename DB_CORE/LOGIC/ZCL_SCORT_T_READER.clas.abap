@@ -73,6 +73,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     DATA lv_vers     TYPE versno.
     DATA lv_obj_name TYPE trobj_name.
     DATA lv_max      TYPE versno.
+    DATA lv_dummy    TYPE string.
 
     CLEAR rs_source.
     rs_source-object_type = CONV #( iv_object_type ).
@@ -80,6 +81,9 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
 
     lv_obj_name = CONV trobj_name( iv_object_name ).
     CONDENSE lv_obj_name.
+    IF iv_object_type = 'CLAS' AND lv_obj_name CS '='.
+      SPLIT lv_obj_name AT '=' INTO lv_obj_name lv_dummy.
+    ENDIF.
 
     SELECT SINGLE current_version FROM za05_scort_t
       WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )
@@ -133,6 +137,7 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     DATA lv_trkorr   TYPE trkorr.
     DATA lv_obj_name TYPE trobj_name.
     DATA lv_cur      TYPE versno.
+    DATA lv_dummy    TYPE string.
 
     CLEAR rs_source.
     rs_source-object_type = CONV #( iv_object_type ).
@@ -140,6 +145,9 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
 
     lv_obj_name = CONV trobj_name( iv_object_name ).
     CONDENSE lv_obj_name.
+    IF iv_object_type = 'CLAS' AND lv_obj_name CS '='.
+      SPLIT lv_obj_name AT '=' INTO lv_obj_name lv_dummy.
+    ENDIF.
 
     IF iv_version_no IS SUPPLIED AND iv_version_no IS NOT INITIAL
         AND iv_version_no <> '00000'.
@@ -234,9 +242,14 @@ CLASS zcl_scort_t_reader IMPLEMENTATION.
     DATA lv_label    TYPE string.
     DATA lv_cur      TYPE versno.
     DATA lv_obj_name TYPE trobj_name.
+    DATA lv_dummy    TYPE string.
 
     CLEAR rt_vers.
     lv_obj_name = CONV trobj_name( iv_object_name ).
+    CONDENSE lv_obj_name.
+    IF iv_object_type = 'CLAS' AND lv_obj_name CS '='.
+      SPLIT lv_obj_name AT '=' INTO lv_obj_name lv_dummy.
+    ENDIF.
 
     SELECT SINGLE current_version FROM za05_scort_t
       WHERE ( pgmid = 'R3TR' OR pgmid = 'LIMU' )

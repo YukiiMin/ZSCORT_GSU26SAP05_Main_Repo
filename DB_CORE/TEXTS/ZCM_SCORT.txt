@@ -28,7 +28,7 @@
 072	Transport Request &1 is not a Workbench Request (type &2).
 073	Release for &1 is incomplete (status &2, code &3).
 074	Release dependent task &1 first.
-075	Request &1 has &2 inactive object(s). Please activate before release.
+075	Request &1: &2 inactive object(s) found. Activate before release.
 076	Inactive object: &1 &2 (User: &3).
 077	Release check failed for &1: Inactive objects exist (&2).
 078	Object check error for &1: &2

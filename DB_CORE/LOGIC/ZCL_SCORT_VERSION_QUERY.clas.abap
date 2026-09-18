@@ -170,13 +170,20 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD read_target.
-    DATA lt_vers   TYPE zcl_scort_t_reader=>tt_version.
-    DATA ls_entity TYPE zcr_scort_obj_version.
+    DATA lt_vers       TYPE zcl_scort_t_reader=>tt_version.
+    DATA ls_entity     TYPE zcr_scort_obj_version.
+    DATA lv_clean_name TYPE sobj_name.
+    DATA lv_dump_vq    TYPE string.
+
+    lv_clean_name = is_filter-object_name.
+    IF is_filter-object_type = 'CLAS' AND lv_clean_name CS '='.
+      SPLIT lv_clean_name AT '=' INTO lv_clean_name lv_dump_vq.
+    ENDIF.
 
     TRY.
         lt_vers = zcl_scort_t_reader=>list_versions(
                     iv_object_type = is_filter-object_type
-                    iv_object_name = is_filter-object_name ).
+                    iv_object_name = lv_clean_name ).
       CATCH cx_root.
         CLEAR lt_vers.
     ENDTRY.
@@ -186,7 +193,7 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
       ls_entity-ServerType = c_server_target.
 
       ls_entity-ObjectType = is_filter-object_type.
-      ls_entity-ObjectName = is_filter-object_name.
+      ls_entity-ObjectName = lv_clean_name.
       ls_entity-VersionNo  = ls_v-version_no.
       ls_entity-Author     = ls_v-author.
       ls_entity-Datum      = ls_v-datum.

@@ -27,3 +27,9 @@ Internal metadata / registration objects (e.g. `APIS`, `IWMO`, `IWSG`, `IWVB`, `
 1. Provide parsed structured views via `AdtFormParser.js` mimicking SAP ADT Eclipse tabs.
 2. Default tab in ViewSource dialog to `adtForm`.
 3. In Compare view, set `compareMode = 'form'` and render side-by-side ADT form comparisons.
+
+## 4. ABAP Class (`CLAS`) Versioning & ADT Parity Standards
+1. **Source Model**: Adhere 100% to ADT 5-include pool architecture (`CP`, `CCDEF`, `CCIMP`, `CCAU`, `CCMAC`).
+2. **VRSD Invariant**: Always query `VRSD` using `OBJTYPE = 'REPS'` and `OBJNAME = cl_oo_classname_service=>get_<include>_name( class_name )`.
+3. **No Metadata Fallback**: Strictly forbid attempting to parse or map to SAP GUI SE24 fragmented metadata sub-objects (`CPUB`, `CPRO`, `CPRI`, `CLSD`). All version text must come from the `REPS` pool to guarantee full definition and implementation parity with ADT Eclipse.
+

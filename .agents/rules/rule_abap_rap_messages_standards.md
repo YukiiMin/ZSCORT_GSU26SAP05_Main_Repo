@@ -38,6 +38,9 @@ When writing or refactoring SAP ABAP, RAP entities, and DDIC integration code, y
      - **Exact SAP Placeholders**: Use unescaped `&1`, `&2`, `&3`, `&4` (never `&amp;`).
      - **Concise Variants (<= 39 chars)**: Provide compact variants when message texts exceed 39 characters for compact UI/dialog views.
      - **Detailed Table**: Number, Short Text, Character Count, and Parameter Meanings.
+7. **T100 Message Text Length Constraint (<= 72 Chars):**
+   - In SAP SE91 and table `T100`, message short text has a strict maximum length of 73 characters (`CHAR73`).
+   - Every message definition MUST NOT exceed 72 characters when placeholders `&1`-`&4` are substituted to prevent unexpected truncation across SAP GUI, RFC, and OData error responses.
 
 ## 2. ABAP String Templates, Literals & VALUE Constructor Invariants
 1. **No Multiline Templates:** NEVER span string templates `|...|` across multiple editor lines.

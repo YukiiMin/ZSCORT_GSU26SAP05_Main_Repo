@@ -30,6 +30,13 @@ CLASS zcl_scort_tr_log_query DEFINITION
       RETURNING
         VALUE(rv_path) TYPE string.
 
+    CLASS-METHODS format_datetime
+      IMPORTING
+        iv_date         TYPE clike
+        iv_time         TYPE clike
+      RETURNING
+        VALUE(rv_stamp) TYPE string.
+
     CLASS-METHODS read_raw_log_content
       IMPORTING
         iv_trkorr         TYPE trkorr
@@ -52,12 +59,9 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
 
     TRY.
         lv_trkorr = CONV #( zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'TRKORR' ) ).
-        IF lv_trkorr IS INITIAL.
-          zcl_scort_query_utl=>respond_empty( io_request = io_request io_response = io_response ).
-          RETURN.
+        IF lv_trkorr IS NOT INITIAL.
+          lt_rows = read_logs_for_tr( lv_trkorr ).
         ENDIF.
-
-        lt_rows = read_logs_for_tr( lv_trkorr ).
 
         zcl_scort_query_utl=>respond(
           EXPORTING io_request  = io_request
@@ -65,8 +69,42 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
           CHANGING  ct_data     = lt_rows ).
 
       CATCH cx_root.
-        zcl_scort_query_utl=>respond_empty( io_request = io_request io_response = io_response ).
+        CLEAR lt_rows.
+        zcl_scort_query_utl=>respond(
+          EXPORTING io_request  = io_request
+                    io_response = io_response
+          CHANGING  ct_data     = lt_rows ).
     ENDTRY.
+  ENDMETHOD.
+
+  METHOD format_datetime.
+    DATA lv_d     TYPE string.
+    DATA lv_t     TYPE string.
+    DATA lv_d_raw TYPE string.
+    DATA lv_t_raw TYPE string.
+
+    lv_d_raw = condense( CONV string( iv_date ) ).
+    lv_t_raw = condense( CONV string( iv_time ) ).
+
+    IF strlen( lv_d_raw ) >= 8.
+      lv_d = |{ lv_d_raw(4) }-{ lv_d_raw+4(2) }-{ lv_d_raw+6(2) }|.
+    ELSE.
+      lv_d = lv_d_raw.
+    ENDIF.
+
+    IF strlen( lv_t_raw ) >= 6.
+      lv_t = |{ lv_t_raw(2) }:{ lv_t_raw+2(2) }:{ lv_t_raw+4(2) }|.
+    ELSE.
+      lv_t = lv_t_raw.
+    ENDIF.
+
+    IF lv_d IS NOT INITIAL AND lv_t IS NOT INITIAL.
+      rv_stamp = |{ lv_d } { lv_t }|.
+    ELSEIF lv_d IS NOT INITIAL.
+      rv_stamp = lv_d.
+    ELSE.
+      rv_stamp = lv_t.
+    ENDIF.
   ENDMETHOD.
 
   METHOD read_logs_for_tr.
@@ -77,8 +115,6 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
     DATA ls_step       TYPE ctslg_step.
     DATA ls_action     TYPE ctslg_action.
     DATA lv_action_idx TYPE i.
-    DATA lv_date       TYPE string.
-    DATA lv_time       TYPE string.
     DATA lv_stamp      TYPE string.
     DATA lv_step_rc    TYPE i.
     DATA lv_path       TYPE string.
@@ -105,11 +141,9 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    IF ls_e070-trstatus = 'D' OR ls_e070-trstatus = 'L'.
-      lv_date = |{ ls_e070-as4date(4) }-{ ls_e070-as4date+4(2) }-{ ls_e070-as4date+6(2) }|.
-      lv_time = |{ ls_e070-as4time(2) }:{ ls_e070-as4time+2(2) }:{ ls_e070-as4time+4(2) }|.
-      lv_stamp = |{ lv_date } { lv_time }|.
+    lv_stamp = format_datetime( iv_date = ls_e070-as4date iv_time = ls_e070-as4time ).
 
+    IF ls_e070-trstatus = 'D' OR ls_e070-trstatus = 'L'.
       CLEAR ls_row.
       ls_row-Trkorr      = iv_trkorr.
       ls_row-SystemId    = CONV #( sy-sysid ).
@@ -157,20 +191,23 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CALL FUNCTION 'TR_READ_GLOBAL_INFO_OF_REQUEST'
-      EXPORTING
-        iv_trkorr   = iv_trkorr
-        iv_dir_type = 'T'
-      IMPORTING
-        es_cofile   = ls_cofile
-      EXCEPTIONS
-        OTHERS      = 1.
+    TRY.
+        CALL FUNCTION 'TR_READ_GLOBAL_INFO_OF_REQUEST'
+          EXPORTING
+            iv_trkorr     = iv_trkorr
+            iv_dir_type   = 'T'
+          IMPORTING
+            es_cofile     = ls_cofile
+          EXCEPTIONS
+            wrong_call    = 1
+            no_info_found = 2
+            error_message = 3
+            OTHERS        = 4.
+      CATCH cx_root.
+        CLEAR ls_cofile.
+    ENDTRY.
 
     IF ls_cofile-systems IS INITIAL.
-      lv_date = |{ ls_e070-as4date(4) }-{ ls_e070-as4date+4(2) }-{ ls_e070-as4date+6(2) }|.
-      lv_time = |{ ls_e070-as4time(2) }:{ ls_e070-as4time+2(2) }:{ ls_e070-as4time+4(2) }|.
-      lv_stamp = |{ lv_date } { lv_time }|.
-
       CLEAR ls_row.
       ls_row-Trkorr      = iv_trkorr.
       ls_row-SystemId    = CONV #( sy-sysid ).
@@ -234,26 +271,20 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
       LOOP AT ls_system-steps INTO ls_step.
         lv_action_idx = 0.
         lv_step_rc = ls_step-rc.
-        CLEAR: lv_date, lv_time, lv_stamp.
+        CLEAR lv_stamp.
 
         LOOP AT ls_step-actions INTO ls_action.
           lv_action_idx = lv_action_idx + 1.
           IF ls_action-date IS NOT INITIAL.
-            lv_date = |{ ls_action-date(4) }-{ ls_action-date+4(2) }-{ ls_action-date+6(2) }|.
+            lv_stamp = format_datetime( iv_date = ls_action-date iv_time = ls_action-time ).
           ENDIF.
-          IF ls_action-time IS NOT INITIAL.
-            lv_time = |{ ls_action-time(2) }:{ ls_action-time+2(2) }:{ ls_action-time+4(2) }|.
-          ENDIF.
-          lv_stamp = |{ lv_date } { lv_time }|.
           IF ls_action-rc IS NOT INITIAL.
             lv_step_rc = ls_action-rc.
           ENDIF.
         ENDLOOP.
 
         IF lv_stamp IS INITIAL.
-          lv_date = |{ ls_e070-as4date(4) }-{ ls_e070-as4date+4(2) }-{ ls_e070-as4date+6(2) }|.
-          lv_time = |{ ls_e070-as4time(2) }:{ ls_e070-as4time+2(2) }:{ ls_e070-as4time+4(2) }|.
-          lv_stamp = |{ lv_date } { lv_time }|.
+          lv_stamp = format_datetime( iv_date = ls_e070-as4date iv_time = ls_e070-as4time ).
         ENDIF.
 
         CLEAR ls_row.
@@ -325,29 +356,43 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
     DATA lt_trlog TYPE STANDARD TABLE OF trlog WITH DEFAULT KEY.
     DATA lv_line  TYPE string.
     DATA lt_out   TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+    DATA lv_base  TYPE string.
+    DATA lv_off   TYPE i.
+    DATA lv_mlen  TYPE i.
+    DATA ls_fline TYPE trlog.
+    DATA ls_log   TYPE trlog.
 
-    CALL FUNCTION 'TRINT_READ_LOG'
-      EXPORTING
-        iv_log_type     = 'FILE'
-        iv_logname_file = iv_file_path
-      TABLES
-        et_lines        = lt_trlog
-      EXCEPTIONS
-        OTHERS          = 1.
-
-    IF ( sy-subrc <> 0 OR lt_trlog IS INITIAL ) AND iv_file_path IS NOT INITIAL.
-      DATA lv_base TYPE string.
-      FIND REGEX '[^/\\]+$' IN iv_file_path MATCH OFFSET DATA(lv_off) MATCH LENGTH DATA(lv_mlen).
-      IF sy-subrc = 0.
-        lv_base = iv_file_path+lv_off(lv_mlen).
+    TRY.
         CALL FUNCTION 'TRINT_READ_LOG'
           EXPORTING
             iv_log_type     = 'FILE'
-            iv_logname_file = lv_base
+            iv_logname_file = iv_file_path
           TABLES
             et_lines        = lt_trlog
           EXCEPTIONS
-            OTHERS          = 1.
+            error_message   = 1
+            OTHERS          = 2.
+      CATCH cx_root.
+        CLEAR lt_trlog.
+    ENDTRY.
+
+    IF ( sy-subrc <> 0 OR lt_trlog IS INITIAL ) AND iv_file_path IS NOT INITIAL.
+      FIND REGEX '[^/\\]+$' IN iv_file_path MATCH OFFSET lv_off MATCH LENGTH lv_mlen.
+      IF sy-subrc = 0.
+        lv_base = iv_file_path+lv_off(lv_mlen).
+        TRY.
+            CALL FUNCTION 'TRINT_READ_LOG'
+              EXPORTING
+                iv_log_type     = 'FILE'
+                iv_logname_file = lv_base
+              TABLES
+                et_lines        = lt_trlog
+              EXCEPTIONS
+                error_message   = 1
+                OTHERS          = 2.
+          CATCH cx_root.
+            CLEAR lt_trlog.
+        ENDTRY.
       ENDIF.
     ENDIF.
 
@@ -360,7 +405,6 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
               IF sy-subrc <> 0.
                 EXIT.
               ENDIF.
-              DATA ls_fline TYPE trlog.
               ls_fline-line = lv_line.
               APPEND ls_fline TO lt_trlog.
             ENDDO.
@@ -379,7 +423,7 @@ CLASS zcl_scort_tr_log_query IMPLEMENTATION.
       APPEND |I1  I2  I3  ED   Log Text| TO lt_out.
       APPEND |--------------------------------------------------------------------------------| TO lt_out.
 
-      LOOP AT lt_trlog INTO DATA(ls_log).
+      LOOP AT lt_trlog INTO ls_log.
         lv_line = ls_log-line.
         IF lv_line IS INITIAL.
           lv_line = CONV #( ls_log ).
