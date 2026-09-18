@@ -35,6 +35,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | Technical diagram, ERD, DB schema | `rule_technical_diagram_standards.md` + `rule_database_erd_standards.md` |
 | Document converter, PDF export | `rule_decoupled_document_converter.md` |
 | Excel Template, openpyxl, Spreadsheet Data Injection, Matrix UX | `rule_excel_template_preservation_and_ux.md` |
+| Docx/Excel QA, unified_qa_diagnostic, OpenXML, DrawingML, Table borders | `rule_enterprise_document_and_spreadsheet_qa.md` |
 | `/learn` invoked, writing new Rule, writing new Skill | `rule_learning_and_skill_authoring.md` |
 | git commit, git push | `rule_git_workflow.md` |
 
@@ -128,6 +129,27 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | E12 | **Dynamic Chart Re-Anchoring** | OpenPyXL không tự relink chart -> Bắt buộc script duyệt `chart.series` cập nhật formula `$F$34:$H$34` và anchor row. |
 | E13 | **UX Dynamic Text Auto-Scaling** | `Row Height = max(min_h, total_lines * line_h)` + `wrap_text=True` cho các ô text dài, chống tràn/cắt chữ. |
 | E14 | **Summary & Subtotal Parity** | Subtotal: Navy endpoints (A/B & Total), nền trắng giữa (C..H). Đủ 5 dòng KPI (Coverage, Success, Normal, Abnormal, Boundary). |
+
+---
+
+## Enterprise Document & Spreadsheet QA Invariants
+
+| Mã Lỗi | Tên Lỗi | Nguyên Tắc Bắt Buộc |
+|---|---|---|
+| `ERR_XLSX_001` | **Prototype Row Style Cloning** | Luôn clone 100% style từ dòng dữ liệu đại diện trong template sang dòng mới. |
+| `ERR_XLSX_002` | **Dynamic Formula Shifting** | Bóc tách dải ô tham chiếu bằng Regex và tịnh tiến động khi phình to dòng. |
+| `ERR_XLSX_003` | **Semantic Anchor Discovery** | Dò tìm Header, Data Start và Summary bằng từ khóa; dữ liệu chỉ chèn vào giữa. |
+| `ERR_XLSX_004` | **Safe Merged-Cell Handling** | Chỉ gán giá trị vào Top-Left; đồng bộ style toàn dải merged chống rách viền. |
+| `ERR_XLSX_005` | **Freeze Panes & Dynamic Height** | Freeze Panes tại giao điểm Header+1; Chiều cao tính bằng `max(min_h, lines * line_h)`. |
+| `ERR_XLSX_006` | **DrawingML Preservation** | Luôn load trực tiếp template gốc; cấm tạo `Workbook()` rỗng làm mất shapes/logo. |
+| `ERR_XLSX_007` | **Identifier Number Format** | Cột mã định danh (ID, Code) bắt buộc gán `number_format = '@'` và kiểu string. |
+| `ERR_DOCX_001` | **The Last Paragraph Rule** | Mọi cell bảng (`<w:tc>`) bắt buộc phải kết thúc bằng tối thiểu một thẻ `<w:p>`. |
+| `ERR_DOCX_002` | **Run Text Overwrite** | Thao tác nội dung qua `cell.paragraphs[0].runs`, không gán `cell.text = "..."`. |
+| `ERR_DOCX_003` | **Multi-Page Table Flags** | Bảng nhiều trang bắt buộc có `<w:cantSplit/>` và `<w:tblHeader/>`. |
+| `ERR_DOCX_005` | **Printable Margin Overflow** | Khóa tỉ lệ ảnh; chiều rộng hình ảnh $\le$ `page_width - left_margin - right_margin`. |
+| `ERR_DIAG_002` | **Zero-Template 60-30-10** | Vẽ không có mẫu: 60% nền trung tính, 30% thẻ slate/trắng, 10% màu nhấn. Khoảng cách $\ge$ 40px. |
+| `ERR_CONV_004` | **Zombie Lock Files Cleanup** | Tự động quét và thu gom sạch file rác `.~lock.*` và `~$*` trước/sau khi chạy. |
+| `CLI Exit` | **CI/CD Exit Codes** | `0` = Clean 100%; `1` = Warning (Aesthetic); `2` = Critical (Corrupt XML / Break). |
 
 ---
 
