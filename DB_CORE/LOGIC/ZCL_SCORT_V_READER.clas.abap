@@ -36,13 +36,17 @@ CLASS zcl_scort_v_reader DEFINITION
     CONSTANTS c_vers_active TYPE versno VALUE '99998'.
 
     CLASS-METHODS map_vrs_objtype
-      IMPORTING iv_object_type     TYPE csequence
-      RETURNING VALUE(rv_vrs_type) TYPE vrsd-objtype.
+      IMPORTING
+        iv_object_type     TYPE csequence
+        iv_object_name     TYPE csequence OPTIONAL
+      RETURNING
+        VALUE(rv_vrs_type) TYPE vrsd-objtype.
 
     CLASS-METHODS list_versions
       IMPORTING
         iv_object_type TYPE csequence
         iv_object_name TYPE csequence
+        iv_component   TYPE csequence OPTIONAL
       RETURNING
         VALUE(rt_list) TYPE tt_version.
 
@@ -51,6 +55,7 @@ CLASS zcl_scort_v_reader DEFINITION
         iv_object_type TYPE csequence
         iv_object_name TYPE csequence
         iv_version_no  TYPE versno
+        iv_component   TYPE csequence OPTIONAL
       RETURNING
         VALUE(rs_source) TYPE ty_source.
 
@@ -80,8 +85,11 @@ CLASS zcl_scort_v_reader DEFINITION
         ev_message     TYPE string.
 
     CLASS-METHODS list_clas_versions
-      IMPORTING iv_object_name TYPE csequence
-      RETURNING VALUE(rt_vrsd) TYPE tt_vrsd.
+      IMPORTING
+        iv_object_name TYPE csequence
+        iv_component   TYPE csequence OPTIONAL
+      RETURNING
+        VALUE(rt_vrsd) TYPE tt_vrsd.
 
     CLASS-METHODS read_version_directory
       IMPORTING
@@ -104,7 +112,11 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       WHEN 'PROG'.
         rv_vrs_type = 'REPS'.
       WHEN 'CLAS'.
-        rv_vrs_type = 'CLAS'.
+        IF iv_object_name IS NOT INITIAL AND iv_object_name CS '='.
+          rv_vrs_type = 'REPS'.
+        ELSE.
+          rv_vrs_type = 'CLAS'.
+        ENDIF.
       WHEN 'INTF'.
         rv_vrs_type = 'INTF'.
       WHEN 'FUNC'.
@@ -124,17 +136,18 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     DATA ls_active   TYPE zcl_scort_l_reader=>ty_source.
 
     CLEAR rt_list.
-    lv_vrs_type = map_vrs_objtype( iv_object_type ).
+    lv_vrs_type = map_vrs_objtype(
+                    iv_object_type = iv_object_type
+                    iv_object_name = iv_object_name ).
     lv_objname  = CONV vrsd-objname( iv_object_name ).
 
-    lt_vrsd = read_version_directory(
-                iv_vrs_type   = lv_vrs_type
-                iv_object_name = CONV sobj_name( lv_objname ) ).
-
-    IF lt_vrsd IS INITIAL.
-      IF iv_object_type = 'CLAS'.
-        lt_vrsd = list_clas_versions( iv_object_name ).
-      ELSE.
+    IF iv_object_type = 'CLAS'.
+      lt_vrsd = list_clas_versions( iv_object_name = iv_object_name iv_component = iv_component ).
+    ELSE.
+      lt_vrsd = read_version_directory(
+                  iv_vrs_type   = lv_vrs_type
+                  iv_object_name = CONV sobj_name( lv_objname ) ).
+      IF lt_vrsd IS INITIAL.
         SELECT objtype, objname, versno, author, datum, zeit, korrnum
           FROM vrsd
           WHERE objtype = @lv_vrs_type
@@ -197,9 +210,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
     SORT rt_list BY version_no DESCENDING.
 
-    ls_active = zcl_scort_l_reader=>read_active(
-                  iv_object_type = iv_object_type
-                  iv_object_name = iv_object_name ).
     CLEAR ls_row.
     ls_row-object_type = iv_object_type.
     ls_row-object_name = iv_object_name.
@@ -208,10 +218,33 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     ls_row-datum       = sy-datum.
     ls_row-uzeit       = sy-uzeit.
     ls_row-is_active   = abap_true.
-    IF ls_active-found = abap_true.
-      ls_row-message = |Active ({ ls_active-line_count } lines)|.
+
+    IF iv_object_type = 'CLAS'.
+      DATA lv_c_json TYPE string.
+      DATA lv_c_ok   TYPE abap_bool.
+      DATA lv_tgt_comp TYPE string.
+      lv_tgt_comp = to_upper( iv_component ).
+      IF lv_tgt_comp IS INITIAL.
+        lv_tgt_comp = 'CP'.
+      ENDIF.
+      zcl_scort_l_reader=>read_clas_components(
+        EXPORTING iv_classname = iv_object_name
+        IMPORTING ev_json      = lv_c_json
+                  ev_ok        = lv_c_ok ).
+      IF lv_c_ok = abap_true AND lv_c_json CS |"id":"{ lv_tgt_comp }"|.
+        ls_row-message = |Active ({ lv_tgt_comp })|.
+      ELSE.
+        ls_row-message = |Active ({ lv_tgt_comp } empty)|.
+      ENDIF.
     ELSE.
-      ls_row-message = 'Active missing'.
+      ls_active = zcl_scort_l_reader=>read_active(
+                    iv_object_type = iv_object_type
+                    iv_object_name = iv_object_name ).
+      IF ls_active-found = abap_true.
+        ls_row-message = |Active ({ ls_active-line_count } lines)|.
+      ELSE.
+        ls_row-message = 'Active missing'.
+      ENDIF.
     ENDIF.
     INSERT ls_row INTO rt_list INDEX 1.
   ENDMETHOD.
@@ -277,8 +310,13 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     DATA lv_pattern TYPE vrsd-objname.
     DATA lv_methpat TYPE vrsd-objname.
     DATA lt_seen    TYPE SORTED TABLE OF versno WITH UNIQUE KEY table_line.
+    DATA lv_comp    TYPE string.
 
     CLEAR rt_vrsd.
+    lv_comp = to_upper( iv_component ).
+    IF lv_comp IS INITIAL.
+      lv_comp = 'CP'.
+    ENDIF.
 
     lv_pattern = |{ iv_object_name WIDTH = 30 PAD = '=' }%|.
     lv_methpat = |{ iv_object_name } %|.
@@ -295,9 +333,35 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
     SORT lt_raw BY versno DESCENDING objtype.
     LOOP AT lt_raw INTO ls_keep.
-      INSERT ls_keep-versno INTO TABLE lt_seen.
-      IF sy-subrc = 0.
-        APPEND ls_keep TO rt_vrsd.
+      DATA(lv_match) = abap_false.
+      CASE lv_comp.
+        WHEN 'CP'.
+          IF ls_keep-objname CS 'CP' OR ls_keep-objtype = 'CLAS' OR ls_keep-objname = iv_object_name.
+            lv_match = abap_true.
+          ENDIF.
+        WHEN 'CCDEF'.
+          IF ls_keep-objname CS 'CCDEF' OR ls_keep-objtype = 'CLSD'.
+            lv_match = abap_true.
+          ENDIF.
+        WHEN 'CCIMP'.
+          IF ls_keep-objname CS 'CCIMP'.
+            lv_match = abap_true.
+          ENDIF.
+        WHEN 'CCAU'.
+          IF ls_keep-objname CS 'CCAU'.
+            lv_match = abap_true.
+          ENDIF.
+        WHEN 'CCMAC'.
+          IF ls_keep-objname CS 'CCMAC'.
+            lv_match = abap_true.
+          ENDIF.
+      ENDCASE.
+
+      IF lv_match = abap_true.
+        INSERT ls_keep-versno INTO TABLE lt_seen.
+        IF sy-subrc = 0.
+          APPEND ls_keep TO rt_vrsd.
+        ENDIF.
       ENDIF.
     ENDLOOP.
 
@@ -329,12 +393,48 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    lv_vrs_type = map_vrs_objtype( iv_object_type ).
+    DATA lv_actual_name TYPE sobj_name.
+    lv_actual_name = CONV #( iv_object_name ).
+
+    IF iv_object_type = 'CLAS'.
+      IF NOT iv_object_name CS '='.
+        DATA lv_cname TYPE seoclsname.
+        DATA lv_comp  TYPE string.
+        lv_cname = to_upper( iv_object_name ).
+        CONDENSE lv_cname.
+        lv_comp = to_upper( iv_component ).
+        IF lv_comp IS INITIAL.
+          lv_comp = 'CP'.
+        ENDIF.
+        TRY.
+            CASE lv_comp.
+              WHEN 'CP'.
+                lv_actual_name = cl_oo_classname_service=>get_classpool_name( lv_cname ).
+              WHEN 'CCDEF'.
+                lv_actual_name = cl_oo_classname_service=>get_ccdef_name( lv_cname ).
+              WHEN 'CCIMP'.
+                lv_actual_name = cl_oo_classname_service=>get_ccimp_name( lv_cname ).
+              WHEN 'CCAU'.
+                lv_actual_name = cl_oo_classname_service=>get_ccau_name( lv_cname ).
+              WHEN 'CCMAC'.
+                lv_actual_name = cl_oo_classname_service=>get_ccmac_name( lv_cname ).
+              WHEN OTHERS.
+                lv_actual_name = |{ lv_cname WIDTH = 30 PAD = '=' }{ lv_comp }|.
+            ENDCASE.
+          CATCH cx_root.
+            lv_actual_name = |{ lv_cname WIDTH = 30 PAD = '=' }{ lv_comp }|.
+        ENDTRY.
+      ENDIF.
+    ENDIF.
+
+    lv_vrs_type = map_vrs_objtype(
+                    iv_object_type = iv_object_type
+                    iv_object_name = lv_actual_name ).
     read_version_content(
       EXPORTING
         iv_object_type = iv_object_type
         iv_vrs_type    = lv_vrs_type
-        iv_object_name = iv_object_name
+        iv_object_name = lv_actual_name
         iv_version_no  = iv_version_no
       IMPORTING
         et_lines       = lt_lines
@@ -375,6 +475,33 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
         no_version         = 1
         version_unreadable = 2
         OTHERS             = 3.
+
+    IF sy-subrc <> 0 AND ls_object-objtype = 'REPS' AND ls_object-objname CS '='.
+      ls_object-objtype = 'CINC'.
+      CALL FUNCTION 'SVRS_GET_VERSION'
+        CHANGING
+          object = ls_object
+        EXCEPTIONS
+          no_version         = 1
+          version_unreadable = 2
+          OTHERS             = 3.
+    ENDIF.
+
+    IF sy-subrc <> 0 AND iv_object_type = 'CLAS'.
+      ls_object-objtype = 'CLAS'.
+      ls_object-objname = CONV #( iv_object_name ).
+      IF ls_object-objname CS '='.
+        SPLIT ls_object-objname AT '=' INTO ls_object-objname DATA(lv_dummy_cls).
+        CONDENSE ls_object-objname.
+      ENDIF.
+      CALL FUNCTION 'SVRS_GET_VERSION'
+        CHANGING
+          object = ls_object
+        EXCEPTIONS
+          no_version         = 1
+          version_unreadable = 2
+          OTHERS             = 3.
+    ENDIF.
 
     IF sy-subrc <> 0.
       ev_ok = abap_false.
@@ -434,13 +561,25 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
         IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
           extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
         ENDIF.
-        ev_message = |{ iv_vrs_type } via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
+        IF et_lines IS INITIAL.
+          ASSIGN COMPONENT 'CINC' OF STRUCTURE ls_object TO <ls_sub>.
+          IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+            extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+          ENDIF.
+        ENDIF.
+        ev_message = |{ ls_object-objtype } via SVRS_GET_VERSION ({ lines( et_lines ) } lines)|.
     ENDCASE.
 
     IF et_lines IS INITIAL.
       ASSIGN COMPONENT 'REPS' OF STRUCTURE ls_object TO <ls_sub>.
       IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
         extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+      ENDIF.
+      IF et_lines IS INITIAL.
+        ASSIGN COMPONENT 'CINC' OF STRUCTURE ls_object TO <ls_sub>.
+        IF sy-subrc = 0 AND <ls_sub> IS ASSIGNED.
+          extract_text_from_any( EXPORTING is_any = <ls_sub> CHANGING ct_lines = et_lines ).
+        ENDIF.
       ENDIF.
     ENDIF.
 

@@ -20,6 +20,7 @@ CLASS zcl_scort_version_query DEFINITION
         object_type TYPE trobjtype,
         object_name TYPE sobj_name,
         version_no  TYPE versno,
+        source_kind TYPE c LENGTH 10,
       END OF ty_filters.
 
     METHODS select_versions
@@ -118,6 +119,8 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
 
     rs_filter-version_no = CONV versno(
       zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'VERSIONNO' ) ).
+    rs_filter-source_kind = CONV char10(
+      zcl_scort_query_utl=>filter_low( io_request = io_request iv_field = 'SOURCEKIND' ) ).
 
     IF rs_filter-server_type IS INITIAL.
       rs_filter-server_type = c_server_local.
@@ -129,6 +132,14 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
     DATA ls_entity TYPE zcr_scort_obj_version.
 
     TRY.
+        CALL METHOD zcl_scort_v_reader=>('LIST_VERSIONS')
+          EXPORTING
+            iv_object_type = is_filter-object_type
+            iv_object_name = is_filter-object_name
+            iv_component   = is_filter-source_kind
+          RECEIVING
+            rt_list        = lt_vers.
+      CATCH cx_sy_dyn_call_param_not_found.
         lt_vers = zcl_scort_v_reader=>list_versions(
                     iv_object_type = is_filter-object_type
                     iv_object_name = is_filter-object_name ).
@@ -148,7 +159,7 @@ CLASS zcl_scort_version_query IMPLEMENTATION.
       ls_entity-Uzeit      = ls_v-uzeit.
       ls_entity-Korrnum    = ls_v-korrnum.
       ls_entity-IsActive   = ls_v-is_active.
-      ls_entity-SourceKind = 'VRSD'.
+      ls_entity-SourceKind = COND #( WHEN is_filter-source_kind IS NOT INITIAL THEN is_filter-source_kind ELSE 'VRSD' ).
       ls_entity-Message    = ls_v-message.
       APPEND ls_entity TO rt_entity.
     ENDLOOP.

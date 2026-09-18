@@ -210,7 +210,7 @@ sap.ui.define([
       // Check if viewing a specific version or historical version for a Released TR
       var sVN = that.padVers(oMetaData.VersionNo);
       if (sVN && sVN !== "ACTIVE" && sVN !== "99998") {
-        var sVersUrl = that._objServiceUri() + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq '" + sServerType + "' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sVN + "'");
+        var sVersUrl = that._objServiceUri() + "SourceCodeView?$filter=ServerType eq '" + sServerType + "' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sVN + "'";
         ValueHelp.fetchJson(sVersUrl, 10000).then(function (aItems) {
           if (aItems && aItems.length) {
             var sLineCount = aItems[0].LineCount ? " (" + aItems[0].LineCount + " lines)" : "";
@@ -232,7 +232,7 @@ sap.ui.define([
 
       if (sServerType === "L" && (oMetaData.Trkorr || oMetaData.ParentTrkorr) && oMetaData.TrStatus === "R") {
         var sReqTrkorr = oMetaData.Trkorr || oMetaData.ParentTrkorr;
-        var sVUrl = that._mainServiceUri() + "Version?$filter=" + encodeURIComponent("ServerType eq 'L' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "'");
+        var sVUrl = that._mainServiceUri() + "Version?$filter=ServerType eq 'L' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "'";
         ValueHelp.fetchJson(sVUrl, 10000).then(function (aVers) {
           var oMapped = (aVers || []).find(function (v) {
             return (oMetaData.Trkorr && v.Korrnum === oMetaData.Trkorr) ||
@@ -242,7 +242,7 @@ sap.ui.define([
             var sMappedVN = that.padVers(oMapped.VersionNo);
             setProp("viewSourceVersionNo", sMappedVN);
             setProp("viewSourceRawVersionNo", sMappedVN);
-            var sSrcUrl = that._objServiceUri() + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq 'L' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sMappedVN + "'");
+            var sSrcUrl = that._objServiceUri() + "SourceCodeView?$filter=ServerType eq 'L' and ObjectType eq '" + sObjType + "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "' and VersionNo eq '" + sMappedVN + "'";
             ValueHelp.fetchJson(sSrcUrl, 10000).then(function (aSrc) {
               if (aSrc && aSrc.length) {
                 var sNote = "Version " + sMappedVN + " (Snapshot mapped to Released TR " + (oMapped.Korrnum || sReqTrkorr) + ")";
@@ -334,16 +334,38 @@ sap.ui.define([
             aClassComponents = null;
           }
         }
+        that._fullClassSource = that._pendingSourceCode;
         setProp("viewSourceClassComponents", aClassComponents || []);
-        setProp("viewSourceActiveComponent", "CP");
+        var sInitialComp = (oM && oM.getProperty("/viewSourceMetaData") && oM.getProperty("/viewSourceMetaData").preferredComponent) || "CP";
+        setProp("viewSourceActiveComponent", sInitialComp);
         if (Array.isArray(aClassComponents) && aClassComponents.length > 0) {
-          var oCp = aClassComponents.find(function (c) { return c.id === "CP"; }) || aClassComponents[0];
-          setProp("viewSourceComponentHasContent", oCp.hasContent !== false);
-          if (oCp.source) {
-            that._pendingSourceCode = oCp.source;
+          var oChosen = aClassComponents.find(function (c) { return c.id === sInitialComp; }) || aClassComponents[0];
+          setProp("viewSourceComponentHasContent", oChosen.hasContent !== false);
+          var sVN = oM ? (oM.getProperty("/viewSourceRawVersionNo") || oM.getProperty("/viewSourceVersionNo") || "") : "";
+          if (sServerType === "T" || (sVN && sVN !== "ACTIVE" && sVN !== "99998")) {
+            if (that._fullClassSource) {
+              that._pendingSourceCode = that._fullClassSource;
+            } else if (oChosen && oChosen.source) {
+              that._pendingSourceCode = oChosen.source;
+            }
+          } else if (oChosen && oChosen.source) {
+            that._pendingSourceCode = oChosen.source;
           }
         } else {
           setProp("viewSourceComponentHasContent", true);
+        }
+
+        var oClassTabs = null;
+        if (that._oSourceDialog && that._oSourceDialog.findAggregatedObjects) {
+          var aTabs = that._oSourceDialog.findAggregatedObjects(false, function (oCtrl) {
+            return oCtrl && oCtrl.getId && oCtrl.getId().indexOf("idViewSourceClassTabs") !== -1;
+          });
+          if (aTabs && aTabs.length > 0) {
+            oClassTabs = aTabs[0];
+          }
+        }
+        if (oClassTabs && oClassTabs.setSelectedKey) {
+          oClassTabs.setSelectedKey(sInitialComp);
         }
       }
 
@@ -436,14 +458,25 @@ sap.ui.define([
 
       var aComps = oApp.getProperty("/viewSourceClassComponents") || [];
       var oComp = aComps.find(function (c) { return c.id === sKey; });
-      if (oComp) {
-        oApp.setProperty("/viewSourceActiveComponent", sKey);
-        oApp.setProperty("/viewSourceComponentHasContent", oComp.hasContent !== false);
-        var sSource = oComp.source || "";
-        this._pendingSourceCode = sSource;
-        oApp.setProperty("/viewSourceCode", sSource);
-        this._renderCodeHost(sSource, "CLAS");
+      oApp.setProperty("/viewSourceActiveComponent", sKey);
+
+      var sSource = "";
+      var bHasContent = true;
+      if (sKey === "CP") {
+        sSource = this._fullClassSource || (oComp && oComp.source) || this._pendingSourceCode || "";
+        bHasContent = !!sSource;
+      } else if (oComp) {
+        bHasContent = oComp.hasContent !== false;
+        sSource = oComp.source || "";
+      } else {
+        bHasContent = false;
+        sSource = "* Sub-component " + sKey + " is not defined or empty in this version.\n";
       }
+
+      oApp.setProperty("/viewSourceComponentHasContent", bHasContent);
+      this._pendingSourceCode = sSource;
+      oApp.setProperty("/viewSourceCode", sSource);
+      this._renderCodeHost(sSource, "CLAS");
     },
 
     _getViewSourceTable: function () {

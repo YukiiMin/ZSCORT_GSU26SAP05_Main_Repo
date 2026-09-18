@@ -164,10 +164,10 @@ sap.ui.define([
     _loadGitReviewSource: function () {
       var that = this;
       var oObjUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.objService.uri.replace(/\/?$/, "/");
-      var sUrlLocal = oObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq 'L' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "' and VersionNo eq '99998'");
-      var sUrlTarget = oObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq 'T' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
-      var sUrlLocalMeta = oObjUri + "LocalObjects?$filter=" + encodeURIComponent("ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
-      var sUrlTargetMeta = oObjUri + "TargetObjects?$filter=" + encodeURIComponent("ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'");
+      var sUrlLocal = oObjUri + "SourceCodeView?$filter=ServerType eq 'L' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "' and VersionNo eq '99998'";
+      var sUrlTarget = oObjUri + "SourceCodeView?$filter=ServerType eq 'T' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'";
+      var sUrlLocalMeta = oObjUri + "LocalObjects?$filter=ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'";
+      var sUrlTargetMeta = oObjUri + "TargetObjects?$filter=ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'";
 
       var oTabBar = this.byId("idCompareIconTabBar");
       var bGitActive = !oTabBar || oTabBar.getSelectedKey() === "gitReview";
@@ -206,8 +206,8 @@ sap.ui.define([
           oDetailModel.setProperty("/isStructure", bIsStructure);
           oDetailModel.setProperty("/subCategory", bIsStructure ? "Structure" : (that._sType === "TABL" ? "Database Table" : ""));
           oDetailModel.setProperty("/isNotSupported", bNotSupported);
-          oDetailModel.setProperty("/targetExists", !!sTargetCode);
-          oDetailModel.setProperty("/localExists", !!sLocalCode);
+          oDetailModel.setProperty("/targetExists", bTargetExists);
+          oDetailModel.setProperty("/localExists", bLocalExists);
 
           if (bNotSupported) {
             oDetailModel.setProperty("/compareMode", "text");
@@ -250,33 +250,37 @@ sap.ui.define([
           var aLocalComps = [];
           var aTargetComps = [];
           try {
-            if (oResLocal && oResLocal.MetadataText) {
+            if (bLocalExists && oResLocal && oResLocal.MetadataText) {
               aLocalComps = JSON.parse(oResLocal.MetadataText);
             }
           } catch (e) {}
           try {
-            if (oResTarget && oResTarget.MetadataText) {
+            if (bTargetExists && oResTarget && oResTarget.MetadataText) {
               aTargetComps = JSON.parse(oResTarget.MetadataText);
             }
           } catch (e) {}
           that._aClassLocalComps = aLocalComps;
-          that._aClassTargetComps = aTargetComps;
+          that._aClassTargetComps = bTargetExists ? aTargetComps : [];
           that._lastFullLocalSrc = sLocalCode;
-          that._lastFullTargetSrc = sTargetCode;
+          that._lastFullTargetSrc = bTargetExists ? sTargetCode : "";
 
           var oCpLocal = aLocalComps.find(function (c) { return c.id === "CP"; });
-          var oCpTarget = aTargetComps.find(function (c) { return c.id === "CP"; });
+          var oCpTarget = bTargetExists ? aTargetComps.find(function (c) { return c.id === "CP"; }) : null;
           if (oCpLocal && oCpLocal.source) {
             sLocalCode = oCpLocal.source;
           }
-          if (oCpTarget && oCpTarget.source) {
+          if (bTargetExists && oCpTarget && oCpTarget.source) {
             sTargetCode = oCpTarget.source;
+          } else if (!bTargetExists) {
+            sTargetCode = "";
           }
 
           if (oDetailModel) {
             oDetailModel.setProperty("/activeClassComponent", "CP");
-            oDetailModel.setProperty("/classComponentStatus", "Component: CP (Global Class)");
-            oDetailModel.setProperty("/classComponentStatusState", "Success");
+            var sCpStatus = bTargetExists ? "Component: CP (Global Class)" : "Component: CP (Local Only)";
+            var sCpState = bTargetExists ? "Success" : "Information";
+            oDetailModel.setProperty("/classComponentStatus", sCpStatus);
+            oDetailModel.setProperty("/classComponentStatusState", sCpState);
           }
         }
 
@@ -324,23 +328,32 @@ sap.ui.define([
         oDetailModel.setProperty("/activeClassComponent", sKey);
       }
 
+      var bTargetExists = oDetailModel ? !!oDetailModel.getProperty("/targetExists") : false;
       var oLocalComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sKey; });
-      var oTargetComp = (this._aClassTargetComps || []).find(function (c) { return c.id === sKey; });
+      var oTargetComp = bTargetExists ? (this._aClassTargetComps || []).find(function (c) { return c.id === sKey; }) : null;
 
       var sLocalSrc = oLocalComp ? (oLocalComp.source || "") : "";
-      var sTargetSrc = oTargetComp ? (oTargetComp.source || "") : "";
+      var sTargetSrc = (bTargetExists && oTargetComp) ? (oTargetComp.source || "") : "";
 
       if (!sLocalSrc && sKey === "CP" && this._lastFullLocalSrc) {
         sLocalSrc = this._lastFullLocalSrc;
       }
-      if (!sTargetSrc && sKey === "CP" && this._lastFullTargetSrc) {
+      if (bTargetExists && !sTargetSrc && sKey === "CP" && this._lastFullTargetSrc) {
         sTargetSrc = this._lastFullTargetSrc;
       }
 
       var bHasLocal = !!(oLocalComp && oLocalComp.hasContent);
-      var bHasTarget = !!(oTargetComp && oTargetComp.hasContent);
-      var sStatus = (bHasLocal || bHasTarget) ? "Component: " + sKey : "(Empty on both)";
-      var sStatusState = (bHasLocal && bHasTarget) ? "Success" : "None";
+      var bHasTarget = bTargetExists && !!(oTargetComp && oTargetComp.hasContent);
+      var sStatus = "";
+      var sStatusState = "None";
+
+      if (!bTargetExists) {
+        sStatus = bHasLocal ? "Component: " + sKey + " (Local Only)" : "Component: " + sKey + " (Empty)";
+        sStatusState = bHasLocal ? "Information" : "None";
+      } else {
+        sStatus = (bHasLocal || bHasTarget) ? "Component: " + sKey : "(Empty on both)";
+        sStatusState = (bHasLocal && bHasTarget) ? "Success" : (bHasLocal ? "Information" : "None");
+      }
 
       if (oDetailModel) {
         oDetailModel.setProperty("/classComponentStatus", sStatus);
@@ -356,6 +369,9 @@ sap.ui.define([
       if (this._oGitDiffHost) {
         this._oGitDiffHost.setModel(this._mGitModel);
       }
+
+      // Also reload Version History for this specific Class component
+      this.onReloadVersions();
     },
 
     onTabSelect: function (oEvent) {
@@ -484,7 +500,11 @@ sap.ui.define([
       var sServerType = oDetailModel.getProperty("/versionServerType") || "L";
       var sUri = this._mainServiceUri();
       var sFilter = "ServerType eq '" + sServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'";
-      var sUrl = sUri + "Version?$filter=" + encodeURIComponent(sFilter);
+      if (this._sType === "CLAS") {
+        var sActiveComp = oDetailModel.getProperty("/activeClassComponent") || "CP";
+        sFilter += " and SourceKind eq '" + sActiveComp + "'";
+      }
+      var sUrl = sUri + "Version?$filter=" + sFilter;
 
       ValueHelp.fetchJson(sUrl, 12000).then(function (aItems) {
         var aList = aItems || [];
@@ -553,12 +573,28 @@ sap.ui.define([
       var sVers = padVers(oRowData.VersionNo);
       var sObjType = this._sType || oRowData.ObjectType;
       var sObjName = this._sName || oRowData.ObjectName;
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      var sActiveComp = (sObjType === "CLAS" && oDetailModel) ? (oDetailModel.getProperty("/activeClassComponent") || "CP") : "CP";
+
+      if (sObjType === "CLAS" && sVers !== "99998" && sVers !== "ACTIVE") {
+        var oSingleComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sActiveComp; });
+        if (oSingleComp && oSingleComp.include) {
+          sObjName = oSingleComp.include;
+        } else {
+          var sBase = (sObjName || "").trim().toUpperCase();
+          if (sBase.indexOf("=") === -1) {
+            sBase = sBase.padEnd(30, "=") + (sActiveComp || "CP").toUpperCase();
+          }
+          sObjName = sBase;
+        }
+      }
 
       var oMeta = Object.assign({}, oRowData, {
         ObjectType: sObjType,
         ObjectName: sObjName,
         ServerType: sServerType,
-        VersionNo: sVers
+        VersionNo: sVers,
+        preferredComponent: sActiveComp
       });
 
       this._openSourceDialog(sObjType, sObjName, sServerType, oMeta);
@@ -596,12 +632,34 @@ sap.ui.define([
       var sTitleL = (oLeft.ServerType === 'L' ? 'Local ' : 'Target ') + this.formatVersionNo(oLeft.VersionNo);
       var sTitleR = (oRight.ServerType === 'L' ? 'Local ' : 'Target ') + this.formatVersionNo(oRight.VersionNo);
 
+      var sActiveComp = oDetailModel.getProperty("/activeClassComponent") || "CP";
+      if (this._sType === "CLAS") {
+        sTitleL += " (" + sActiveComp + ")";
+        sTitleR += " (" + sActiveComp + ")";
+      }
+
       oDetailModel.setProperty("/leftTitle", sTitleL);
       oDetailModel.setProperty("/rightTitle", sTitleR);
 
       var sObjUri = this.getOwnerComponent().getManifestEntry("sap.app").dataSources.objService.uri.replace(/\/?$/, "/");
-      var sUrlLeft = sObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq '" + oLeft.ServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "' and VersionNo eq '" + padVers(oLeft.VersionNo) + "'");
-      var sUrlRight = sObjUri + "SourceCodeView?$filter=" + encodeURIComponent("ServerType eq '" + oRight.ServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "' and VersionNo eq '" + padVers(oRight.VersionNo) + "'");
+      var sObjNameL = this._sName;
+      var sObjNameR = this._sName;
+      if (this._sType === "CLAS") {
+        var oComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sActiveComp; });
+        var sInc = (oComp && oComp.include) ? oComp.include : "";
+        if (!sInc) {
+          var sBase = (this._sName || "").trim().toUpperCase();
+          if (sBase.indexOf("=") === -1) {
+            sBase = sBase.padEnd(30, "=") + (sActiveComp || "CP").toUpperCase();
+          }
+          sInc = sBase;
+        }
+        sObjNameL = sInc;
+        sObjNameR = sInc;
+      }
+
+      var sUrlLeft = sObjUri + "SourceCodeView?$filter=ServerType eq '" + oLeft.ServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + sObjNameL.replace(/'/g, "''") + "' and VersionNo eq '" + padVers(oLeft.VersionNo) + "'";
+      var sUrlRight = sObjUri + "SourceCodeView?$filter=ServerType eq '" + oRight.ServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + sObjNameR.replace(/'/g, "''") + "' and VersionNo eq '" + padVers(oRight.VersionNo) + "'";
 
       oDetailModel.setProperty("/showEditor", true);
       this.byId("idDetailDynamicPage").setBusy(true);
@@ -614,11 +672,31 @@ sap.ui.define([
         var oResLeft = (aResults[0] && aResults[0][0]) || { SourceCodeText: "" };
         var oResRight = (aResults[1] && aResults[1][0]) || { SourceCodeText: "" };
 
+        var sSrcLeft = oResLeft.SourceCodeText || "";
+        var sSrcRight = oResRight.SourceCodeText || "";
+
+        if (that._sType === "CLAS") {
+          if (oResLeft.MetadataText) {
+            try {
+              var aL = JSON.parse(oResLeft.MetadataText);
+              var cL = aL.find(function (c) { return c.id === sActiveComp; });
+              if (cL && cL.source && (!sSrcLeft || sActiveComp !== "CP")) { sSrcLeft = cL.source; }
+            } catch (e) {}
+          }
+          if (oResRight.MetadataText) {
+            try {
+              var aR = JSON.parse(oResRight.MetadataText);
+              var cR = aR.find(function (c) { return c.id === sActiveComp; });
+              if (cR && cR.source && (!sSrcRight || sActiveComp !== "CP")) { sSrcRight = cR.source; }
+            } catch (e) {}
+          }
+        }
+
         that._ensureVersDiffHost();
         var sLang = that._getMonacoLang(that._sType);
         that._mVersModel = {
-          original: oResLeft.SourceCodeText || "",
-          modified: oResRight.SourceCodeText || "",
+          original: sSrcLeft,
+          modified: sSrcRight,
           language: sLang
         };
 

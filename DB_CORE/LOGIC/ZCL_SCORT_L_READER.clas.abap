@@ -148,6 +148,15 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
     CLEAR: et_lines, ev_ok.
 
+    IF iv_name CS '='.
+      lv_pool = CONV #( iv_name ).
+      READ REPORT lv_pool INTO et_lines.
+      IF sy-subrc = 0 AND et_lines IS NOT INITIAL.
+        ev_ok = abap_true.
+        RETURN.
+      ENDIF.
+    ENDIF.
+
     TRY.
         lo_source = cl_oo_factory=>create_instance( )->create_clif_source(
                       clif_name = CONV seoclsname( iv_name )
@@ -1469,7 +1478,12 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     DATA lt_inc_defs TYPE STANDARD TABLE OF ty_inc_def WITH DEFAULT KEY.
 
     CLEAR: ev_json, ev_ok.
-    lv_cname = to_upper( iv_classname ).
+    IF iv_classname CS '='.
+      SPLIT iv_classname AT '=' INTO DATA(lv_base_cname) DATA(lv_dummy_comp).
+      lv_cname = to_upper( lv_base_cname ).
+    ELSE.
+      lv_cname = to_upper( iv_classname ).
+    ENDIF.
     CONDENSE lv_cname.
     lv_sname = lv_cname.
 

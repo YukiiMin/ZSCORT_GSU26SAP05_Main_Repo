@@ -89,7 +89,7 @@
                 </VBox>
                 <VBox visible="{= ${appView>/viewSourceMessage} !== 'NOT_SUPPORTED' }" height="100%" class="sapUiNoContentPadding" fitContainer="true">
                   <!-- ADT Sub-component Toolbar for CLAS -->
-                  <Toolbar visible="{= ${appView>/viewSourceType} === 'CLAS' &amp;&amp; (${appView>/viewSourceClassComponents} || []).length > 0 }" style="Clear" class="sapUiTinyMarginBottom sapUiTinyMarginTop">
+                  <Toolbar visible="{= ${appView>/viewSourceType} === 'CLAS' }" style="Clear" class="sapUiTinyMarginBottom sapUiTinyMarginTop">
                     <Text text="Sub-components:" class="sapUiTinyMarginBegin sapUiTinyMarginEnd" />
                     <SegmentedButton
                       id="idViewSourceClassTabs"
