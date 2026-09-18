@@ -576,16 +576,21 @@ sap.ui.define([
       var oDetailModel = this.getOwnerComponent().getModel("detail");
       var sActiveComp = (sObjType === "CLAS" && oDetailModel) ? (oDetailModel.getProperty("/activeClassComponent") || "CP") : "CP";
 
-      if (sObjType === "CLAS" && sVers !== "99998" && sVers !== "ACTIVE") {
-        var oSingleComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sActiveComp; });
-        if (oSingleComp && oSingleComp.include) {
-          sObjName = oSingleComp.include;
-        } else {
-          var sBase = (sObjName || "").trim().toUpperCase();
-          if (sBase.indexOf("=") === -1) {
-            sBase = sBase.padEnd(30, "=") + (sActiveComp || "CP").toUpperCase();
+      if (sObjType === "CLAS") {
+        if (sServerType === "L" && sVers !== "99998" && sVers !== "ACTIVE") {
+          var oSingleComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sActiveComp; });
+          if (oSingleComp && oSingleComp.include) {
+            sObjName = oSingleComp.include;
+          } else {
+            var sBase = (sObjName || "").trim().toUpperCase();
+            if (sBase.indexOf("=") === -1) {
+              sBase = sBase.padEnd(30, "=") + (sActiveComp || "CP").toUpperCase();
+            }
+            sObjName = sBase;
           }
-          sObjName = sBase;
+        } else if (sServerType === "T") {
+          var sClean = (this._sName || oRowData.ObjectName || "").split("=")[0].trim();
+          sObjName = sClean;
         }
       }
 
@@ -654,8 +659,9 @@ sap.ui.define([
           }
           sInc = sBase;
         }
-        sObjNameL = sInc;
-        sObjNameR = sInc;
+        var sCleanBase = (this._sName || "").split("=")[0].trim();
+        sObjNameL = (oLeft.ServerType === 'L') ? sInc : sCleanBase;
+        sObjNameR = (oRight.ServerType === 'L') ? sInc : sCleanBase;
       }
 
       var sUrlLeft = sObjUri + "SourceCodeView?$filter=ServerType eq '" + oLeft.ServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + sObjNameL.replace(/'/g, "''") + "' and VersionNo eq '" + padVers(oLeft.VersionNo) + "'";

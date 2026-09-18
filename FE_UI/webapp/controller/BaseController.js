@@ -192,18 +192,42 @@ sap.ui.define([
       }
 
       function fetchActive() {
-        var sPath = "/SourceCodeView(ServerType='" + sServerType +
-          "',ObjectType='" + sObjType +
-          "',ObjectName='" + sObjName.replace(/'/g, "''") + "')";
-        var oContext = oOdm.bindContext(sPath);
-        oContext.requestObject().then(function (oData) {
-          var sActiveMsg = (sVN === "99998" || sVN === "ACTIVE") ? "Active Version" : null;
-          that._processSourceCodeData(oData, sObjType, sServerType, oM, sActiveMsg);
-        }).catch(function (oErr) {
-          setProp("viewSourceMessage", "Error: " + (oErr.message || oErr));
-          setProp("viewSourceHash", "");
-          that._pendingSourceCode = "/* Error loading source */";
-          that._renderCodeHost(that._pendingSourceCode, sObjType);
+        var sActiveUrl = that._objServiceUri() + "SourceCodeView?$filter=ServerType eq '" + sServerType +
+          "' and ObjectType eq '" + sObjType +
+          "' and ObjectName eq '" + sObjName.replace(/'/g, "''") + "'";
+        ValueHelp.fetchJson(sActiveUrl, 15000).then(function (aItems) {
+          if (aItems && aItems.length) {
+            var sActiveMsg = (sVN === "99998" || sVN === "ACTIVE") ? "Active Version" : null;
+            that._processSourceCodeData(aItems[0], sObjType, sServerType, oM, sActiveMsg);
+          } else {
+            var sPath = "/SourceCodeView(ServerType='" + sServerType +
+              "',ObjectType='" + sObjType +
+              "',ObjectName='" + sObjName.replace(/'/g, "''") + "')";
+            var oContext = oOdm.bindContext(sPath);
+            oContext.requestObject().then(function (oData) {
+              var sActiveMsg = (sVN === "99998" || sVN === "ACTIVE") ? "Active Version" : null;
+              that._processSourceCodeData(oData, sObjType, sServerType, oM, sActiveMsg);
+            }).catch(function (oErr) {
+              setProp("viewSourceMessage", "Error: " + (oErr.message || oErr));
+              setProp("viewSourceHash", "");
+              that._pendingSourceCode = "/* Error loading source */";
+              that._renderCodeHost(that._pendingSourceCode, sObjType);
+            });
+          }
+        }).catch(function () {
+          var sPath = "/SourceCodeView(ServerType='" + sServerType +
+            "',ObjectType='" + sObjType +
+            "',ObjectName='" + sObjName.replace(/'/g, "''") + "')";
+          var oContext = oOdm.bindContext(sPath);
+          oContext.requestObject().then(function (oData) {
+            var sActiveMsg = (sVN === "99998" || sVN === "ACTIVE") ? "Active Version" : null;
+            that._processSourceCodeData(oData, sObjType, sServerType, oM, sActiveMsg);
+          }).catch(function (oErr) {
+            setProp("viewSourceMessage", "Error: " + (oErr.message || oErr));
+            setProp("viewSourceHash", "");
+            that._pendingSourceCode = "/* Error loading source */";
+            that._renderCodeHost(that._pendingSourceCode, sObjType);
+          });
         });
       }
 
@@ -214,7 +238,8 @@ sap.ui.define([
         ValueHelp.fetchJson(sVersUrl, 10000).then(function (aItems) {
           if (aItems && aItems.length) {
             var sLineCount = aItems[0].LineCount ? " (" + aItems[0].LineCount + " lines)" : "";
-            that._processSourceCodeData(aItems[0], sObjType, sServerType, oM, "Version " + sVN + sLineCount);
+            var sMsg = aItems[0].Message ? ("Version " + sVN + " — " + aItems[0].Message) : ("Version " + sVN + sLineCount);
+            that._processSourceCodeData(aItems[0], sObjType, sServerType, oM, sMsg);
           } else {
             setProp("viewSourceMessage", "Version " + sVN + " not found or unreadable");
             setProp("viewSourceHash", "");
