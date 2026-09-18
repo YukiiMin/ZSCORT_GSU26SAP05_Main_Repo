@@ -37,7 +37,9 @@ sap.ui.define([
 
     _onRouteMatched: function () {
       var isRunningInFLP = !!(window.sap && sap.ushell && sap.ushell.Container);
-      if (isRunningInFLP) {
+      var isSapServer = window.location.hostname.indexOf("localhost") === -1 && window.location.hostname.indexOf("127.0.0.1") === -1;
+      var bLoggedOff = sessionStorage.getItem("scort_logged_off") === "true";
+      if ((isRunningInFLP || isSapServer) && !bLoggedOff) {
         this._autoLoginFromFlp();
         return;
       }
@@ -111,6 +113,7 @@ sap.ui.define([
         loginTime: new Date().toLocaleTimeString()
       };
 
+      sessionStorage.removeItem("scort_logged_off");
       sessionStorage.setItem("scort_session", JSON.stringify(oUserData));
 
       setTimeout(function () {
