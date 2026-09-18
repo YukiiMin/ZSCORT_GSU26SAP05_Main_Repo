@@ -45,3 +45,29 @@ Khi chuẩn bị viết code mà gặp một trong các pattern sau, **dừng l�
 - **Không** đọc toàn bộ 17 rule files sau checkpoint — quá tốn token.
 - `GEMINI.md` là file duy nhất cần đọc trong recovery. Nó chứa invariants cô đọng từ toàn bộ rules.
 - Nếu cần chi tiết về một rule cụ thể → đọc đúng file đó trong `.agents/rules/`.
+
+## 5. Zero-Assumption Context & Clarification Protocol (Session Mới & Template Mới)
+
+Khi tiếp nhận một session mới, một máy mới hoặc một bài toán sinh tài liệu/code với bộ template mới:
+
+### A. Anatomy Inspection (Khảo sát cấu trúc bắt buộc TRƯỚC KHI code)
+1. Khảo sát toàn diện Template gốc:
+   - Các sheet tổng quan (`Cover`, `Functions`, `Statistics`...) và sheet chi tiết tham chiếu (`Example`, `Template`...).
+   - Đếm số dòng mẫu, vị trí hàng Subtotal/Total, các công thức KPI động (`=COUNTIF`, `=SUM`), và tọa độ/chuỗi tham chiếu của Biểu đồ (Charts).
+   - Kiểm tra font chữ, cỡ chữ, màu nền, viền và thiết lập Auto-scaling/Wrap text.
+2. Khảo sát Dataset đầu vào (Input):
+   - Số lượng bản ghi/hàm thực tế, cấu trúc trường dữ liệu, kiểu dữ liệu (raw values vs computed).
+   - Nhận diện nguy cơ thay đổi độ cao bảng khiến dòng Subtotal dời vị trí làm gãy công thức chart.
+
+### B. Context Gap Analysis & Clarification Trigger
+Nếu phát hiện bất kỳ dấu hiệu nào sau đây:
+- Số lượng dòng thực tế khác với template mẫu (ví dụ: template 3 dòng nhưng input 20 dòng).
+- File template có biểu đồ hoặc khối thống kê phụ thuộc vào vị trí dòng Subtotal.
+- Có sự mơ hồ trong cách phân bổ dữ liệu vào các nhóm (Precondition vs Input parameters vs Condition marks).
+- Format file input bị lỗi (bị shrink font size, sai viền, mất merge) so với Template chuẩn.
+
+👉 **BẮT BUỘC DỪNG LẠI (STOP) & HỎI NGƯỜI DÙNG**:
+- Liệt kê rõ các điểm khác biệt và đề xuất phương án xử lý cụ thể.
+- Sử dụng công cụ `ask_question` hoặc `/grill-me` để chốt 100% phương án trước khi viết code.
+- **TUYỆT ĐỐI KHÔNG** tự ý đoán mò, làm rồi sửa nhiều lần gây lãng phí token và thời gian.
+

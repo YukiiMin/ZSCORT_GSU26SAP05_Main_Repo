@@ -110,6 +110,27 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 
 ---
 
+## Spreadsheet / Document Generation Invariants (E1–E14)
+
+| # | Invariant | Quy định cốt lõi |
+|---|---|---|
+| E1 | **Template-Driven Token Extraction** | 100% tokens (font, fill, border, alignment) lấy từ reference sheet (`Example`/`Template`). Không đoán mò. |
+| E2 | **Grill-Before-Deviate** | Đề xuất cải tiến UX lệch template -> Dừng lại, hỏi user qua `/grill-me` trước khi áp dụng. |
+| E3 | **Live KPI Formulas** | Row 7 và Summary cells phải dùng công thức động (`=COUNTIF`, `=SUM`, `='Sheet'!Cell`), không hardcode số. |
+| E4 | **Era-Appropriate Data** | Dữ liệu mock/test phải khớp niên đại dự án (2026+), loại bỏ placeholder cũ 2000-2009. |
+| E5 | **Sibling Symmetry** | Toàn bộ 20 function sheets phải đồng nhất 100% về kích thước cột, dòng, freeze panes, và styles. |
+| E6 | **Automated 12-Gate Diff** | Bắt buộc chạy script format diff 12 cổng trước khi bàn giao. Nghiêm cấm `exit code 0 = Done`. |
+| E7 | **Unified 3-Column Box (B-C-D)** | Khởi tạo đầy đủ khối B-C-D cho mọi hàng dữ liệu: B (`left=thin`), C (no vertical), D (`right=thin`), fill white. |
+| E8 | **Strict Group Hierarchy** | Tên nhóm (e.g. `Precondition`) chỉ xuất hiện ở Col B dòng đầu tiên. Các dòng con Col B để trống, text ở Col D. |
+| E9 | **Cross-Zone Token Isolation** | Trích xuất token theo từng vùng (Header, Condition, Confirm, Result footer). Không dùng chung style giữa các vùng. |
+| E10 | **Multi-Tier Hierarchy** | Giữ nguyên 3 cấp phân cấp: Level 1 (Precondition), Level 2 (Input Parameters/ParamName), Level 3 (Value). |
+| E11 | **Untrusted Input Style Isolation** | File input chỉ dùng lấy raw value. Tuyệt đối KHÔNG copy font size/style từ input (tránh lỗi Arial 8.5pt). |
+| E12 | **Dynamic Chart Re-Anchoring** | OpenPyXL không tự relink chart -> Bắt buộc script duyệt `chart.series` cập nhật formula `$F$34:$H$34` và anchor row. |
+| E13 | **UX Dynamic Text Auto-Scaling** | `Row Height = max(min_h, total_lines * line_h)` + `wrap_text=True` cho các ô text dài, chống tràn/cắt chữ. |
+| E14 | **Summary & Subtotal Parity** | Subtotal: Navy endpoints (A/B & Total), nền trắng giữa (C..H). Đủ 5 dòng KPI (Coverage, Success, Normal, Abnormal, Boundary). |
+
+---
+
 ## Git Invariant
 
 **NGHIÊM CẤM `git commit` và `git push` tự động** — chỉ thực hiện khi user explicit ra lệnh (*"commit cho tôi"*, *"push git nhé"*). Chỉ được tự ý dùng `git status`, `git diff`, `git log`.
