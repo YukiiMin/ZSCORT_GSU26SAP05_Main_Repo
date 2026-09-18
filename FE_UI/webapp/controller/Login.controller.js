@@ -87,40 +87,59 @@ sap.ui.define([
       var oBundle = this.getResourceBundle();
 
       if (!sUser || !sPass) {
-        this._showMessage(oBundle.getText("loginErrEmpty"), MessageType.Error);
+        this._showMessage(oBundle.getText("loginErrEmpty") || "Please enter username and password.", MessageType.Error);
         return;
       }
 
+      this._hideMessage();
       this.getView().getModel("login").setProperty("/busy", true);
 
-      if (bRemember) {
-        localStorage.setItem("scort_remember_user", sUser);
-        localStorage.setItem("scort_client", sClient);
-        localStorage.setItem("scort_remember_flag", "true");
-      } else {
-        localStorage.removeItem("scort_remember_user");
-        localStorage.setItem("scort_remember_flag", "false");
-      }
-      localStorage.setItem("scort_lang", sLang);
+      var sAuthHeader = "Basic " + btoa(sUser + ":" + sPass);
+      var sAuthUrl = "/sap/opu/odata4/sap/zui_scort_obj_search_o4/srvd/sap/zsd_scort_obj_search/0001/$metadata";
 
-      var oUserData = {
-        userId: sUser.toUpperCase(),
-        client: sClient,
-        language: sLang,
-        systemId: "S40",
-        role: "ABAP Developer",
-        isLoggedIn: true,
-        loginTime: new Date().toLocaleTimeString()
-      };
+      var that = this;
+      fetch(sAuthUrl, {
+        method: "GET",
+        headers: {
+          "Authorization": sAuthHeader,
+          "sap-client": sClient,
+          "sap-language": sLang.toUpperCase()
+        }
+      }).then(function (response) {
+        that.getView().getModel("login").setProperty("/busy", false);
+        if (response.ok || response.status === 200) {
+          if (bRemember) {
+            localStorage.setItem("scort_remember_user", sUser);
+            localStorage.setItem("scort_client", sClient);
+            localStorage.setItem("scort_remember_flag", "true");
+          } else {
+            localStorage.removeItem("scort_remember_user");
+            localStorage.setItem("scort_remember_flag", "false");
+          }
+          localStorage.setItem("scort_lang", sLang);
 
-      sessionStorage.removeItem("scort_logged_off");
-      sessionStorage.setItem("scort_session", JSON.stringify(oUserData));
+          var oUserData = {
+            userId: sUser.toUpperCase(),
+            client: sClient,
+            language: sLang,
+            systemId: "S40",
+            role: "ABAP Developer",
+            isLoggedIn: true,
+            loginTime: new Date().toLocaleTimeString()
+          };
 
-      setTimeout(function () {
-        this.getView().getModel("login").setProperty("/busy", false);
-        this._applyUserDataAndNavigate(oUserData);
-        MessageToast.show(oBundle.getText("loginSuccessMsg"));
-      }.bind(this), 300);
+          sessionStorage.removeItem("scort_logged_off");
+          sessionStorage.setItem("scort_session", JSON.stringify(oUserData));
+
+          that._applyUserDataAndNavigate(oUserData);
+          MessageToast.show(oBundle.getText("loginSuccessMsg") || "Login successful!");
+        } else {
+          that._showMessage(oBundle.getText("loginErrFailed") || "Invalid SAP credentials. Please check username/password.", MessageType.Error);
+        }
+      }).catch(function (error) {
+        that.getView().getModel("login").setProperty("/busy", false);
+        that._showMessage("Connection error: " + (error && error.message ? error.message : "Unable to reach SAP server."), MessageType.Error);
+      });
     },
 
     _autoLoginFromFlp: function () {

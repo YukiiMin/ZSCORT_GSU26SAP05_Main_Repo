@@ -66,13 +66,11 @@ sap.ui.define([
       }), "detail");
 
       var isRunningInFLP = !!(window.sap && sap.ushell && sap.ushell.Container);
-      var isSapServer = window.location.hostname.indexOf("localhost") === -1 && window.location.hostname.indexOf("127.0.0.1") === -1;
-      var bLoggedOff = sessionStorage.getItem("scort_logged_off") === "true";
       var oUserData = null;
-      if ((isRunningInFLP || isSapServer) && !bLoggedOff) {
+      if (isRunningInFLP) {
         var sFlpUser = "DEV-032";
         try {
-          if (isRunningInFLP && sap.ushell.Container.getUser()) {
+          if (sap.ushell.Container.getUser()) {
             sFlpUser = sap.ushell.Container.getUser().getId() || "DEV-032";
           }
         } catch (e) {}
@@ -81,7 +79,7 @@ sap.ui.define([
           client: "324",
           language: sSavedLang,
           systemId: "S40",
-          role: "ABAP Developer",
+          role: "ABAP Developer (FLP)",
           isLoggedIn: true,
           loginTime: new Date().toLocaleTimeString()
         };
@@ -167,9 +165,7 @@ sap.ui.define([
           var oUser = that.getModel("user");
           var bLoggedIn = oUser && oUser.getProperty("/isLoggedIn");
           var isRunningInFLP = !!(window.sap && sap.ushell && sap.ushell.Container);
-          var isSapServer = window.location.hostname.indexOf("localhost") === -1 && window.location.hostname.indexOf("127.0.0.1") === -1;
-          var bLoggedOff = sessionStorage.getItem("scort_logged_off") === "true";
-          if (!bLoggedIn && !isRunningInFLP && (!isSapServer || bLoggedOff)) {
+          if (!bLoggedIn && !isRunningInFLP) {
             oRouter.navTo("login", {}, true);
           }
         } catch (oErr) {

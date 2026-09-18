@@ -145,7 +145,7 @@
         {
           "pattern": "",
           "name": "home",
-          "target": ["objSearch"],
+          "target": ["login"],
           "layout": "OneColumn"
         },
         {
