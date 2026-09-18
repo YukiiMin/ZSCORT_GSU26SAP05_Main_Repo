@@ -293,22 +293,13 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
            OR objname LIKE @lv_methpat )
       INTO CORRESPONDING FIELDS OF TABLE @lt_raw.
 
-    LOOP AT lt_raw INTO ls_keep WHERE objtype = 'CPUB'.
+    SORT lt_raw BY versno DESCENDING objtype.
+    LOOP AT lt_raw INTO ls_keep.
       INSERT ls_keep-versno INTO TABLE lt_seen.
       IF sy-subrc = 0.
         APPEND ls_keep TO rt_vrsd.
       ENDIF.
     ENDLOOP.
-
-    IF rt_vrsd IS INITIAL.
-      SORT lt_raw BY versno DESCENDING objtype.
-      LOOP AT lt_raw INTO ls_keep.
-        INSERT ls_keep-versno INTO TABLE lt_seen.
-        IF sy-subrc = 0.
-          APPEND ls_keep TO rt_vrsd.
-        ENDIF.
-      ENDLOOP.
-    ENDIF.
 
     SORT rt_vrsd BY versno DESCENDING.
   ENDMETHOD.

@@ -246,6 +246,40 @@ sap.ui.define([
           }
         }
 
+        if (that._sType === "CLAS") {
+          var aLocalComps = [];
+          var aTargetComps = [];
+          try {
+            if (oResLocal && oResLocal.MetadataText) {
+              aLocalComps = JSON.parse(oResLocal.MetadataText);
+            }
+          } catch (e) {}
+          try {
+            if (oResTarget && oResTarget.MetadataText) {
+              aTargetComps = JSON.parse(oResTarget.MetadataText);
+            }
+          } catch (e) {}
+          that._aClassLocalComps = aLocalComps;
+          that._aClassTargetComps = aTargetComps;
+          that._lastFullLocalSrc = sLocalCode;
+          that._lastFullTargetSrc = sTargetCode;
+
+          var oCpLocal = aLocalComps.find(function (c) { return c.id === "CP"; });
+          var oCpTarget = aTargetComps.find(function (c) { return c.id === "CP"; });
+          if (oCpLocal && oCpLocal.source) {
+            sLocalCode = oCpLocal.source;
+          }
+          if (oCpTarget && oCpTarget.source) {
+            sTargetCode = oCpTarget.source;
+          }
+
+          if (oDetailModel) {
+            oDetailModel.setProperty("/activeClassComponent", "CP");
+            oDetailModel.setProperty("/classComponentStatus", "Component: CP (Global Class)");
+            oDetailModel.setProperty("/classComponentStatusState", "Success");
+          }
+        }
+
         if (bNotSupported) {
           var oDpInner = that.byId("idDetailDynamicPage");
           if (oDpInner) oDpInner.setBusy(false);
@@ -281,6 +315,47 @@ sap.ui.define([
         if (oDpErr) oDpErr.setBusy(false);
         MessageBox.error("Failed to load Git Review source.\n" + String(e));
       });
+    },
+
+    onCompareClassTabSelect: function (oEvent) {
+      var sKey = oEvent.getParameter("key") || oEvent.getSource().getSelectedKey();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/activeClassComponent", sKey);
+      }
+
+      var oLocalComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sKey; });
+      var oTargetComp = (this._aClassTargetComps || []).find(function (c) { return c.id === sKey; });
+
+      var sLocalSrc = oLocalComp ? (oLocalComp.source || "") : "";
+      var sTargetSrc = oTargetComp ? (oTargetComp.source || "") : "";
+
+      if (!sLocalSrc && sKey === "CP" && this._lastFullLocalSrc) {
+        sLocalSrc = this._lastFullLocalSrc;
+      }
+      if (!sTargetSrc && sKey === "CP" && this._lastFullTargetSrc) {
+        sTargetSrc = this._lastFullTargetSrc;
+      }
+
+      var bHasLocal = !!(oLocalComp && oLocalComp.hasContent);
+      var bHasTarget = !!(oTargetComp && oTargetComp.hasContent);
+      var sStatus = (bHasLocal || bHasTarget) ? "Component: " + sKey : "(Empty on both)";
+      var sStatusState = (bHasLocal && bHasTarget) ? "Success" : "None";
+
+      if (oDetailModel) {
+        oDetailModel.setProperty("/classComponentStatus", sStatus);
+        oDetailModel.setProperty("/classComponentStatusState", sStatusState);
+      }
+
+      this._mGitModel = {
+        original: sLocalSrc,
+        modified: sTargetSrc,
+        language: this._getMonacoLang(this._sType)
+      };
+
+      if (this._oGitDiffHost) {
+        this._oGitDiffHost.setModel(this._mGitModel);
+      }
     },
 
     onTabSelect: function (oEvent) {

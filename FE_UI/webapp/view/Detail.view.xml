@@ -1,6 +1,7 @@
 <mvc:View
   controllerName="zscort.app.controller.Detail"
   xmlns="sap.m"
+  xmlns:core="sap.ui.core"
   xmlns:mvc="sap.ui.core.mvc"
   xmlns:table="sap.ui.table">
 
@@ -17,6 +18,7 @@
         <ToolbarSpacer />
         <Button text="{= ${detail>/nodeType} === 'TASK' ? 'Release Task' : 'Release TR'}" press=".onReleaseTrInDetail" type="Emphasized" icon="sap-icon://shipping-status" visible="{detail>/isUnreleased}" tooltip="Release to enable compare" />
         <Button text="Apply to Target" press=".onApplyToTargetButtonPress" type="Accept" icon="sap-icon://upload-to-cloud" tooltip="Apply to Target after compare (Released TR)" visible="{= !${detail>/isUnreleased} }" />
+        <Button text="Logs &amp; Steps" icon="sap-icon://history" type="Transparent" press=".onNavToTransportLogsTab" tooltip="View Transport Logs &amp; Steps Protocol" />
         <Button icon="sap-icon://refresh" press=".onButtonRefreshPress" type="Transparent" tooltip="Refresh Status" />
         <Button
           icon="sap-icon://home"
@@ -78,15 +80,32 @@
                   rows="{path: 'detail>/parentObjects'}">
                   <table:columns>
                     <table:Column width="4.5rem" hAlign="Center">
+                      <Label text="PGMID" />
+                      <table:template>
+                        <ObjectStatus
+                          text="{= ${detail>Pgmid} || 'R3TR' }"
+                          state="{= ${detail>Pgmid} === 'CORR' || ${detail>Pgmid} === '*' ? 'Indication05' : 'None' }" />
+                      </table:template>
+                    </table:Column>
+                    <table:Column width="5.5rem" hAlign="Center">
                       <Label text="{i18n>colType}" />
                       <table:template>
-                        <Text text="{detail>ObjectType}" />
+                        <HBox alignItems="Center" justifyContent="Center">
+                          <core:Icon
+                            src="sap-icon://comment"
+                            visible="{= ${detail>Pgmid} === 'CORR' || ${detail>Pgmid} === '*' || ${detail>ObjectType} === 'RELE' || ${detail>ObjectType} === 'COMM' }"
+                            color="#0854a0"
+                            class="sapUiTinyMarginEnd" />
+                          <Text text="{detail>ObjectType}" />
+                        </HBox>
                       </table:template>
                     </table:Column>
                     <table:Column width="14rem">
                       <Label text="{i18n>colObjName}" />
                       <table:template>
-                        <ObjectIdentifier title="{detail>ObjectName}" titleActive="false" />
+                        <ObjectIdentifier
+                          title="{detail>ObjectName}"
+                          titleActive="false" />
                       </table:template>
                     </table:Column>
                     <table:Column width="9rem">
@@ -111,15 +130,15 @@
                       <Label text="{i18n>colStatus}" />
                       <table:template>
                         <ObjectStatus
-                          text="{detail>CompareStatus}"
-                          state="{path: 'detail>CompareStatus', formatter: '.formatCompareStatus'}"
-                          icon="{path: 'detail>CompareStatus', formatter: '.formatCompareIcon'}" />
+                          text="{= ${detail>Pgmid} === 'CORR' || ${detail>Pgmid} === '*' || ${detail>ObjectType} === 'RELE' ? 'Comment Entry' : ${detail>CompareStatus} }"
+                          state="{= ${detail>Pgmid} === 'CORR' || ${detail>Pgmid} === '*' || ${detail>ObjectType} === 'RELE' ? 'None' : ${path: 'detail>CompareStatus', formatter: '.formatCompareStatus'} }"
+                          icon="{= ${detail>Pgmid} === 'CORR' || ${detail>Pgmid} === '*' || ${detail>ObjectType} === 'RELE' ? 'sap-icon://comment' : ${path: 'detail>CompareStatus', formatter: '.formatCompareIcon'} }" />
                       </table:template>
                     </table:Column>
                     <table:Column width="6rem" hAlign="Center">
                       <Label text="{i18n>colActions}" />
                       <table:template>
-                        <HBox justifyContent="Center">
+                        <HBox justifyContent="Center" visible="{= ${detail>Pgmid} !== 'CORR' &amp;&amp; ${detail>Pgmid} !== '*' &amp;&amp; ${detail>ObjectType} !== 'RELE' &amp;&amp; ${detail>ObjectType} !== 'COMM' }">
                           <Button
                             tooltip="{= ${detail>CompareStatus} === 'MODIFIABLE' ? ${i18n>compareAvailableAfterRelease} : ${i18n>openCompareTooltip} }"
                             icon="sap-icon://compare-2"
@@ -220,6 +239,128 @@
                     </table:Column>
                   </table:columns>
                 </table:Table>
+              </content>
+            </IconTabFilter>
+
+            <!-- TAB 3: Transport Logs (Master-Detail / Split View: Hierarchy above, Monospace raw log text below) -->
+            <IconTabFilter
+              key="transportLogs"
+              text="Transport Logs"
+              icon="sap-icon://history"
+              count="{detail>/logStepsCount}">
+              <content>
+                <VBox height="100%" width="100%" class="sapUiNoContentPadding" fitContainer="true">
+                  <!-- Master: Upper Table / Hierarchy of Systems & Steps -->
+                  <VBox height="42%" minHeight="190px" class="sapUiNoContentPadding" fitContainer="true">
+                    <Toolbar class="sapUiTinyMarginBegin sapUiTinyMarginEnd">
+                      <core:Icon src="sap-icon://org-chart" class="sapUiTinyMarginEnd" />
+                      <Title text="Transport Steps &amp; Execution Protocol" level="H5" />
+                      <ToolbarSpacer />
+                      <Button icon="sap-icon://expand-all" tooltip="Expand All Steps" press=".onExpandAllLogSteps" type="Transparent" />
+                      <Button icon="sap-icon://collapse-all" tooltip="Collapse All Steps" press=".onCollapseAllLogSteps" type="Transparent" />
+                      <Button icon="sap-icon://refresh" text="Reload Logs" press=".onReloadTransportLogs" type="Transparent" tooltip="Refresh transport logs from SAP CTS" />
+                    </Toolbar>
+                    <table:TreeTable
+                      id="idTrLogStepsTreeTable"
+                      selectionMode="Single"
+                      selectionBehavior="Row"
+                      visibleRowCountMode="Auto"
+                      minAutoRowCount="4"
+                      rowHeight="34"
+                      columnHeaderHeight="34"
+                      busy="{detail>/logBusy}"
+                      noData="No transport logs found for this request"
+                      rows="{path: 'detail>/logTree', parameters: {arrayNames: ['children']}}"
+                      rowSelectionChange=".onLogStepSelectionChange">
+                      <table:columns>
+                        <table:Column width="11rem">
+                          <Label text="System / Step" />
+                          <table:template>
+                            <HBox alignItems="Center">
+                              <core:Icon
+                                src="{= ${detail>NodeType} === 'SYSTEM' ? 'sap-icon://server' : 'sap-icon://process' }"
+                                color="{= ${detail>NodeType} === 'SYSTEM' ? '#0854a0' : '#475569' }"
+                                class="sapUiTinyMarginEnd" />
+                              <Text
+                                text="{= ${detail>NodeType} === 'SYSTEM' ? ('System ' + ${detail>SystemId}) : ('Step ' + ${detail>StepId}) }"
+                                design="{= ${detail>NodeType} === 'SYSTEM' ? 'Bold' : 'Standard' }" />
+                            </HBox>
+                          </table:template>
+                        </table:Column>
+
+                        <table:Column width="18rem">
+                          <Label text="Step Description" />
+                          <table:template>
+                            <Text
+                              text="{detail>StepTitle}"
+                              design="{= ${detail>NodeType} === 'SYSTEM' ? 'Bold' : 'Standard' }"
+                              wrapping="false" />
+                          </table:template>
+                        </table:Column>
+
+                        <table:Column width="9rem">
+                          <Label text="Return Code" />
+                          <table:template>
+                            <ObjectStatus
+                              text="{detail>StatusText}"
+                              state="{= ${detail>ReturnCode} === 0 ? 'Success' : (${detail>ReturnCode} === 4 ? 'Warning' : (${detail>ReturnCode} &lt; 0 ? 'None' : 'Error')) }"
+                              icon="{= ${detail>ReturnCode} === 0 ? 'sap-icon://sys-enter-2' : (${detail>ReturnCode} === 4 ? 'sap-icon://alert' : (${detail>ReturnCode} &lt; 0 ? 'sap-icon://in-progress' : 'sap-icon://error')) }" />
+                          </table:template>
+                        </table:Column>
+
+                        <table:Column width="11rem">
+                          <Label text="Timestamp" />
+                          <table:template>
+                            <Text text="{detail>Timestamp}" wrapping="false" />
+                          </table:template>
+                        </table:Column>
+
+                        <table:Column width="24rem">
+                          <Label text="Log File Path" />
+                          <table:template>
+                            <Text text="{detail>LogFile}" wrapping="false" class="scortLogPathText" />
+                          </table:template>
+                        </table:Column>
+                      </table:columns>
+                    </table:TreeTable>
+                  </VBox>
+
+                  <!-- Detail: Lower Log Text View (Monospace, SAP GUI I1 I2 I3 ED Log Text style) -->
+                  <VBox height="58%" class="sapUiNoContentPadding sapUiTinyMarginTop" fitContainer="true">
+                    <Toolbar class="sapUiTinyMarginBegin sapUiTinyMarginEnd">
+                      <core:Icon src="sap-icon://document-text" class="sapUiTinyMarginEnd" />
+                      <Title text="Log Content: {= ${detail>/selectedLog/LogFile} || 'Select a step above' }" level="H5" />
+                      <ObjectStatus
+                        text="{= ${detail>/selectedLog} ? ('RC: ' + ${detail>/selectedLog/ReturnCode} + ' — ' + ${detail>/selectedLog/StatusText}) : '' }"
+                        state="{= ${detail>/selectedLog/ReturnCode} === 0 ? 'Success' : (${detail>/selectedLog/ReturnCode} === 4 ? 'Warning' : (${detail>/selectedLog/ReturnCode} &lt; 0 ? 'None' : 'Error')) }"
+                        visible="{= !!${detail>/selectedLog} }"
+                        class="sapUiTinyMarginBegin" />
+                      <ObjectStatus
+                        text="{= ${detail>/selectedLog/LineCount} ? (${detail>/selectedLog/LineCount} + ' lines') : '' }"
+                        state="None"
+                        visible="{= !!${detail>/selectedLog/LineCount} }"
+                        class="sapUiTinyMarginBegin" />
+                      <ToolbarSpacer />
+                      <Button
+                        icon="sap-icon://copy"
+                        text="Copy Log"
+                        press=".onCopyLogText"
+                        type="Transparent"
+                        tooltip="Copy raw log content to clipboard"
+                        enabled="{= !!${detail>/selectedLog/LogContent} }" />
+                    </Toolbar>
+
+                    <ScrollContainer
+                      height="100%"
+                      width="100%"
+                      horizontal="true"
+                      vertical="true"
+                      class="scortLogScrollContainer sapUiContentPadding">
+                      <FormattedText
+                        htmlText="{= ${detail>/selectedLogFormattedHtml} || '&lt;pre class=&quot;scortLogPre&quot;&gt;Select a step in the table above to view the detailed log content.&lt;/pre&gt;' }" />
+                    </ScrollContainer>
+                  </VBox>
+                </VBox>
               </content>
             </IconTabFilter>
 

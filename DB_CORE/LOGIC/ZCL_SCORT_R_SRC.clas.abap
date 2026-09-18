@@ -102,14 +102,14 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
             ENDIF.
             ls_entity-SourceCodeText = lv_ddl_t.
             ls_entity-LineCount      = lines( zcl_scort_hash_utl=>text_to_lines( lv_ddl_t ) ).
-            ls_entity-SrcHash        = CONV #( zcl_scort_hash_utl=>calculate_checksum( lv_ddl_t ) ).
+            ls_entity-SrcHash        = zcl_scort_hash_utl=>calculate_checksum( lv_ddl_t ).
             ls_entity-MetadataText   = condense( lv_data_t ).
           ELSE.
             ls_entity-SourceCodeText = ls_tgt-text.
             ls_entity-LineCount      = ls_tgt-line_count.
-            ls_entity-SrcHash        = CONV #( ls_tgt-hash_stored ).
+            ls_entity-SrcHash        = ls_tgt-hash_stored.
             IF ls_entity-SrcHash IS INITIAL.
-              ls_entity-SrcHash = CONV #( ls_tgt-hash_calc ).
+              ls_entity-SrcHash = ls_tgt-hash_calc.
             ENDIF.
           ENDIF.
           ls_entity-Message = ls_tgt-message.
@@ -133,12 +133,12 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
               ENDIF.
               ls_entity-SourceCodeText = lv_ddl_v.
               ls_entity-LineCount      = lines( zcl_scort_hash_utl=>text_to_lines( lv_ddl_v ) ).
-              ls_entity-SrcHash        = CONV #( zcl_scort_hash_utl=>calculate_checksum( lv_ddl_v ) ).
+              ls_entity-SrcHash        = zcl_scort_hash_utl=>calculate_checksum( lv_ddl_v ).
               ls_entity-MetadataText   = condense( lv_data_v ).
             ELSE.
               ls_entity-SourceCodeText = ls_ver-text.
               ls_entity-LineCount      = ls_ver-line_count.
-              ls_entity-SrcHash        = CONV #( ls_ver-hash ).
+              ls_entity-SrcHash        = ls_ver-hash.
             ENDIF.
             ls_entity-Message        = ls_ver-message.
           ELSE.
@@ -148,7 +148,7 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
             ls_entity-VersionNo      = zcl_scort_v_reader=>c_vers_active.
             ls_entity-SourceCodeText = ls_ori-text.
             ls_entity-LineCount      = ls_ori-line_count.
-            ls_entity-SrcHash        = CONV #( ls_ori-hash ).
+            ls_entity-SrcHash        = ls_ori-hash.
             ls_entity-Message        = ls_ori-message.
 
             IF ls_filter-object_type = 'TABL'.
@@ -165,6 +165,18 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
                   ev_ok        = lv_tab_l_ok ).
               IF lv_tab_l_ok = abap_true.
                 ls_entity-MetadataText = lv_tab_l_json.
+              ENDIF.
+            ELSEIF ls_filter-object_type = 'CLAS'.
+              DATA lv_clas_l_json TYPE string.
+              DATA lv_clas_l_ok   TYPE abap_bool.
+              zcl_scort_l_reader=>read_clas_components(
+                EXPORTING
+                  iv_classname = ls_filter-object_name
+                IMPORTING
+                  ev_json      = lv_clas_l_json
+                  ev_ok        = lv_clas_l_ok ).
+              IF lv_clas_l_ok = abap_true.
+                ls_entity-MetadataText = lv_clas_l_json.
               ENDIF.
             ENDIF.
           ENDIF.

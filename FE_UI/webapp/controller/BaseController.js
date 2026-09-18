@@ -325,6 +325,26 @@ sap.ui.define([
         if (!bIsStructure && oData && oData.MetadataText) {
           that._renderViewSourceTableData(oData.MetadataText);
         }
+      } else if (sObjType === "CLAS") {
+        var aClassComponents = null;
+        if (oData && oData.MetadataText) {
+          try {
+            aClassComponents = JSON.parse(oData.MetadataText);
+          } catch (e) {
+            aClassComponents = null;
+          }
+        }
+        setProp("viewSourceClassComponents", aClassComponents || []);
+        setProp("viewSourceActiveComponent", "CP");
+        if (Array.isArray(aClassComponents) && aClassComponents.length > 0) {
+          var oCp = aClassComponents.find(function (c) { return c.id === "CP"; }) || aClassComponents[0];
+          setProp("viewSourceComponentHasContent", oCp.hasContent !== false);
+          if (oCp.source) {
+            that._pendingSourceCode = oCp.source;
+          }
+        } else {
+          setProp("viewSourceComponentHasContent", true);
+        }
       }
 
       var oTabBar = null;
@@ -406,6 +426,23 @@ sap.ui.define([
             that._renderViewSourceTableData(sDataToRender);
           }
         }, 50);
+      }
+    },
+
+    onViewSourceClassTabSelect: function (oEvent) {
+      var sKey = oEvent.getParameter("key") || oEvent.getSource().getSelectedKey();
+      var oApp = this._app();
+      if (!oApp) { return; }
+
+      var aComps = oApp.getProperty("/viewSourceClassComponents") || [];
+      var oComp = aComps.find(function (c) { return c.id === sKey; });
+      if (oComp) {
+        oApp.setProperty("/viewSourceActiveComponent", sKey);
+        oApp.setProperty("/viewSourceComponentHasContent", oComp.hasContent !== false);
+        var sSource = oComp.source || "";
+        this._pendingSourceCode = sSource;
+        oApp.setProperty("/viewSourceCode", sSource);
+        this._renderCodeHost(sSource, "CLAS");
       }
     },
 

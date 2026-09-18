@@ -83,6 +83,28 @@
                       description="Source code / ADT detail view is not supported for {detail>/ObjectType} (requires SAP GUI in ADT Eclipse). Only metadata is available." />
                   </VBox>
 
+                  <!-- ADT Sub-component Toolbar for CLAS in Compare -->
+                  <Toolbar visible="{= ${detail>/ObjectType} === 'CLAS' &amp;&amp; !${detail>/isNotSupported} }" style="Clear" class="sapUiTinyMarginBottom sapUiTinyMarginTop">
+                    <Text text="Component:" class="sapUiTinyMarginBegin sapUiTinyMarginEnd" />
+                    <SegmentedButton
+                      id="idCompareClassTabs"
+                      selectedKey="{= ${detail>/activeClassComponent} || 'CP' }"
+                      selectionChange=".onCompareClassTabSelect">
+                      <items>
+                        <SegmentedButtonItem key="CP" text="Global Class" icon="sap-icon://source-code" />
+                        <SegmentedButtonItem key="CCDEF" text="Class-relevant Types" icon="sap-icon://dimension" />
+                        <SegmentedButtonItem key="CCIMP" text="Local Types" icon="sap-icon://custom-font" />
+                        <SegmentedButtonItem key="CCAU" text="Test Classes" icon="sap-icon://lab" />
+                        <SegmentedButtonItem key="CCMAC" text="Macros" icon="sap-icon://process" />
+                      </items>
+                    </SegmentedButton>
+                    <ToolbarSpacer />
+                    <ObjectStatus
+                      text="{= ${detail>/classComponentStatus} || '' }"
+                      state="{= ${detail>/classComponentStatusState} || 'None' }"
+                      class="sapUiTinyMarginEnd" />
+                  </Toolbar>
+
                   <!-- Monaco Git Container -->
                   <VBox id="monacoGitContainer" width="100%" height="100%" class="sapUiNoContentPadding" visible="{= !${detail>/isNotSupported} &amp;&amp; ${detail>/compareMode} !== 'form' }" />
 

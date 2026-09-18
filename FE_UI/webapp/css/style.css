@@ -377,6 +377,56 @@ html, body {
   font-weight: 600 !important;
 }
 
+/* ── Transport Log Monospace Viewer ─────────────────────────────────────────── */
+.scortLogScrollContainer {
+  background-color: #0f172a !important;
+  border: 1px solid #1e293b !important;
+  border-radius: 0.375rem;
+  box-sizing: border-box;
+}
+
+.scortLogPre {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  font-family: 'Fira Code', 'Consolas', 'Monaco', 'Courier New', monospace !important;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #e2e8f0;
+  white-space: pre;
+  tab-size: 4;
+}
+
+.scortLogPathText {
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace !important;
+  color: #0284c7 !important;
+  font-weight: 500;
+}
+
+.scortLogLineError {
+  color: #f87171 !important;
+  font-weight: 600;
+}
+
+.scortLogLineWarn {
+  color: #fbbf24 !important;
+  font-weight: 600;
+}
+
+.scortLogLineSuccess {
+  color: #4ade80 !important;
+  font-weight: 600;
+}
+
+.scortLogLineStep {
+  color: #38bdf8 !important;
+  font-weight: 600;
+}
+
+.scortLogLineBorder {
+  color: #64748b !important;
+}
+
+
 
 
 

@@ -21,7 +21,7 @@ CLASS zcl_scort_l_reader DEFINITION
 
     CLASS-METHODS is_supported
       IMPORTING iv_object_type TYPE trobjtype
-      RETURNING VALUE(rv_ok) TYPE abap_bool.
+      RETURNING VALUE(rv_ok)   TYPE abap_bool.
 
     CLASS-METHODS read_active
       IMPORTING
@@ -39,6 +39,13 @@ CLASS zcl_scort_l_reader DEFINITION
         ev_row_count TYPE i
         ev_ok        TYPE abap_bool.
 
+    CLASS-METHODS read_clas_components
+      IMPORTING
+        iv_classname TYPE csequence
+      EXPORTING
+        ev_json      TYPE string
+        ev_ok        TYPE abap_bool.
+
   PRIVATE SECTION.
     CLASS-METHODS read_prog
       IMPORTING iv_name TYPE sobj_name
@@ -49,8 +56,8 @@ CLASS zcl_scort_l_reader DEFINITION
         iv_name    TYPE sobj_name
         iv_is_intf TYPE abap_bool
       EXPORTING
-        et_lines TYPE ty_string_tab
-        ev_ok    TYPE abap_bool.
+        et_lines   TYPE ty_string_tab
+        ev_ok      TYPE abap_bool.
 
     CLASS-METHODS read_func
       IMPORTING iv_name TYPE sobj_name
@@ -496,7 +503,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
           FIELD-SYMBOLS <lv_src>     TYPE any.
 
           CREATE OBJECT lo_persist TYPE ('CL_DDLX_ADT_OBJECT_PERSIST').
-          CREATE OBJECT lo_model   TYPE ('CL_DDLX_WB_OBJECT_DATA').
+          CREATE OBJECT lo_model TYPE ('CL_DDLX_WB_OBJECT_DATA').
           CREATE DATA lr_data TYPE ('CL_DDLX_WB_OBJECT_DATA=>TY_OBJECT_DATA').
           ASSIGN lr_data->* TO <ls_data>.
 
@@ -570,7 +577,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         FIELD-SYMBOLS <lv_src>     TYPE any.
 
         CREATE OBJECT lo_persist TYPE ('CL_BDEF_ADT_OBJECT_PERSIST').
-        CREATE OBJECT lo_model   TYPE ('CL_BDEF_WB_OBJECT_DATA').
+        CREATE OBJECT lo_model TYPE ('CL_BDEF_WB_OBJECT_DATA').
         TRY.
             CREATE DATA lr_data TYPE ('CL_BDEF_WB_OBJECT_DATA=>TY_BDEF_OBJECT_DATA').
           CATCH cx_root.
@@ -1131,14 +1138,14 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       FROM t100
       WHERE sprsl = @sy-langu AND arbgb = @lv_arbgb
       ORDER BY msgnr
-      INTO TABLE @DATA(lt_t100_raw). "#EC CI_SGLSELECT
+      INTO TABLE @DATA(lt_t100_raw).                  "#EC CI_SGLSELECT
 
     IF lt_t100_raw IS INITIAL AND lv_masterlang IS NOT INITIAL.
       SELECT msgnr, text
         FROM t100
         WHERE sprsl = @lv_masterlang AND arbgb = @lv_arbgb
         ORDER BY msgnr
-        INTO TABLE @lt_t100_raw. "#EC CI_SGLSELECT
+        INTO TABLE @lt_t100_raw.                      "#EC CI_SGLSELECT
     ENDIF.
 
     IF lt_t100_raw IS INITIAL.
@@ -1146,14 +1153,14 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         FROM t100
         WHERE sprsl = 'E' AND arbgb = @lv_arbgb
         ORDER BY msgnr
-        INTO TABLE @lt_t100_raw UP TO 200 ROWS. "#EC CI_SGLSELECT
+        INTO TABLE @lt_t100_raw UP TO 200 ROWS.       "#EC CI_SGLSELECT
     ENDIF.
 
     IF lt_t100_raw IS NOT INITIAL.
       SELECT msgnr, selfdef, name, datum
         FROM t100u
         WHERE arbgb = @lv_arbgb
-        INTO TABLE @DATA(lt_t100u_raw). "#EC CI_SGLSELECT
+        INTO TABLE @DATA(lt_t100u_raw).               "#EC CI_SGLSELECT
 
       DATA lt_t100u_map TYPE HASHED TABLE OF t100u WITH UNIQUE KEY msgnr.
       lt_t100u_map = lt_t100u_raw.
@@ -1247,7 +1254,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       FROM tdevc
       WHERE parentcl = @lv_devclass
       ORDER BY devclass
-      INTO TABLE @DATA(lt_sub_devc). "#EC CI_SGLSELECT
+      INTO TABLE @DATA(lt_sub_devc).                  "#EC CI_SGLSELECT
 
     IF lt_sub_devc IS NOT INITIAL.
       LOOP AT lt_sub_devc INTO DATA(ls_sub_devc).
@@ -1431,6 +1438,108 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       CATCH cx_root.
         CLEAR: ev_json, ev_row_count, ev_ok.
     ENDTRY.
+  ENDMETHOD.
+
+  METHOD read_clas_components.
+    TYPES: BEGIN OF ty_clas_comp,
+             id          TYPE string,
+             title       TYPE string,
+             kind        TYPE string,
+             include     TYPE string,
+             line_count  TYPE i,
+             has_content TYPE abap_bool,
+             source      TYPE string,
+           END OF ty_clas_comp,
+           tt_clas_comp TYPE STANDARD TABLE OF ty_clas_comp WITH DEFAULT KEY.
+
+    TYPES: BEGIN OF ty_inc_def,
+             id    TYPE string,
+             title TYPE string,
+             kind  TYPE string,
+           END OF ty_inc_def.
+
+    DATA lt_comps    TYPE tt_clas_comp.
+    DATA ls_comp     TYPE ty_clas_comp.
+    DATA lt_lines    TYPE ty_string_tab.
+    DATA lv_ok       TYPE abap_bool.
+    DATA lv_inc      TYPE programm.
+    DATA lv_cname    TYPE seoclsname.
+    DATA lv_sname    TYPE sobj_name.
+    DATA lv_non_cmt  TYPE i.
+    DATA lt_inc_defs TYPE STANDARD TABLE OF ty_inc_def WITH DEFAULT KEY.
+
+    CLEAR: ev_json, ev_ok.
+    lv_cname = to_upper( iv_classname ).
+    CONDENSE lv_cname.
+    lv_sname = lv_cname.
+
+    read_oo( EXPORTING iv_name = lv_sname iv_is_intf = abap_false
+             IMPORTING et_lines = lt_lines ev_ok = lv_ok ).
+    ls_comp-id          = 'CP'.
+    ls_comp-title       = 'Global Class'.
+    ls_comp-kind        = 'CLAS'.
+    ls_comp-include     = |{ lv_cname WIDTH = 30 PAD = '=' }CP|.
+    ls_comp-line_count  = lines( lt_lines ).
+    ls_comp-has_content = lv_ok.
+    ls_comp-source      = zcl_scort_hash_utl=>lines_to_text( lt_lines ).
+    APPEND ls_comp TO lt_comps.
+
+    lt_inc_defs = VALUE #(
+      ( id = 'CCDEF' title = 'Class-relevant Local Types' kind = 'CCDEF' )
+      ( id = 'CCIMP' title = 'Local Types' kind = 'CCIMP' )
+      ( id = 'CCAU'  title = 'Test Classes' kind = 'CCAU' )
+      ( id = 'CCMAC' title = 'Macros' kind = 'CCMAC' )
+    ).
+
+    LOOP AT lt_inc_defs INTO DATA(ls_def).
+      CLEAR: ls_comp, lt_lines, lv_inc, lv_non_cmt.
+      ls_comp-id    = ls_def-id.
+      ls_comp-title = ls_def-title.
+      ls_comp-kind  = ls_def-kind.
+
+      TRY.
+          CASE ls_def-id.
+            WHEN 'CCDEF'.
+              lv_inc = cl_oo_classname_service=>get_ccdef_name( lv_cname ).
+            WHEN 'CCIMP'.
+              lv_inc = cl_oo_classname_service=>get_ccimp_name( lv_cname ).
+            WHEN 'CCAU'.
+              lv_inc = cl_oo_classname_service=>get_ccau_name( lv_cname ).
+            WHEN 'CCMAC'.
+              lv_inc = cl_oo_classname_service=>get_ccmac_name( lv_cname ).
+          ENDCASE.
+        CATCH cx_root.
+          lv_inc = |{ lv_cname WIDTH = 30 PAD = '=' }{ ls_def-id }|.
+      ENDTRY.
+
+      ls_comp-include = lv_inc.
+      READ REPORT lv_inc INTO lt_lines.
+      IF sy-subrc = 0 AND lt_lines IS NOT INITIAL.
+        LOOP AT lt_lines INTO DATA(lv_l).
+          DATA(lv_trim) = condense( lv_l ).
+          IF lv_trim IS NOT INITIAL AND lv_trim(1) <> '*'.
+            lv_non_cmt = lv_non_cmt + 1.
+          ENDIF.
+        ENDLOOP.
+        ls_comp-line_count = lines( lt_lines ).
+        ls_comp-source     = zcl_scort_hash_utl=>lines_to_text( lt_lines ).
+        IF lv_non_cmt > 0.
+          ls_comp-has_content = abap_true.
+        ELSE.
+          ls_comp-has_content = abap_false.
+        ENDIF.
+      ELSE.
+        ls_comp-line_count  = 0.
+        ls_comp-has_content = abap_false.
+        ls_comp-source      = ''.
+      ENDIF.
+      APPEND ls_comp TO lt_comps.
+    ENDLOOP.
+
+    ev_json = /ui2/cl_json=>serialize(
+                data        = lt_comps
+                pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+    ev_ok = abap_true.
   ENDMETHOD.
 
 ENDCLASS.

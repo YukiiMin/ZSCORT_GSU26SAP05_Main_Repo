@@ -31,6 +31,11 @@ sap.ui.define([
         parentObjectsCount: 0,
         activeTasks: [],
         activeTasksCount: 0,
+        logSteps: [],
+        logStepsCount: 0,
+        selectedLog: null,
+        selectedLogFormattedHtml: "",
+        logBusy: false,
         message: "",
         applyObjects: [],
         applySelectedCount: 0,
@@ -70,9 +75,23 @@ sap.ui.define([
       oViewModel.setProperty("/parentTrkorr", "");
       oViewModel.setProperty("/owner", "");
       oViewModel.setProperty("/description", "");
+      oViewModel.setProperty("/logSteps", []);
+      oViewModel.setProperty("/logStepsCount", 0);
+      oViewModel.setProperty("/selectedLog", null);
+      oViewModel.setProperty("/selectedLogFormattedHtml", "");
 
       this._loadTrHeader(sTrkorr);
       this._loadObjects(sTrkorr);
+      this._loadTransportLogs(sTrkorr);
+
+      var sTargetTab = this._app().getProperty("/navToTab");
+      if (sTargetTab) {
+        this._app().setProperty("/navToTab", "");
+        var oTabBar = this.byId("idParentTrTabBar");
+        if (oTabBar) {
+          oTabBar.setSelectedKey(sTargetTab);
+        }
+      }
     },
 
 
@@ -112,10 +131,11 @@ sap.ui.define([
       var mSeen = {};
       var aUnique = [];
       aList.forEach(function (o) {
+        var sPgmid = String(o.Pgmid || "").trim().toUpperCase();
         var sType = String(o.ObjectType || o.ObjType || "").trim().toUpperCase();
         var sName = String(o.ObjectName || o.ObjName || "").trim().toUpperCase();
         if (!sType || !sName) { return; }
-        var sKey = sType + "_" + sName;
+        var sKey = (sPgmid ? sPgmid + "_" : "") + sType + "_" + sName;
         if (!mSeen[sKey]) {
           mSeen[sKey] = true;
           aUnique.push(o);
@@ -134,10 +154,16 @@ sap.ui.define([
       var sTrObjFilter = "(Trkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "' or ParentTrkorr eq '" + String(sTrkorr).replace(/'/g, "''") + "')";
       var sTrObjUrl = sTrUri + "TrObjectSearch?$filter=" + encodeURIComponent(sTrObjFilter);
 
+      var aFilterObjs = aObjects.filter(function (o) {
+        var sP = String(o.Pgmid || "").trim().toUpperCase();
+        var sT = String(o.ObjectType || o.ObjType || "").trim().toUpperCase();
+        return sP !== "CORR" && sP !== "*" && sT !== "RELE" && sT !== "COMM" && sT !== "NOTE";
+      });
+
       var iChunkSize = 20;
       var aChunks = [];
-      for (var i = 0; i < aObjects.length; i += iChunkSize) {
-        var aSlice = aObjects.slice(i, i + iChunkSize);
+      for (var i = 0; i < aFilterObjs.length; i += iChunkSize) {
+        var aSlice = aFilterObjs.slice(i, i + iChunkSize);
         var sFilter = aSlice.map(function (o) {
           var sType = String(o.ObjectType || o.ObjType || "").replace(/'/g, "''");
           var sName = String(o.ObjectName || o.ObjName || "").replace(/'/g, "''");
@@ -792,6 +818,179 @@ sap.ui.define([
         case "NOT_SUPPORTED": return "sap-icon://sys-help-2";
         default: return "sap-icon://status-inactive";
       }
+    },
+
+    onNavToTransportLogsTab: function () {
+      var oTabBar = this.byId("idParentTrTabBar");
+      if (oTabBar) {
+        oTabBar.setSelectedKey("transportLogs");
+      }
+      var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
+      if (sTrkorr) {
+        this._loadTransportLogs(sTrkorr);
+      }
+    },
+
+    onExpandAllLogSteps: function () {
+      var oTree = this.byId("idTrLogStepsTreeTable");
+      if (oTree && oTree.expandToLevel) {
+        oTree.expandToLevel(3);
+      }
+    },
+
+    onCollapseAllLogSteps: function () {
+      var oTree = this.byId("idTrLogStepsTreeTable");
+      if (oTree && oTree.collapseAll) {
+        oTree.collapseAll();
+      }
+    },
+
+    _loadTransportLogs: function (sTrkorr) {
+      var oM = this.getView().getModel("detail");
+      var that = this;
+      if (!sTrkorr) { return; }
+
+      oM.setProperty("/logBusy", true);
+      var sSafe = String(sTrkorr).replace(/'/g, "''");
+      var sUrl = this._trServiceUri() + "TrLog?$filter=Trkorr eq '" + sSafe + "'";
+
+      ValueHelp.fetchJson(sUrl, 15000).then(function (aData) {
+        oM.setProperty("/logBusy", false);
+        aData = aData || [];
+        oM.setProperty("/logSteps", aData);
+        oM.setProperty("/logStepsCount", aData.length);
+
+        // Build hierarchical tree structure for sap.ui.table.TreeTable
+        var aTree = [];
+        var mSystems = {};
+
+        aData.forEach(function (row) {
+          if (row.NodeType === "SYSTEM") {
+            var oSys = Object.assign({}, row);
+            oSys.children = [];
+            mSystems[row.SystemId] = oSys;
+            aTree.push(oSys);
+          }
+        });
+
+        aData.forEach(function (row) {
+          if (row.NodeType === "STEP") {
+            var oSys = mSystems[row.SystemId];
+            if (oSys) {
+              oSys.children.push(Object.assign({}, row));
+            } else {
+              aTree.push(Object.assign({}, row));
+            }
+          }
+        });
+
+        if (aTree.length === 0 && aData.length > 0) {
+          aTree = aData;
+        }
+
+        oM.setProperty("/logTree", aTree);
+
+        if (aData.length > 0) {
+          var oSelected = aData.find(function (n) { return n.NodeType === "STEP"; }) || aData[0];
+          that._selectLogStep(oSelected);
+
+          setTimeout(function () {
+            var oTreeTable = that.byId("idTrLogStepsTreeTable");
+            if (oTreeTable && oTreeTable.expandToLevel) {
+              oTreeTable.expandToLevel(2);
+            }
+          }, 100);
+        } else {
+          oM.setProperty("/selectedLog", null);
+          oM.setProperty("/selectedLogFormattedHtml", "<pre class=\"scortLogPre\">No transport logs exist for request " + sSafe + ".</pre>");
+        }
+      }).catch(function (oErr) {
+        oM.setProperty("/logBusy", false);
+        oM.setProperty("/logSteps", []);
+        oM.setProperty("/logTree", []);
+        oM.setProperty("/logStepsCount", 0);
+        oM.setProperty("/selectedLog", null);
+        oM.setProperty("/selectedLogFormattedHtml", "<pre class=\"scortLogPre\">Failed to load transport logs: " + (oErr && oErr.message ? oErr.message : oErr) + "</pre>");
+      });
+    },
+
+    _selectLogStep: function (oStep) {
+      var oM = this.getView().getModel("detail");
+      if (!oStep) {
+        oM.setProperty("/selectedLog", null);
+        oM.setProperty("/selectedLogFormattedHtml", "");
+        return;
+      }
+      oM.setProperty("/selectedLog", oStep);
+      var sHtml = this._formatLogTextToHtml(oStep.LogContent || "");
+      oM.setProperty("/selectedLogFormattedHtml", sHtml);
+    },
+
+    _formatLogTextToHtml: function (sText) {
+      if (!sText) {
+        return "<pre class=\"scortLogPre\">No log content available for this step.</pre>";
+      }
+      var aLines = sText.split(/\r?\n/);
+      var aHtml = ["<pre class=\"scortLogPre\">"];
+      aLines.forEach(function (sLine) {
+        var sEscaped = sLine.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        if (sLine.indexOf("--> ERROR") !== -1 || sLine.indexOf("Return Code: ===> 8") !== -1 || sLine.indexOf("Return Code: ===> 12") !== -1) {
+          aHtml.push("<span class=\"scortLogLineError\">" + sEscaped + "</span>");
+        } else if (sLine.indexOf("--> WARN") !== -1 || sLine.indexOf("Return Code: ===> 4") !== -1) {
+          aHtml.push("<span class=\"scortLogLineWarn\">" + sEscaped + "</span>");
+        } else if (sLine.indexOf("--> START") !== -1 || sLine.indexOf("--> STEP") !== -1 || sLine.indexOf("--> EXPORT") !== -1 || sLine.indexOf("--> IMPORT") !== -1) {
+          aHtml.push("<span class=\"scortLogLineStep\">" + sEscaped + "</span>");
+        } else if (sLine.indexOf("--> STOP") !== -1 || sLine.indexOf("Return Code: ===> 0") !== -1) {
+          aHtml.push("<span class=\"scortLogLineSuccess\">" + sEscaped + "</span>");
+        } else if (sLine.indexOf("======") !== -1 || sLine.indexOf("------") !== -1) {
+          aHtml.push("<span class=\"scortLogLineBorder\">" + sEscaped + "</span>");
+        } else {
+          aHtml.push(sEscaped);
+        }
+      });
+      aHtml.push("</pre>");
+      return aHtml.join("\n");
+    },
+
+    onLogStepSelectionChange: function (oEvent) {
+      var oTable = oEvent.getSource();
+      var iIdx = oTable.getSelectedIndex();
+      if (iIdx < 0) { return; }
+      var oCtx = oTable.getContextByIndex(iIdx);
+      if (oCtx) {
+        var oStep = oCtx.getObject();
+        if (oStep) {
+          if (oStep.NodeType === "SYSTEM" && Array.isArray(oStep.children) && oStep.children.length > 0 && !oStep.LogContent) {
+            this._selectLogStep(oStep.children[0]);
+          } else {
+            this._selectLogStep(oStep);
+          }
+        }
+      }
+    },
+
+    onReloadTransportLogs: function () {
+      var sTrkorr = this.getView().getModel("detail").getProperty("/trkorr");
+      if (sTrkorr) {
+        this._loadTransportLogs(sTrkorr);
+        MessageToast.show("Reloading transport logs...");
+      }
+    },
+
+    onCopyLogText: function () {
+      var oLog = this.getView().getModel("detail").getProperty("/selectedLog");
+      var sText = oLog ? oLog.LogContent : "";
+      if (!sText) {
+        MessageToast.show("No log text to copy");
+        return;
+      }
+      var oTextArea = document.createElement("textarea");
+      oTextArea.value = sText;
+      document.body.appendChild(oTextArea);
+      oTextArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(oTextArea);
+      MessageToast.show("Log content copied to clipboard!");
     }
 
   });

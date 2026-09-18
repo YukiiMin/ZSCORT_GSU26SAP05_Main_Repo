@@ -296,12 +296,19 @@
                               press=".onTreeReleasePress" />
                             <!-- Apply button for Released TR -->
                             <Button
-                              text="{i18n>btnApply}"
+                              text="{i18n>btnApplyTarget}"
                               icon="sap-icon://upload-to-cloud"
                               tooltip="{i18n>btnApplyTarget}"
                               type="Accept"
                               visible="{= ${trTree>NodeType} === 'TR' &amp;&amp; ${trTree>TrStatus} === 'R' }"
                               press=".onTreeOpenDetail" />
+                            <!-- View Transport Logs for TR node -->
+                            <Button
+                              icon="sap-icon://history"
+                              tooltip="View Transport Logs &amp; Steps Protocol"
+                              type="Transparent"
+                              visible="{= ${trTree>NodeType} === 'TR' }"
+                              press=".onTreeOpenTransportLogs" />
                             <!-- Compare Code button for Object node -->
                             <Button
                               text="{i18n>btnCompare}"
@@ -446,6 +453,10 @@
                               tooltip="Open TR Detail (Release / Apply)"
                               type="Transparent"
                               press=".onFlatOpenDetail" />
+                            <Button icon="sap-icon://history"
+                              tooltip="View Transport Logs &amp; Steps Protocol"
+                              type="Transparent"
+                              press=".onFlatOpenTransportLogs" />
                             <Button icon="sap-icon://compare-2"
                               tooltip="{i18n>openCompareTooltip}"
                               type="Transparent"

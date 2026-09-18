@@ -2,6 +2,7 @@
 define service ZSD_SCORT_TR_SEARCH {
   expose ZCE_SCORT_TR_TREE         as TrTree;
   expose ZCR_SCORT_TR_OBJ_SEARCH   as TrObjectSearch;
+  expose ZCE_SCORT_TR_LOG          as TrLog;
   expose ZC_SCORT_VH_TRKORR        as VHTrkorr;
   expose ZC_SCORT_VH_OBJ_TYPE      as VHObjType;
   expose ZC_SCORT_VH_OBJ_NAME      as VHObjName;

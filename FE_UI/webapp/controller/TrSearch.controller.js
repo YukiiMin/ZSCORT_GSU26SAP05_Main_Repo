@@ -628,6 +628,19 @@ sap.ui.define([
       });
     },
 
+    onTreeOpenTransportLogs: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("trTree");
+      if (!oCtx) { return; }
+      var oNode = oCtx.getObject();
+      var sTrkorr = oNode.Trkorr || oNode.ParentTrkorr;
+      if (!sTrkorr) { return; }
+      this._app().setProperty("/currentModule", "detail");
+      this._app().setProperty("/navToTab", "transportLogs");
+      this.getOwnerComponent().getRouter().navTo("detail", {
+        trkorr: encodeURIComponent(sTrkorr)
+      });
+    },
+
     _openTasksUnderTr: function (oTrNode) {
       var aKids = (oTrNode && oTrNode.children) || [];
       return aKids.filter(function (c) {
@@ -1041,6 +1054,19 @@ sap.ui.define([
       var sTrkorr = oObj.Trkorr || oObj.CurrentManagingTr || oObj.ParentTrkorr;
       if (!sTrkorr) { return; }
       this._app().setProperty("/currentModule", "compare");
+      this.getOwnerComponent().getRouter().navTo("detail", {
+        trkorr: encodeURIComponent(sTrkorr)
+      });
+    },
+
+    onFlatOpenTransportLogs: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("trSearch");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      var sTrkorr = oObj.Trkorr || oObj.CurrentManagingTr || oObj.ParentTrkorr;
+      if (!sTrkorr) { return; }
+      this._app().setProperty("/currentModule", "detail");
+      this._app().setProperty("/navToTab", "transportLogs");
       this.getOwnerComponent().getRouter().navTo("detail", {
         trkorr: encodeURIComponent(sTrkorr)
       });

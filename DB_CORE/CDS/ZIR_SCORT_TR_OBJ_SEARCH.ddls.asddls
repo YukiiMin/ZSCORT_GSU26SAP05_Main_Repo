@@ -1,6 +1,6 @@
 @AbapCatalog.viewEnhancementCategory: [#NONE]
 @AccessControl.authorizationCheck: #NOT_REQUIRED
-@EndUserText.label: 'SCORT: Search Objects in TR Request/Task (Flat List)'
+@EndUserText.label: 'SCORT: Search Objects in TR'
 @Metadata.ignorePropagatedAnnotations: true
 @ObjectModel.usageType:{
     serviceQuality: #X,
@@ -41,33 +41,43 @@ define root view entity ZIR_SCORT_TR_OBJ_SEARCH
 {
   key Object.trkorr                                                  as Trkorr,
   key Object.pgmid                                                   as Pgmid,
-  key cast( case
-              when Object.object = 'REPS' or Object.object = 'REPT'
-                then 'PROG'
-              when Object.object = 'TABD' or Object.object = 'TABT'
-                then 'TABL'
-              when Object.object = 'DOMD'
-                then 'DOMA'
-              when Object.object = 'DTED'
-                then 'DTEL'
-              when Object.object = 'METH' or Object.object = 'CPUB' or Object.object = 'CPRI'
-                or Object.object = 'CPRO' or Object.object = 'CLSD' or Object.object = 'CINC'
-                then 'CLAS'
-              else Object.object
-            end as trobjtype )                                       as ObjectType,
+  key case
+        when Object.object = 'RELE'
+          then 'RELE'
+        when Object.object = 'NOTE'
+          then 'NOTE'
+        when Object.object = 'COMM'
+          then 'COMM'
+        when Object.pgmid = 'CORR' or Object.pgmid = '*'
+          then 'COMM'
+        when Object.object = 'REPS' or Object.object = 'REPT'
+          then 'PROG'
+        when Object.object = 'TABD' or Object.object = 'TABT'
+          then 'TABL'
+        when Object.object = 'DOMD'
+          then 'DOMA'
+        when Object.object = 'DTED'
+          then 'DTEL'
+        when Object.object = 'METH' or Object.object = 'CPUB' or Object.object = 'CPRI'
+          or Object.object = 'CPRO' or Object.object = 'CLSD' or Object.object = 'CINC'
+          then 'CLAS'
+        else Object.object
+      end                                                            as ObjectType,
   key Object.obj_name                                                as ObjectName,
 
       Header.strkorr                                                 as ParentTrkorr,
+      @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_USER', element: 'UserId' } }]
       Header.as4user                                                 as Owner,
+      @Consumption.valueHelpDefinition: [{ entity: { name: 'ZC_SCORT_VH_USER', element: 'UserId' } }]
       ParentHeader.as4user                                           as ParentOwner,
       Header.as4date                                                 as CreatedOn,
       Header.trstatus                                                as TrStatus,
 
-      cast( case
-              when Header.strkorr is not initial
-                then Header.strkorr
-              else Header.trkorr
-            end as zde_scort_current_managing_tr )                   as CurrentManagingTr,
+      case
+        when Header.strkorr is not initial
+          then Header.strkorr
+        else Header.trkorr
+      end                                                            as CurrentManagingTr,
 
       Object.activity                                                as Activity,
       coalesce( TadirDirect.devclass,
@@ -76,6 +86,8 @@ define root view entity ZIR_SCORT_TR_OBJ_SEARCH
             coalesce( TadirDoma.devclass, TadirDtel.devclass ) ) ) ) as PackageName,
 
       cast( case
+              when Object.pgmid = 'CORR' or Object.pgmid = '*' or Object.object = 'RELE'
+                then 'COMMENT'
               when Object.activity = 'D'
                 or TadirDirect.delflag = 'X'
                 or TadirProg.delflag = 'X'
@@ -99,6 +111,8 @@ define root view entity ZIR_SCORT_TR_OBJ_SEARCH
 where
      Object.pgmid = 'R3TR'
   or Object.pgmid = 'LIMU'
+  or Object.pgmid = 'CORR'
+  or Object.pgmid = '*'
 
 union all
 
@@ -107,14 +121,14 @@ select from       e071                   as Object
                                                          and Func.active = 'X'
   inner join      e070                   as Header       on Header.trkorr = Object.trkorr
   left outer join e070                   as ParentHeader on ParentHeader.trkorr = Header.strkorr
-  left outer join tadir                  as Tadir        on  Tadir.pgmid    = 'R3TR'
-                                                         and Tadir.object   = 'FUGR'
-                                                         and Tadir.obj_name = Object.obj_name
+  left outer join tadir                  as Tadir        on  tadir.pgmid    = 'R3TR'
+                                                         and tadir.object   = 'FUGR'
+                                                         and tadir.obj_name = Object.obj_name
   left outer join ZIR_SCORT_INACTIVE_OBJ as Inactive     on Inactive.ObjectName = Func.funcname
 {
   key Object.trkorr                                as Trkorr,
-  key cast( 'LIMU' as pgmid )                      as Pgmid,
-  key cast( 'FUNC' as trobjtype )                  as ObjectType,
+  key 'LIMU'                                       as Pgmid,
+  key 'FUNC'                                       as ObjectType,
   key cast( Func.funcname as sobj_name )           as ObjectName,
 
       Header.strkorr                               as ParentTrkorr,
@@ -123,17 +137,17 @@ select from       e071                   as Object
       Header.as4date                               as CreatedOn,
       Header.trstatus                              as TrStatus,
 
-      cast( case
-              when Header.strkorr is not initial
-                then Header.strkorr
-              else Header.trkorr
-            end as zde_scort_current_managing_tr ) as CurrentManagingTr,
+      case
+        when Header.strkorr is not initial
+          then Header.strkorr
+        else Header.trkorr
+      end                                          as CurrentManagingTr,
 
       Object.activity                              as Activity,
-      Tadir.devclass                               as PackageName,
+      tadir.devclass                               as PackageName,
 
       cast( case
-              when Object.activity = 'D' or Tadir.delflag = 'X'
+              when Object.activity = 'D' or tadir.delflag = 'X'
                 then 'DELETED'
               when Inactive.ObjectName is not null
                 then 'INACTIVE'
