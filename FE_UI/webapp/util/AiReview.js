@@ -15,11 +15,10 @@
   'use strict'
 
   var SUPPORTED_MODELS = [
-    'gemini-3.5-flash',
-    'gemini-3-flash',
-    'gemini-2.5-flash',
-    'gemini-2.5-flash-lite',
-    'antigravity',
+    'gemini-3.8-flash',
+    'gemini-3.7-flash',
+    'gemini-3.6-flash',
+    'gemini-3.5-flash-lite',
   ]
 
   // ─── ROBUST JSON EXTRACTION & UNWRAPPING ──────────────────────────────────
@@ -217,7 +216,7 @@
       localCode: sLocalCode || '',
       targetCode: sTargetCode || '',
       language: sLang || 'en',
-      model: sModel || 'gemini-3.5-flash',
+      model: sModel || 'gemini-3.8-flash',
     }
 
     return fetch(sUrl, {
@@ -443,7 +442,7 @@
         oTargetMeta,
         sUiLang
       )
-      sModel = sModel || 'gemini-3.5-flash'
+      sModel = sModel || 'gemini-3.8-flash'
 
       return _callSapBackend(
         'SYNTAX',
@@ -474,7 +473,7 @@
       sMode,
       sModel
     ) {
-      sModel = sModel || 'gemini-3.5-flash'
+      sModel = sModel || 'gemini-3.8-flash'
       return _callSapBackend(
         'TRANSPORT',
         sObjectType,
@@ -539,7 +538,7 @@
         )
       })
 
-      sModel = sModel || 'gemini-3.5-flash'
+      sModel = sModel || 'gemini-3.8-flash'
 
       return _callSapBackend(
         'TRANSPORT',

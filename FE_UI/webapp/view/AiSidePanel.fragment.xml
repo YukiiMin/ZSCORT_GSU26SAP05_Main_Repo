@@ -9,26 +9,16 @@
       <Title text="{i18n>aiSidePanelTitle}" level="H5" />
       <ToolbarSpacer />
       <Select
-        selectedKey="{= ${detail>/aiModel} || ${appView>/aiModel} || 'gemini-3.5-flash' }"
+        selectedKey="{= ${detail>/aiModel} || ${appView>/aiModel} || 'gemini-3.8-flash' }"
         change=".onAiModelChange"
         tooltip="{i18n>aiSelectModelTooltip}"
         class="sapUiTinyMarginEnd"
         autoAdjustWidth="true">
-        <core:Item key="gemini-3.5-flash" text="Gemini 3.5 Flash" />
-        <core:Item key="gemini-3-flash" text="Gemini 3 Flash" />
-        <core:Item key="gemini-2.5-flash" text="Gemini 2.5 Flash" />
-        <core:Item key="gemini-2.5-flash-lite" text="Gemini 2.5 Flash Lite" />
-        <core:Item key="antigravity" text="Antigravity" />
+        <core:Item key="gemini-3.8-flash" text="Gemini 3.8 Flash" />
+        <core:Item key="gemini-3.7-flash" text="Gemini 3.7 Flash" />
+        <core:Item key="gemini-3.6-flash" text="Gemini 3.6 Flash" />
+        <core:Item key="gemini-3.5-flash-lite" text="Gemini 3.5 Flash Lite" />
       </Select>
-      <SegmentedButton
-        selectedKey="{= ${detail>/aiExecutionMode} || ${appView>/aiExecutionMode} || 'BE_SAP' }"
-        select=".onAiExecutionModeChange"
-        class="sapUiTinyMarginEnd">
-        <items>
-          <SegmentedButtonItem key="BE_SAP" text="{i18n>aiModeSapBackend}" tooltip="{i18n>aiModeSapTooltip}" icon="sap-icon://sap-logo-shape" />
-          <SegmentedButtonItem key="FE_DIRECT" text="{i18n>aiModeDirectClient}" tooltip="{i18n>aiModeDirectTooltip}" icon="sap-icon://cloud" />
-        </items>
-      </SegmentedButton>
       <Button
         icon="sap-icon://refresh"
         type="Emphasized"

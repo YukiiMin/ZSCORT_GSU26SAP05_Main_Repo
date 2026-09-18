@@ -570,7 +570,8 @@ sap.ui.define([
       oM.setProperty("/aiApplyBusy", true);
       MessageToast.show(this._getText("msgRunningAiAssessment", []));
 
-      AiReview.analyzeApplyToTargetRisk(sTrkorr, aList, sLang, "BE_SAP", "gemini-2.5-flash")
+      var sModel = oM.getProperty("/aiModel") || (this.getOwnerComponent().getModel("appView") && this.getOwnerComponent().getModel("appView").getProperty("/aiModel")) || "gemini-3.8-flash";
+      AiReview.analyzeApplyToTargetRisk(sTrkorr, aList, sLang, "BE_SAP", sModel)
         .then(function (oResult) {
           oM.setProperty("/aiApplyBusy", false);
           if (!oResult) {

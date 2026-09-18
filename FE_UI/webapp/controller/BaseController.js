@@ -365,19 +365,14 @@ sap.ui.define([
         setProp("viewSourceActiveComponent", sInitialComp);
         if (Array.isArray(aClassComponents) && aClassComponents.length > 0) {
           var oChosen = aClassComponents.find(function (c) { return c.id === sInitialComp; }) || aClassComponents[0];
-          setProp("viewSourceComponentHasContent", oChosen.hasContent !== false);
-          var sVN = oM ? (oM.getProperty("/viewSourceRawVersionNo") || oM.getProperty("/viewSourceVersionNo") || "") : "";
-          if (sServerType === "T" || (sVN && sVN !== "ACTIVE" && sVN !== "99998")) {
-            if (that._fullClassSource) {
-              that._pendingSourceCode = that._fullClassSource;
-            } else if (oChosen && oChosen.source) {
-              that._pendingSourceCode = oChosen.source;
-            }
-          } else if (oChosen && oChosen.source) {
-            that._pendingSourceCode = oChosen.source;
+          setProp("viewSourceComponentHasContent", oChosen.hasContent !== false && !!oChosen.source);
+          if (sInitialComp === "CP") {
+            that._pendingSourceCode = (oChosen && oChosen.source) || that._fullClassSource || "";
+          } else {
+            that._pendingSourceCode = (oChosen && oChosen.source) || "";
           }
         } else {
-          setProp("viewSourceComponentHasContent", true);
+          setProp("viewSourceComponentHasContent", !!that._pendingSourceCode);
         }
 
         var oClassTabs = null;
@@ -488,10 +483,10 @@ sap.ui.define([
       var sSource = "";
       var bHasContent = true;
       if (sKey === "CP") {
-        sSource = this._fullClassSource || (oComp && oComp.source) || this._pendingSourceCode || "";
+        sSource = (oComp && oComp.source) || this._fullClassSource || this._pendingSourceCode || "";
         bHasContent = !!sSource;
       } else if (oComp) {
-        bHasContent = oComp.hasContent !== false;
+        bHasContent = oComp.hasContent !== false && !!oComp.source;
         sSource = oComp.source || "";
       } else {
         bHasContent = false;
@@ -714,7 +709,7 @@ sap.ui.define([
       var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
       var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
       var sMode = oApp.getProperty("/aiExecutionMode") || oM.getProperty("/aiExecutionMode") || "BE_SAP";
-      var sModel = oApp.getProperty("/aiModel") || oM.getProperty("/aiModel") || "gemini-3.5-flash";
+      var sModel = oApp.getProperty("/aiModel") || oM.getProperty("/aiModel") || "gemini-3.8-flash";
       var oDialog = this._oSourceDialog;
 
       if (!sCode) {

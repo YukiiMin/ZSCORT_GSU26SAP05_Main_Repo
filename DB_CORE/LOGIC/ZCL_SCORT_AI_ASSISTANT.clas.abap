@@ -148,15 +148,10 @@ CLASS zcl_scort_ai_assistant IMPLEMENTATION.
   METHOD class_constructor.
     CLEAR gt_api_keys.
     DATA(lt_b64) = VALUE string_table(
-      ( `QUl6YVN5QnFDNG9lZDBTOC02MFpDREd4cmFhWVBqVGo1SHgwS3BB` )
-      ( `QVEuQWI4Uk42S2JiQmZCaHpEWlE0dHl0MDN4cWlaX3h4Tl9iSDRENjFvZTBaQWpfVnptVUE=` )
-      ( `QVEuQWI4Uk42THdFZ0dpUHJ5RlBJODVkR2VSb21idTFpb2t3R0JqYUtaLUNnRjFJQTRHRVE=` )
-      ( `QVEuQWI4Uk42THRSbXdaaWdwT05aNTUyQ1hCQlVTcG5tVmNqY1JrSzZEbldCekF1RlpOc2c=` )
-      ( `QVEuQWI4Uk42S1ZHaUdQWXhDZGJUTWhoYm9ydDhRU25jZHRvbDhabTRHR0U2bk40NFZ1M3c=` )
-      ( `QVEuQWI4Uk42TGhQeFo2blFHcVJkdnpUQVlaNjByUVVVamhPSDU4Ymxld2UzbkVTU05Kc0E=` )
+      ( `QVEuQWI4Uk42TEc3Wm9idV9RaUhIMWl1YkxWZEQxYWRuczYtV3ZmUjdjQm1TYnlRZGRHSlE=` )
+      ( `QVEuQWI4Uk42SWxqbWhDNmxkREhVdnJORWZBN0FZRHgxREpyd1BuMzFZRHhZdEVzQzZKcUE=` )
       ( `QVEuQWI4Uk42SU14MXM3akdJMUpIc1pNZjQ5QkxDd1ZjcEJibFpOSFBHSHpfVmQ1aVJYQ0E=` )
       ( `QVEuQWI4Uk42TG9xcl9MQkdoR3poeG90V3N0VTVlbFpnenVWd2tubi1XTXB3dzdxeUQtTHc=` )
-      ( `QUl6YVN5QjFzRjJRdGlTLVRSalFQVGxMdHVYMlc0RkkxQ3NObWYw` )
     ).
     LOOP AT lt_b64 INTO DATA(lv_b64).
       APPEND VALUE #( key_val = cl_http_utility=>decode_base64( lv_b64 ) ) TO gt_api_keys.
@@ -164,11 +159,10 @@ CLASS zcl_scort_ai_assistant IMPLEMENTATION.
     gv_current_key_idx = 1.
 
     gt_models = VALUE string_table(
-      ( `gemini-3.5-flash` )
-      ( `gemini-3-flash` )
-      ( `gemini-2.5-flash` )
-      ( `gemini-2.5-flash-lite` )
-      ( `antigravity` )
+      ( `gemini-3.8-flash` )
+      ( `gemini-3.7-flash` )
+      ( `gemini-3.6-flash` )
+      ( `gemini-3.5-flash-lite` )
     ).
   ENDMETHOD.
 
@@ -254,7 +248,7 @@ CLASS zcl_scort_ai_assistant IMPLEMENTATION.
       DATA(lv_mod_idx) = ( ( lv_start_idx - 1 + ( ( lv_attempts - 1 ) DIV lines( gt_api_keys ) ) ) MOD lines( gt_models ) ) + 1.
       READ TABLE gt_models INTO lv_model INDEX lv_mod_idx.
       IF sy-subrc <> 0.
-        lv_model = 'gemini-3.5-flash'.
+        lv_model = 'gemini-3.8-flash'.
       ENDIF.
 
       lv_url = 'https://generativelanguage.googleapis.com/v1beta/models/' && lv_model && ':generateContent?key=' && cl_http_utility=>escape_url( lv_key ).

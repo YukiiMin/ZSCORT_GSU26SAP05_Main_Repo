@@ -26,7 +26,17 @@ CLASS zcl_scort_r_src DEFINITION
         object_type TYPE trobjtype,
         object_name TYPE sobj_name,
         version_no  TYPE versno,
-      END OF ty_filters.
+      END OF ty_filters,
+      BEGIN OF ty_clas_comp,
+        id          TYPE string,
+        title       TYPE string,
+        kind        TYPE string,
+        include     TYPE string,
+        line_count  TYPE i,
+        has_content TYPE abap_bool,
+        source      TYPE string,
+      END OF ty_clas_comp,
+      tt_clas_comp TYPE STANDARD TABLE OF ty_clas_comp WITH DEFAULT KEY.
 
     METHODS select_source
       IMPORTING
@@ -69,6 +79,11 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
         EXPORTING io_request = io_request io_response = io_response
         CHANGING  ct_data = lt_entity ).
       RETURN.
+    ENDIF.
+
+    IF ls_filter-object_type = 'CLAS' AND ls_filter-object_name CS '='.
+      SPLIT ls_filter-object_name AT '=' INTO ls_filter-object_name DATA(lv_dummy_cln).
+      CONDENSE ls_filter-object_name.
     ENDIF.
 
     CLEAR ls_entity.
@@ -120,6 +135,29 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
               IF ls_entity-SrcHash IS INITIAL.
                 ls_entity-SrcHash = ls_tgt-hash_calc.
               ENDIF.
+              IF ls_filter-object_type = 'CLAS'.
+                DATA lt_tgt_comps TYPE tt_clas_comp.
+                APPEND VALUE #( id = 'CP' title = 'Global Class' kind = 'CLAS'
+                                include = |{ ls_filter-object_name WIDTH = 30 PAD = '=' }CP|
+                                line_count = ls_tgt-line_count
+                                has_content = abap_true
+                                source = ls_tgt-text ) TO lt_tgt_comps.
+                APPEND VALUE #( id = 'CCDEF' title = 'Class-relevant Local Types' kind = 'CCDEF'
+                                include = |{ ls_filter-object_name WIDTH = 30 PAD = '=' }CCDEF|
+                                has_content = abap_false ) TO lt_tgt_comps.
+                APPEND VALUE #( id = 'CCIMP' title = 'Local Types' kind = 'CCIMP'
+                                include = |{ ls_filter-object_name WIDTH = 30 PAD = '=' }CCIMP|
+                                has_content = abap_false ) TO lt_tgt_comps.
+                APPEND VALUE #( id = 'CCAU' title = 'Test Classes' kind = 'CCAU'
+                                include = |{ ls_filter-object_name WIDTH = 30 PAD = '=' }CCAU|
+                                has_content = abap_false ) TO lt_tgt_comps.
+                APPEND VALUE #( id = 'CCMAC' title = 'Macros' kind = 'CCMAC'
+                                include = |{ ls_filter-object_name WIDTH = 30 PAD = '=' }CCMAC|
+                                has_content = abap_false ) TO lt_tgt_comps.
+                ls_entity-MetadataText = /ui2/cl_json=>serialize(
+                                           data        = lt_tgt_comps
+                                           pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
+              ENDIF.
             ENDIF.
           ELSE.
             CLEAR: ls_entity-SourceCodeText, ls_entity-LineCount, ls_entity-SrcHash, ls_entity-MetadataText.
@@ -127,27 +165,11 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
         ELSE.
           IF ls_filter-version_no IS NOT INITIAL
               AND ls_filter-version_no <> zcl_scort_v_reader=>c_vers_active.
-            DATA lv_comp_inf TYPE string.
-            IF ls_filter-object_type = 'CLAS' AND ls_filter-object_name CS '========'.
-              DATA(lv_flen) = strlen( ls_filter-object_name ).
-              IF lv_flen >= 5 AND substring( val = ls_filter-object_name off = lv_flen - 5 len = 5 ) = 'CCDEF'.
-                lv_comp_inf = 'CCDEF'.
-              ELSEIF lv_flen >= 5 AND substring( val = ls_filter-object_name off = lv_flen - 5 len = 5 ) = 'CCIMP'.
-                lv_comp_inf = 'CCIMP'.
-              ELSEIF lv_flen >= 5 AND substring( val = ls_filter-object_name off = lv_flen - 5 len = 5 ) = 'CCMAC'.
-                lv_comp_inf = 'CCMAC'.
-              ELSEIF lv_flen >= 4 AND substring( val = ls_filter-object_name off = lv_flen - 4 len = 4 ) = 'CCAU'.
-                lv_comp_inf = 'CCAU'.
-              ELSE.
-                lv_comp_inf = 'CP'.
-              ENDIF.
-            ENDIF.
-
             DATA(ls_ver) = zcl_scort_v_reader=>read_version(
                              iv_object_type = ls_filter-object_type
                              iv_object_name = ls_filter-object_name
                              iv_version_no  = ls_filter-version_no
-                             iv_component   = lv_comp_inf ).
+                             iv_component   = 'CP' ).
             ls_entity-VersionNo = ls_ver-version_no.
             IF ls_filter-object_type = 'TABL' AND ls_ver-text CS '===SCORT_TABLE_DATA_START==='.
               SPLIT ls_ver-text AT '===SCORT_TABLE_DATA_START===' INTO DATA(lv_ddl_v) DATA(lv_data_v).
@@ -167,6 +189,20 @@ CLASS zcl_scort_r_src IMPLEMENTATION.
               ls_entity-SourceCodeText = ls_ver-text.
               ls_entity-LineCount      = ls_ver-line_count.
               ls_entity-SrcHash        = ls_ver-hash.
+              IF ls_filter-object_type = 'CLAS'.
+                DATA lv_clas_v_json TYPE string.
+                DATA lv_clas_v_ok   TYPE abap_bool.
+                zcl_scort_v_reader=>read_clas_components_version(
+                  EXPORTING
+                    iv_classname  = ls_filter-object_name
+                    iv_version_no = ls_filter-version_no
+                  IMPORTING
+                    ev_json       = lv_clas_v_json
+                    ev_ok         = lv_clas_v_ok ).
+                IF lv_clas_v_ok = abap_true.
+                  ls_entity-MetadataText = lv_clas_v_json.
+                ENDIF.
+              ENDIF.
             ENDIF.
             ls_entity-Message        = ls_ver-message.
           ELSE.

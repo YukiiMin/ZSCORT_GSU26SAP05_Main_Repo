@@ -57,14 +57,14 @@ sap.ui.define(
             midColumn: { fullScreen: false },
             endColumn: { fullScreen: false },
           },
-          aiModel: 'gemini-3.5-flash',
+          aiModel: 'gemini-3.8-flash',
           aiExecutionMode: 'BE_SAP',
         })
         var oMainModel = this.getModel()
         this.setModel(oAppModel, 'appView')
         this.setModel(
           new JSONModel({
-            aiModel: 'gemini-3.5-flash',
+            aiModel: 'gemini-3.8-flash',
             aiExecutionMode: 'BE_SAP',
           }),
           'detail'

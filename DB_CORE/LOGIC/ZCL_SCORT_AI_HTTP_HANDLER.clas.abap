@@ -16,6 +16,7 @@ CLASS zcl_scort_ai_http_handler DEFINITION
         targetCode  TYPE string,
         language    TYPE string,
         mode        TYPE zcl_scort_ai_assistant=>tv_mode,
+        model       TYPE string,
       END OF ty_request_payload.
 ENDCLASS.
 
@@ -82,6 +83,7 @@ CLASS zcl_scort_ai_http_handler IMPLEMENTATION.
             iv_target_code = ls_req-targetcode
             iv_lang        = ls_req-language
             iv_mode        = ls_req-mode
+            iv_model       = ls_req-model
           ).
         ELSEIF ls_req-action = 'TRANSPORT'.
           lv_resp_json = zcl_scort_ai_assistant=>review_transport(
@@ -91,6 +93,7 @@ CLASS zcl_scort_ai_http_handler IMPLEMENTATION.
             iv_target_code = ls_req-targetcode
             iv_lang        = ls_req-language
             iv_mode        = ls_req-mode
+            iv_model       = ls_req-model
           ).
         ELSE.
           server->response->set_status( code = 400 reason = 'Invalid Action' ).

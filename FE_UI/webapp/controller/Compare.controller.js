@@ -370,8 +370,10 @@ sap.ui.define([
         this._oGitDiffHost.setModel(this._mGitModel);
       }
 
-      // Also reload Version History for this specific Class component
-      this.onReloadVersions();
+      // If versions are currently compared in Monaco Editor, re-compare for newly selected sub-component
+      if (this._oVersDiffHost && oDetailModel && oDetailModel.getProperty("/showEditor") && this._oVersLeftMeta && this._oVersRightMeta) {
+        this.onComparePress();
+      }
     },
 
     onTabSelect: function (oEvent) {
@@ -448,7 +450,7 @@ sap.ui.define([
       var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
       var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
       var sMode = oDetailModel.getProperty("/aiExecutionMode") || "BE_SAP";
-      var sModel = oDetailModel.getProperty("/aiModel") || "gemini-3.5-flash";
+      var sModel = oDetailModel.getProperty("/aiModel") || "gemini-3.8-flash";
       var that = this;
 
       var byId = function (sId) {
@@ -500,10 +502,6 @@ sap.ui.define([
       var sServerType = oDetailModel.getProperty("/versionServerType") || "L";
       var sUri = this._mainServiceUri();
       var sFilter = "ServerType eq '" + sServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + this._sName.replace(/'/g, "''") + "'";
-      if (this._sType === "CLAS") {
-        var sActiveComp = oDetailModel.getProperty("/activeClassComponent") || "CP";
-        sFilter += " and SourceKind eq '" + sActiveComp + "'";
-      }
       var sUrl = sUri + "Version?$filter=" + sFilter;
 
       ValueHelp.fetchJson(sUrl, 12000).then(function (aItems) {
@@ -577,21 +575,7 @@ sap.ui.define([
       var sActiveComp = (sObjType === "CLAS" && oDetailModel) ? (oDetailModel.getProperty("/activeClassComponent") || "CP") : "CP";
 
       if (sObjType === "CLAS") {
-        if (sServerType === "L" && sVers !== "99998" && sVers !== "ACTIVE") {
-          var oSingleComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sActiveComp; });
-          if (oSingleComp && oSingleComp.include) {
-            sObjName = oSingleComp.include;
-          } else {
-            var sBase = (sObjName || "").trim().toUpperCase();
-            if (sBase.indexOf("=") === -1) {
-              sBase = sBase.padEnd(30, "=") + (sActiveComp || "CP").toUpperCase();
-            }
-            sObjName = sBase;
-          }
-        } else if (sServerType === "T") {
-          var sClean = (this._sName || oRowData.ObjectName || "").split("=")[0].trim();
-          sObjName = sClean;
-        }
+        sObjName = (this._sName || oRowData.ObjectName || "").split("=")[0].trim();
       }
 
       var oMeta = Object.assign({}, oRowData, {
@@ -650,18 +634,9 @@ sap.ui.define([
       var sObjNameL = this._sName;
       var sObjNameR = this._sName;
       if (this._sType === "CLAS") {
-        var oComp = (this._aClassLocalComps || []).find(function (c) { return c.id === sActiveComp; });
-        var sInc = (oComp && oComp.include) ? oComp.include : "";
-        if (!sInc) {
-          var sBase = (this._sName || "").trim().toUpperCase();
-          if (sBase.indexOf("=") === -1) {
-            sBase = sBase.padEnd(30, "=") + (sActiveComp || "CP").toUpperCase();
-          }
-          sInc = sBase;
-        }
         var sCleanBase = (this._sName || "").split("=")[0].trim();
-        sObjNameL = (oLeft.ServerType === 'L') ? sInc : sCleanBase;
-        sObjNameR = (oRight.ServerType === 'L') ? sInc : sCleanBase;
+        sObjNameL = sCleanBase;
+        sObjNameR = sCleanBase;
       }
 
       var sUrlLeft = sObjUri + "SourceCodeView?$filter=ServerType eq '" + oLeft.ServerType + "' and ObjectType eq '" + this._sType + "' and ObjectName eq '" + sObjNameL.replace(/'/g, "''") + "' and VersionNo eq '" + padVers(oLeft.VersionNo) + "'";
@@ -987,7 +962,7 @@ sap.ui.define([
       var oI18n = this.getOwnerComponent().getModel("i18n").getResourceBundle();
       var sLocale = (oI18n.sLocale || "en").split("_")[0].toLowerCase();
       var sMode = oDetailModel.getProperty("/aiExecutionMode") || "BE_SAP";
-      var sModel = oDetailModel.getProperty("/aiModel") || "gemini-3.5-flash";
+      var sModel = oDetailModel.getProperty("/aiModel") || "gemini-3.8-flash";
       var that = this;
 
       var byId = function (sId) {
@@ -1146,7 +1121,7 @@ sap.ui.define([
       var sModel = oDetailModel ? oDetailModel.getProperty("/aiModel") : null;
       if (!sModel) {
         var oSb = this.byId("sbAiModel");
-        sModel = (oSb && oSb.getSelectedKey()) || "gemini-3.5-flash";
+        sModel = (oSb && oSb.getSelectedKey()) || "gemini-3.8-flash";
       }
       return sModel;
     },
