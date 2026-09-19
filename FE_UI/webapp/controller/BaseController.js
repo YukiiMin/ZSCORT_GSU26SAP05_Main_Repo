@@ -123,6 +123,7 @@ sap.ui.define([
       setProp("viewSourceCode", "");
       setProp("viewSourceMetaData", oMetaData || {}); // Store metadata passed by callers
       this._pendingSourceCode = null;
+      this._fullClassSource = null;
       this._pendingObjType = sObjType;
 
       if (!this._oSourceDialog) {
@@ -359,7 +360,9 @@ sap.ui.define([
             aClassComponents = null;
           }
         }
-        that._fullClassSource = that._pendingSourceCode;
+        var sVersRaw = that.padVers(oM.getProperty("/viewSourceRawVersionNo") || oM.getProperty("/viewSourceVersionNo"));
+        var bIsHistorical = sVersRaw && sVersRaw !== "ACTIVE" && sVersRaw !== "99998";
+        that._fullClassSource = bIsHistorical ? null : that._pendingSourceCode;
         setProp("viewSourceClassComponents", aClassComponents || []);
         var sInitialComp = (oM && oM.getProperty("/viewSourceMetaData") && oM.getProperty("/viewSourceMetaData").preferredComponent) || "CP";
         setProp("viewSourceActiveComponent", sInitialComp);
@@ -367,12 +370,25 @@ sap.ui.define([
           var oChosen = aClassComponents.find(function (c) { return c.id === sInitialComp; }) || aClassComponents[0];
           setProp("viewSourceComponentHasContent", oChosen.hasContent !== false && !!oChosen.source);
           if (sInitialComp === "CP") {
-            that._pendingSourceCode = (oChosen && oChosen.source) || that._fullClassSource || "";
+            that._pendingSourceCode = (oChosen && oChosen.source) || (bIsHistorical ? "" : that._fullClassSource) || "";
           } else {
             that._pendingSourceCode = (oChosen && oChosen.source) || "";
           }
         } else {
           setProp("viewSourceComponentHasContent", !!that._pendingSourceCode);
+        }
+
+        if (bIsHistorical && !that._pendingSourceCode) {
+          var sNoteMsg = (oData && oData.Message) ? oData.Message : ("Version " + sVersRaw + " has no archived source in VRSD.");
+          that._pendingSourceCode = "* ==========================================================================\n" +
+            "* NO ARCHIVED SOURCE CODE FOUND IN VRSD FOR VERSION " + sVersRaw + "\n" +
+            "* ==========================================================================\n" +
+            "* Object: CLAS " + (oM.getProperty("/viewSourceName") || "") + "\n" +
+            "* Version: " + sVersRaw + "\n" +
+            "*\n" +
+            "* Detail: " + sNoteMsg + "\n" +
+            "* ==========================================================================";
+          setProp("viewSourceComponentHasContent", false);
         }
 
         var oClassTabs = null;
@@ -480,14 +496,19 @@ sap.ui.define([
       var oComp = aComps.find(function (c) { return c.id === sKey; });
       oApp.setProperty("/viewSourceActiveComponent", sKey);
 
+      var sVersRaw = this.padVers(oApp.getProperty("/viewSourceRawVersionNo") || oApp.getProperty("/viewSourceVersionNo"));
+      var bIsHistorical = sVersRaw && sVersRaw !== "ACTIVE" && sVersRaw !== "99998";
       var sSource = "";
       var bHasContent = true;
       if (sKey === "CP") {
-        sSource = (oComp && oComp.source) || this._fullClassSource || this._pendingSourceCode || "";
-        bHasContent = !!sSource;
+        sSource = (oComp && oComp.source) || (bIsHistorical ? "" : this._fullClassSource) || "";
+        if (!sSource && bIsHistorical) {
+          sSource = "* Sub-component Global Class (CP) has no archived source in VRSD for version " + sVersRaw + ".\n";
+        }
+        bHasContent = !!(oComp && oComp.source);
       } else if (oComp) {
         bHasContent = oComp.hasContent !== false && !!oComp.source;
-        sSource = oComp.source || "";
+        sSource = oComp.source || ("* Sub-component " + sKey + " has no archived source in VRSD for version " + sVersRaw + ".\n");
       } else {
         bHasContent = false;
         sSource = "* Sub-component " + sKey + " is not defined or empty in this version.\n";

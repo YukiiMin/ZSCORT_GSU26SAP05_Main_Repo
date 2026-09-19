@@ -40,7 +40,7 @@
 - **Root Cause**: Event handler của button gán nhầm action navigation thay vì gọi controller mở fragment dialog `ApplyToTargetDialog`.
 - **Giải Pháp Khắc Phục**:
   - Gán lại action handler trong `TrTree.controller.js` và `TrSearch.controller.js`.
-  - Khởi tạo và nạp `ApplyToTargetDialog.fragment.xml`, liên kết danh sách object với checkbox lựa chọn và trạng thái trước khi cho phép kích hoạt `ZCL026_SCORT_TARGET_APPLY`.
+  - Khởi tạo và nạp `ApplyToTargetDialog.fragment.xml`, liên kết danh sách object với checkbox lựa chọn và trạng thái trước khi cho phép kích hoạt `ZCL_SCORT_TARGET_APPLY`.
 - **Bằng Chứng Trong Workbook**: Sheet `Issue 2` (Chứa 5 ảnh minh chứng quy trình thao tác và hiển thị modal đối chiếu).
 
 ---

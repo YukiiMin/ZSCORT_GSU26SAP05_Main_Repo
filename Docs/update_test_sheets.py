@@ -221,7 +221,7 @@ def run_update():
             "2. Click 'Release Task' button in toolbar or detail header.\n"
             "3. Confirm release action in dialog.",
             "Child Task: 'S40K920014' (Status: Modifiable 'D', Type: Development/Correction)\n"
-            "Service: ZCL026_SCORT_RELEASE_SERVICE",
+            "Service: ZCL_SCORT_RELEASE_SERVICE",
             "1. SAP CTS release API executes for Task S40K920014.\n"
             "2. Status updates from 'D' (Modifiable) to 'R' (Released).\n"
             "3. Task status icon changes to green checked badge in UI."
@@ -450,7 +450,7 @@ def run_update():
             "2. Wait for deployment completion.",
             "Confirmation: 'Yes / Proceed'\n"
             "Target System: Target Client 324 (Buffer tables za05_scort_t, za05_scort_t_src)\n"
-            "Service: ZCL026_SCORT_TARGET_APPLY",
+            "Service: ZCL_SCORT_TARGET_APPLY",
             "1. Target system applies the selected objects.\n"
             "2. Invariant C4 enforced: Version roll-forward reads from VRSD, increments MAX(version_no) + 1, and logs audit trail in source tracking table.\n"
             "3. Matrix status for the 2 objects updates from DIFF to SYNC with green success notification."

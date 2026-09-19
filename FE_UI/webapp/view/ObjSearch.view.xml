@@ -173,7 +173,6 @@
                     <ToolbarSpacer />
                     <BusyIndicator size="1rem" visible="{objSearch>/loadingMoreLocal}" class="sapUiTinyMarginEnd" />
                     <Label text="{= ${objSearch>/countLocal} + ' object(s)'}" class="sapUiTinyMarginEnd" />
-                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportLocalPress" />
                   </OverflowToolbar>
                   <table:Table id="idLocalTable"
                     busy="{objSearch>/busyLocal}"
@@ -253,7 +252,6 @@
                     <ToolbarSpacer />
                     <BusyIndicator size="1rem" visible="{objSearch>/loadingMoreTarget}" class="sapUiTinyMarginEnd" />
                     <Label text="{= ${objSearch>/countTarget} + ' object(s)'}" class="sapUiTinyMarginEnd" />
-                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onButtonExportTargetPress" />
                   </OverflowToolbar>
                   <table:Table id="idTargetTable"
                     busy="{objSearch>/busyTarget}"

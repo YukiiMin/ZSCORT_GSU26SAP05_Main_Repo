@@ -1,4 +1,4 @@
-CLASS zcl026_scort_target_apply DEFINITION
+CLASS zcl_scort_target_apply DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC .
@@ -43,7 +43,7 @@ CLASS zcl026_scort_target_apply DEFINITION
 ENDCLASS.
 
 
-CLASS zcl026_scort_target_apply IMPLEMENTATION.
+CLASS zcl_scort_target_apply IMPLEMENTATION.
 
   METHOD apply_to_target.
     DATA: lt_catalog_modify  TYPE TABLE OF za05_scort_t,

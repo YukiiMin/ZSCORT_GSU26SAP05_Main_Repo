@@ -25,7 +25,7 @@ FUNCTION z_scort_tr_release_local
   lv_dialog = boolc( iv_dialog IS NOT INITIAL ).
 
   TRY.
-      zcl026_scort_release_service=>process_release(
+      zcl_scort_release_service=>process_release(
         EXPORTING
           iv_trkorr  = iv_trkorr
           iv_dialog  = lv_dialog

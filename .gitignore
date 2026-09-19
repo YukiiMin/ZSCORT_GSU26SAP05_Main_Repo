@@ -21,5 +21,6 @@ pha_hoai_cho_vui/
 run_converter.bat
 .gitignore_scort
 ~$*
-
+Docs/
+test_*
 

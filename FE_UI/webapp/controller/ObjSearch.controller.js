@@ -787,14 +787,6 @@ sap.ui.define([
       });
     },
 
-    onButtonExportLocalPress: function () {
-      MessageToast.show("Export Local — TODO: use sap.ui.export.Spreadsheet");
-    },
-
-    onButtonExportTargetPress: function () {
-      MessageToast.show("Export Target — TODO: use sap.ui.export.Spreadsheet");
-    },
-
     formatExistenceState: function (sStatus) {
       switch ((sStatus || "").toUpperCase()) {
         case "BOTH":        return ValueState.Success;

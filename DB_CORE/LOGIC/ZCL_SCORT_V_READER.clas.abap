@@ -575,7 +575,7 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       TRY.
           CASE lv_comp.
             WHEN 'CP'.
-              lv_actual_name = cl_oo_classname_service=>get_classpool_name( lv_cname ).
+              lv_actual_name = lv_cname.
             WHEN 'CCDEF'.
               lv_actual_name = cl_oo_classname_service=>get_ccdef_name( lv_cname ).
             WHEN 'CCIMP'.
@@ -588,7 +588,11 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
               lv_actual_name = |{ lv_cname WIDTH = 30 PAD = '=' }{ lv_comp }|.
           ENDCASE.
         CATCH cx_root.
-          lv_actual_name = |{ lv_cname WIDTH = 30 PAD = '=' }{ lv_comp }|.
+          IF lv_comp = 'CP'.
+            lv_actual_name = lv_cname.
+          ELSE.
+            lv_actual_name = |{ lv_cname WIDTH = 30 PAD = '=' }{ lv_comp }|.
+          ENDIF.
       ENDTRY.
 
       DATA lv_pat_eq TYPE vrsd-objname.
@@ -626,9 +630,10 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
         SORT lt_fb_tr BY as4date ASCENDING as4time ASCENDING.
         DATA lv_idx_fb TYPE i.
+        DATA ls_chosen_tr TYPE ty_tr_hist.
         lv_idx_fb = CONV i( lv_vers_pad ).
         IF lv_idx_fb > 0 AND lv_idx_fb <= lines( lt_fb_tr ).
-          DATA(ls_chosen_tr) = lt_fb_tr[ lv_idx_fb ].
+          ls_chosen_tr = lt_fb_tr[ lv_idx_fb ].
           SELECT objtype, objname, versno, author, datum, zeit, korrnum
             FROM vrsd
             WHERE korrnum = @ls_chosen_tr-trkorr
@@ -641,11 +646,17 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
+      IF ls_chosen_tr-trkorr IS NOT INITIAL AND lt_vrsd_hits IS INITIAL.
+        rs_source-found   = abap_false.
+        rs_source-message = |Version { iv_version_no } (TR { ls_chosen_tr-trkorr }): No snapshot archived in VRSD.|.
+        RETURN.
+      ENDIF.
+
       IF lt_vrsd_hits IS NOT INITIAL.
         LOOP AT lt_vrsd_hits INTO DATA(ls_hit).
           CASE lv_comp.
             WHEN 'CP'.
-              IF ls_hit-objname CS 'CP' AND ls_hit-objtype = 'REPS'.
+              IF ls_hit-objtype = 'CLAS'.
                 ls_vrsd_chosen = ls_hit.
                 EXIT.
               ENDIF.
@@ -674,7 +685,7 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
 
         IF ls_vrsd_chosen-objtype IS INITIAL.
           LOOP AT lt_vrsd_hits INTO ls_hit.
-            IF lv_comp = 'CP' AND ( ls_hit-objtype = 'CLAS' OR ls_hit-objname CS 'CP' ).
+            IF lv_comp = 'CP' AND ls_hit-objtype = 'CLAS'.
               ls_vrsd_chosen = ls_hit.
               EXIT.
             ELSEIF lv_comp <> 'CP' AND ls_hit-objname CS lv_comp.
@@ -685,25 +696,43 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
         ENDIF.
 
         IF ls_vrsd_chosen-objtype IS INITIAL.
-          ls_vrsd_chosen = lt_vrsd_hits[ 1 ].
+          IF lv_comp = 'CP'.
+            ls_vrsd_chosen-objtype = 'CLAS'.
+            ls_vrsd_chosen-objname = lv_cname.
+            ls_vrsd_chosen-versno  = lt_vrsd_hits[ 1 ]-versno.
+          ELSE.
+            ls_vrsd_chosen = lt_vrsd_hits[ 1 ].
+          ENDIF.
         ENDIF.
 
         lv_vrs_type    = ls_vrsd_chosen-objtype.
         lv_actual_name = ls_vrsd_chosen-objname.
       ELSE.
-        lv_vrs_type = 'REPS'.
+        IF lv_comp = 'CP'.
+          lv_vrs_type    = 'CLAS'.
+          lv_actual_name = lv_cname.
+        ELSE.
+          lv_vrs_type = 'REPS'.
+        ENDIF.
       ENDIF.
     ELSE.
       lv_vrs_type = map_vrs_objtype(
                       iv_object_type = iv_object_type
                       iv_object_name = lv_actual_name ).
     ENDIF.
+
+    DATA lv_final_versno TYPE versno.
+    lv_final_versno = iv_version_no.
+    IF ls_vrsd_chosen-versno IS NOT INITIAL.
+      lv_final_versno = ls_vrsd_chosen-versno.
+    ENDIF.
+
     read_version_content(
       EXPORTING
         iv_object_type = iv_object_type
         iv_vrs_type    = lv_vrs_type
         iv_object_name = lv_actual_name
-        iv_version_no  = iv_version_no
+        iv_version_no  = lv_final_versno
       IMPORTING
         et_lines       = lt_lines
         ev_ok          = lv_ok
@@ -976,19 +1005,196 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     ENDIF.
     CONDENSE lv_cname.
 
-    ls_ver = read_version(
-               iv_object_type = 'CLAS'
-               iv_object_name = lv_cname
-               iv_version_no  = iv_version_no
-               iv_component   = 'CP' ).
+    DATA lv_vers_pad     TYPE versno.
+    DATA lv_snap_korrnum TYPE trkorr.
+    DATA lv_snap_datum   TYPE datum.
+    DATA lv_snap_zeit    TYPE uzeit.
+    DATA lv_pat_eq       TYPE vrsd-objname.
+    DATA lv_pat_sp       TYPE vrsd-objname.
 
+    lv_vers_pad = iv_version_no.
+    CALL FUNCTION 'CONVERSION_EXIT_ALPHA_INPUT'
+      EXPORTING
+        input  = iv_version_no
+      IMPORTING
+        output = lv_vers_pad.
+
+    lv_pat_eq = |{ lv_cname }=%|.
+    lv_pat_sp = |{ lv_cname } %|.
+
+    SELECT SINGLE korrnum, datum, zeit FROM vrsd
+      WHERE ( versno = @iv_version_no OR versno = @lv_vers_pad )
+        AND ( objname = @lv_cname
+           OR objname LIKE @lv_pat_eq
+           OR objname LIKE @lv_pat_sp )
+      INTO (@lv_snap_korrnum, @lv_snap_datum, @lv_snap_zeit). "#EC CI_BUFFJOIN
+
+    IF lv_snap_korrnum IS INITIAL.
+      DATA lt_snap_tr TYPE tt_tr_hist.
+      SELECT DISTINCT h~trkorr, h~as4user, h~as4date, h~as4time
+        FROM e071 AS o
+        INNER JOIN e070 AS h ON h~trkorr = o~trkorr
+        WHERE ( o~pgmid = 'R3TR' OR o~pgmid = 'LIMU' )
+          AND ( o~obj_name = @lv_cname OR o~obj_name LIKE @lv_pat_eq OR o~obj_name LIKE @lv_pat_sp )
+          AND h~trstatus = 'R'
+        INTO CORRESPONDING FIELDS OF TABLE @lt_snap_tr.
+
+      SORT lt_snap_tr BY as4date ASCENDING as4time ASCENDING.
+      DATA lv_idx_snap TYPE i.
+      lv_idx_snap = CONV i( lv_vers_pad ).
+      IF lv_idx_snap > 0 AND lv_idx_snap <= lines( lt_snap_tr ).
+        DATA ls_snap_chosen TYPE ty_tr_hist.
+        ls_snap_chosen  = lt_snap_tr[ lv_idx_snap ].
+        lv_snap_korrnum = ls_snap_chosen-trkorr.
+        lv_snap_datum   = ls_snap_chosen-as4date.
+        lv_snap_zeit    = ls_snap_chosen-as4time.
+      ENDIF.
+    ENDIF.
+
+    DATA lv_ccdef_name TYPE sobj_name.
+    DATA lv_ccimp_name TYPE sobj_name.
+    DATA lv_ccau_name  TYPE sobj_name.
+    DATA lv_ccmac_name TYPE sobj_name.
+
+    TRY.
+        lv_ccdef_name = cl_oo_classname_service=>get_ccdef_name( lv_cname ).
+      CATCH cx_root.
+        lv_ccdef_name = |{ lv_cname WIDTH = 30 PAD = '=' }CCDEF|.
+    ENDTRY.
+    TRY.
+        lv_ccimp_name = cl_oo_classname_service=>get_ccimp_name( lv_cname ).
+      CATCH cx_root.
+        lv_ccimp_name = |{ lv_cname WIDTH = 30 PAD = '=' }CCIMP|.
+    ENDTRY.
+    TRY.
+        lv_ccau_name = cl_oo_classname_service=>get_ccau_name( lv_cname ).
+      CATCH cx_root.
+        lv_ccau_name = |{ lv_cname WIDTH = 30 PAD = '=' }CCAU|.
+    ENDTRY.
+    TRY.
+        lv_ccmac_name = cl_oo_classname_service=>get_ccmac_name( lv_cname ).
+      CATCH cx_root.
+        lv_ccmac_name = |{ lv_cname WIDTH = 30 PAD = '=' }CCMAC|.
+    ENDTRY.
+
+    DATA lv_ccdef_vno TYPE versno.
+    DATA lv_ccimp_vno TYPE versno.
+
+    IF lv_snap_korrnum IS NOT INITIAL.
+      SELECT SINGLE versno FROM vrsd
+        WHERE objname = @lv_ccdef_name AND korrnum = @lv_snap_korrnum
+        INTO @lv_ccdef_vno. "#EC CI_SGLSELECT
+      SELECT SINGLE versno FROM vrsd
+        WHERE objname = @lv_ccimp_name AND korrnum = @lv_snap_korrnum
+        INTO @lv_ccimp_vno. "#EC CI_SGLSELECT
+    ENDIF.
+
+    IF lv_ccdef_vno IS INITIAL AND lv_snap_datum IS NOT INITIAL.
+      SELECT versno FROM vrsd
+        WHERE objname = @lv_ccdef_name
+          AND ( datum < @lv_snap_datum
+             OR ( datum = @lv_snap_datum AND zeit <= @lv_snap_zeit ) )
+        ORDER BY datum DESCENDING, zeit DESCENDING
+        INTO @lv_ccdef_vno
+        UP TO 1 ROWS.
+      ENDSELECT.
+    ENDIF.
+
+    IF lv_ccimp_vno IS INITIAL AND lv_snap_datum IS NOT INITIAL.
+      SELECT versno FROM vrsd
+        WHERE objname = @lv_ccimp_name
+          AND ( datum < @lv_snap_datum
+             OR ( datum = @lv_snap_datum AND zeit <= @lv_snap_zeit ) )
+        ORDER BY datum DESCENDING, zeit DESCENDING
+        INTO @lv_ccimp_vno
+        UP TO 1 ROWS.
+      ENDSELECT.
+    ENDIF.
+
+    DATA ls_ccdef_ver TYPE ty_source.
+    DATA ls_ccimp_ver TYPE ty_source.
+
+    IF lv_ccdef_vno IS NOT INITIAL.
+      ls_ccdef_ver = read_version(
+                       iv_object_type = 'CLAS'
+                       iv_object_name = lv_cname
+                       iv_version_no  = lv_ccdef_vno
+                       iv_component   = 'CCDEF' ).
+    ENDIF.
+
+    IF lv_ccimp_vno IS NOT INITIAL.
+      ls_ccimp_ver = read_version(
+                       iv_object_type = 'CLAS'
+                       iv_object_name = lv_cname
+                       iv_version_no  = lv_ccimp_vno
+                       iv_component   = 'CCIMP' ).
+    ENDIF.
+
+    DATA lv_clas_vno TYPE versno.
+    DATA lt_cp_lines TYPE ty_string_tab.
+    DATA lv_cp_ok    TYPE abap_bool.
+    DATA lv_cp_msg   TYPE string.
+    DATA lv_cp_text  TYPE string.
+
+    IF lv_snap_korrnum IS NOT INITIAL.
+      SELECT SINGLE versno FROM vrsd
+        WHERE objtype = 'CLAS' AND objname = @lv_cname AND korrnum = @lv_snap_korrnum
+        INTO @lv_clas_vno. "#EC CI_SGLSELECT
+    ENDIF.
+
+    IF lv_clas_vno IS INITIAL.
+      SELECT SINGLE versno FROM vrsd
+        WHERE objtype = 'CLAS' AND objname = @lv_cname
+          AND ( versno = @iv_version_no OR versno = @lv_vers_pad )
+        INTO @lv_clas_vno. "#EC CI_SGLSELECT
+    ENDIF.
+
+    IF lv_clas_vno IS INITIAL AND lv_snap_datum IS NOT INITIAL.
+      SELECT versno FROM vrsd
+        WHERE objtype = 'CLAS' AND objname = @lv_cname
+          AND ( datum < @lv_snap_datum
+             OR ( datum = @lv_snap_datum AND zeit <= @lv_snap_zeit ) )
+        ORDER BY datum DESCENDING, zeit DESCENDING
+        INTO @lv_clas_vno
+        UP TO 1 ROWS.
+      ENDSELECT.
+    ENDIF.
+
+    IF lv_clas_vno IS INITIAL.
+      lv_clas_vno = iv_version_no.
+    ENDIF.
+
+    read_version_content(
+      EXPORTING
+        iv_object_type = 'CLAS'
+        iv_vrs_type    = 'CLAS'
+        iv_object_name = lv_cname
+        iv_version_no  = lv_clas_vno
+      IMPORTING
+        et_lines       = lt_cp_lines
+        ev_ok          = lv_cp_ok
+        ev_message     = lv_cp_msg ).
+
+    IF lv_cp_ok = abap_true AND lt_cp_lines IS NOT INITIAL.
+      lv_cp_text = zcl_scort_hash_utl=>lines_to_text( lt_cp_lines ).
+    ELSE.
+      DATA ls_cp_fb TYPE ty_source.
+      ls_cp_fb = read_version(
+                   iv_object_type = 'CLAS'
+                   iv_object_name = lv_cname
+                   iv_version_no  = iv_version_no
+                   iv_component   = 'CP' ).
+      lv_cp_text = ls_cp_fb-text.
+    ENDIF.
+
+    CLEAR ls_comp.
     ls_comp-id          = 'CP'.
     ls_comp-title       = 'Global Class'.
     ls_comp-kind        = 'CLAS'.
     ls_comp-include     = |{ lv_cname WIDTH = 30 PAD = '=' }CP|.
-    ls_comp-line_count  = ls_ver-line_count.
-    ls_comp-has_content = boolc( ls_ver-found = abap_true AND ls_ver-text IS NOT INITIAL ).
-    ls_comp-source      = ls_ver-text.
+    ls_comp-line_count  = lines( zcl_scort_hash_utl=>text_to_lines( lv_cp_text ) ).
+    ls_comp-has_content = boolc( lv_cp_text IS NOT INITIAL ).
+    ls_comp-source      = lv_cp_text.
     APPEND ls_comp TO lt_comps.
 
     lt_inc_defs = VALUE #(
@@ -1004,26 +1210,47 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       ls_comp-title = ls_def-title.
       ls_comp-kind  = ls_def-kind.
 
-      TRY.
-          CASE ls_def-id.
-            WHEN 'CCDEF'.
-              lv_inc = cl_oo_classname_service=>get_ccdef_name( lv_cname ).
-            WHEN 'CCIMP'.
-              lv_inc = cl_oo_classname_service=>get_ccimp_name( lv_cname ).
-            WHEN 'CCAU'.
-              lv_inc = cl_oo_classname_service=>get_ccau_name( lv_cname ).
-            WHEN 'CCMAC'.
-              lv_inc = cl_oo_classname_service=>get_ccmac_name( lv_cname ).
-          ENDCASE.
-        CATCH cx_root.
-          lv_inc = |{ lv_cname WIDTH = 30 PAD = '=' }{ ls_def-id }|.
-      ENDTRY.
+      CASE ls_def-id.
+        WHEN 'CCDEF'.
+          lv_inc = lv_ccdef_name.
+        WHEN 'CCIMP'.
+          lv_inc = lv_ccimp_name.
+        WHEN 'CCAU'.
+          lv_inc = lv_ccau_name.
+        WHEN 'CCMAC'.
+          lv_inc = lv_ccmac_name.
+      ENDCASE.
       ls_comp-include = lv_inc.
+
+      DATA lv_comp_vno TYPE versno.
+      CLEAR lv_comp_vno.
+
+      IF lv_snap_korrnum IS NOT INITIAL.
+        SELECT SINGLE versno FROM vrsd
+          WHERE objname = @lv_inc AND korrnum = @lv_snap_korrnum
+          INTO @lv_comp_vno. "#EC CI_SGLSELECT
+      ENDIF.
+
+      IF lv_comp_vno IS INITIAL AND lv_snap_datum IS NOT INITIAL.
+        SELECT versno FROM vrsd
+          WHERE objname = @lv_inc
+            AND ( datum < @lv_snap_datum
+               OR ( datum = @lv_snap_datum AND zeit <= @lv_snap_zeit ) )
+          ORDER BY datum DESCENDING, zeit DESCENDING
+          INTO @lv_comp_vno
+          UP TO 1 ROWS.
+        ENDSELECT.
+      ENDIF.
+
+      DATA lv_read_vno TYPE versno.
+      lv_read_vno = COND versno( WHEN lv_comp_vno IS NOT INITIAL
+                                 THEN lv_comp_vno
+                                 ELSE iv_version_no ).
 
       ls_ver = read_version(
                  iv_object_type = 'CLAS'
                  iv_object_name = lv_cname
-                 iv_version_no  = iv_version_no
+                 iv_version_no  = lv_read_vno
                  iv_component   = ls_def-id ).
 
       ls_comp-line_count  = ls_ver-line_count.
@@ -1054,7 +1281,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     ENDIF.
     CONDENSE lv_clean_cname.
 
-    " 1. Check if REPS has full unified source (ADT style)
     ASSIGN COMPONENT 'REPS' OF STRUCTURE is_object TO <ls_part>.
     IF sy-subrc = 0 AND <ls_part> IS ASSIGNED AND <ls_part> IS NOT INITIAL.
       extract_text_from_any( EXPORTING is_any = <ls_part> CHANGING ct_lines = rt_lines ).
@@ -1067,14 +1293,16 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
             EXIT.
           ENDIF.
         ENDLOOP.
-        IF lv_first_block CS 'CLASS' AND lv_first_block CS 'DEFINITION'.
+        IF to_upper( lv_first_block ) CS 'CLASS'
+           AND to_upper( lv_first_block ) CS 'DEFINITION'
+           AND NOT ( to_upper( lv_first_block ) CS 'CLASS-POOL' )
+           AND NOT ( to_upper( lv_first_block ) CS 'INCLUDE' ).
           RETURN.
         ENDIF.
       ENDIF.
       CLEAR rt_lines.
     ENDIF.
 
-    " 2. Reconstruct from SAP GUI modular sections (CPUB, CPRO, CPRI, METH)
     CLEAR lt_part_lines.
     ASSIGN COMPONENT 'CPUB' OF STRUCTURE is_object TO <ls_part>.
     IF sy-subrc = 0 AND <ls_part> IS ASSIGNED.
@@ -1101,7 +1329,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       ENDLOOP.
     ENDIF.
 
-    " Protected Section
     CLEAR lt_part_lines.
     ASSIGN COMPONENT 'CPRO' OF STRUCTURE is_object TO <ls_part>.
     IF sy-subrc = 0 AND <ls_part> IS ASSIGNED.
@@ -1116,7 +1343,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       ENDIF.
     ENDIF.
 
-    " Private Section
     CLEAR lt_part_lines.
     ASSIGN COMPONENT 'CPRI' OF STRUCTURE is_object TO <ls_part>.
     IF sy-subrc = 0 AND <ls_part> IS ASSIGNED.
@@ -1134,7 +1360,6 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
     APPEND |ENDCLASS.| TO rt_lines.
     APPEND || TO rt_lines.
 
-    " Implementation Section from METH
     APPEND |CLASS { lv_clean_cname } IMPLEMENTATION.| TO rt_lines.
     ASSIGN COMPONENT 'METH' OF STRUCTURE is_object TO <ls_part>.
     IF sy-subrc = 0 AND <ls_part> IS ASSIGNED.

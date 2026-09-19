@@ -1,4 +1,4 @@
-CLASS zcl026_scort_release_service DEFINITION
+CLASS zcl_scort_release_service DEFINITION
   PUBLIC
   FINAL
   CREATE PUBLIC .
@@ -27,7 +27,7 @@ CLASS zcl026_scort_release_service DEFINITION
         ev_status       TYPE trstatus
         ev_message      TYPE string.
 ENDCLASS.
-CLASS zcl026_scort_release_service IMPLEMENTATION.
+CLASS zcl_scort_release_service IMPLEMENTATION.
 
   METHOD check_inactive_objects.
     CLEAR rt_inactive.

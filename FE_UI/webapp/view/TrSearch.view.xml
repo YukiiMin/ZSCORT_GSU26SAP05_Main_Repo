@@ -357,7 +357,6 @@
                     <Label text="{= ${trSearch>/countFlat} + ' object(s)'}" class="sapUiTinyMarginEnd" />
                     <Button icon="sap-icon://action-settings" tooltip="{i18n>btnTableSettings}" press=".onOpenFlatTableSettings" type="Transparent" />
                     <Button icon="sap-icon://refresh" tooltip="{i18n>btnResetLayout}" press=".onResetFlatTableLayout" type="Transparent" />
-                    <Button icon="sap-icon://excel-attachment" tooltip="Export" press=".onExportFlat" type="Transparent" />
                   </OverflowToolbar>
 
                   <table:Table id="tblFlat"

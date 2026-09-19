@@ -22,7 +22,7 @@ FUNCTION z_scort_tr_apply_local
     RETURN.
   ENDIF.
 
-  DATA lt_selected TYPE zcl026_scort_target_apply=>tt_selected_objs.
+  DATA lt_selected TYPE zcl_scort_target_apply=>tt_selected_objs.
   IF iv_objects_json IS NOT INITIAL.
     IF iv_objects_json CS '{' OR iv_objects_json CS '['.
       /ui2/cl_json=>deserialize(
@@ -40,7 +40,7 @@ FUNCTION z_scort_tr_apply_local
   ENDIF.
 
   TRY.
-      zcl026_scort_target_apply=>apply_to_target(
+      zcl_scort_target_apply=>apply_to_target(
         EXPORTING
           iv_parent_trkorr    = iv_trkorr
           it_selected_objects = lt_selected

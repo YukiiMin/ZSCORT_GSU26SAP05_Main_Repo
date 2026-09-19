@@ -1134,10 +1134,6 @@ sap.ui.define([
       });
     },
 
-    onExportFlat: function () {
-      MessageToast.show("Export — TODO: sap.ui.export.Spreadsheet");
-    },
-
     /**
      * Prefer eq / startswith — avoid OData contains() which RAP custom entity
      * often cannot convert to ranges (empty result / HTTP 500).

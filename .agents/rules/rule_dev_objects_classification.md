@@ -29,7 +29,7 @@ Internal metadata / registration objects (e.g. `APIS`, `IWMO`, `IWSG`, `IWVB`, `
 3. In Compare view, set `compareMode = 'form'` and render side-by-side ADT form comparisons.
 
 ## 4. ABAP Class (`CLAS`) Versioning & ADT Parity Standards
-1. **Source Model**: Adhere 100% to ADT 5-include pool architecture (`CP`, `CCDEF`, `CCIMP`, `CCAU`, `CCMAC`).
-2. **VRSD Invariant**: Always query `VRSD` using `OBJTYPE = 'REPS'` and `OBJNAME = cl_oo_classname_service=>get_<include>_name( class_name )`.
-3. **No Metadata Fallback**: Strictly forbid attempting to parse or map to SAP GUI SE24 fragmented metadata sub-objects (`CPUB`, `CPRO`, `CPRI`, `CLSD`). All version text must come from the `REPS` pool to guarantee full definition and implementation parity with ADT Eclipse.
+1. **Source Model**: Adhere 100% to ADT 5-component architecture (`CP` Global Class, `CCDEF` Local Definitions, `CCIMP` Local Implementations, `CCAU` Test Classes, `CCMAC` Macros).
+2. **Global Class (`CP`) Resolution**: Query `VRSD` under `OBJTYPE = 'CLAS'` using the snapshot version. Use `SVRS_GET_VERSION` and `reconstruct_clas_source` (`CPUB` Public, `CPRO` Protected, `CPRI` Private, `METH` Methods) to construct the complete ADT-compliant source code. The `=CP` `REPS` include only contains 28 lines of include statements and must never be treated as the global class source.
+3. **Sub-Includes Resolution**: Sub-components (`CCDEF`, `CCIMP`, `CCAU`, `CCMAC`) are retrieved under `OBJTYPE = 'REPS'` using `cl_oo_classname_service=>get_<include>_name( class_name )`.
 
