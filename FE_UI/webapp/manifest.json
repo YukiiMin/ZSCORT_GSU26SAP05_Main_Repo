@@ -137,12 +137,6 @@
       },
       "routes": [
         {
-          "pattern": "login",
-          "name": "login",
-          "target": ["login"],
-          "layout": "OneColumn"
-        },
-        {
           "pattern": "",
           "name": "home",
           "target": ["objSearch"],
@@ -192,13 +186,6 @@
         }
       ],
       "targets": {
-        "login": {
-          "viewName": "Login",
-          "type": "View",
-          "id": "loginView",
-          "controlAggregation": "beginColumnPages",
-          "clearControlAggregation": true
-        },
         "master": {
           "viewName": "Master",
           "type": "View",

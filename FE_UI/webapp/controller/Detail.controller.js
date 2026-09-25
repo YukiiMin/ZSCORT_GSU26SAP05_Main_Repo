@@ -415,6 +415,25 @@ sap.ui.define([
       var oM = this.getView().getModel("detail");
       var sNodeType = oM.getProperty("/nodeType");
       var bIsParentTr = (sNodeType === "TR" || !oM.getProperty("/parentTrkorr"));
+
+      // If releasing parent TR, verify if any child tasks remain unreleased
+      if (bIsParentTr) {
+        var aActiveTasks = oM.getProperty("/activeTasks") || [];
+        var aOpenTasks = aActiveTasks.filter(function (t) {
+          return t && t.Trkorr && t.Trkorr !== sTrkorr && t.TrStatus !== "R";
+        });
+        if (aOpenTasks.length > 0) {
+          var sTaskMsg = "Please release dependent task(s) first before releasing parent request " + sTrkorr + ":\n\n" +
+            aOpenTasks.map(function (t) {
+              return "• " + t.Trkorr + " (Owner: " + (t.Owner || "N/A") + ", Status: " + (t.TrStatus || "D") + ")";
+            }).join("\n");
+          MessageBox.warning(sTaskMsg, {
+            title: "Dependent Tasks Unreleased"
+          });
+          return;
+        }
+      }
+
       oM.setProperty("/busy", true);
       MessageToast.show("Releasing " + (bIsParentTr ? "TR " : "Task ") + sTrkorr + "…");
       this._invokeTrTreeAction("ReleaseRequest", sTrkorr).then(function () {
@@ -423,7 +442,7 @@ sap.ui.define([
         that._loadObjects(sTrkorr);
       }).catch(function (oError) {
         oM.setProperty("/busy", false);
-        MessageBox.error("Release failed: " + (oError.message || oError));
+        that.handleReleaseError(sTrkorr, oError, null);
       });
     },
 
@@ -447,7 +466,7 @@ sap.ui.define([
             that._loadObjects(sParentTr);
           }).catch(function (oErr) {
             oM.setProperty("/busy", false);
-            MessageBox.error("Release task failed: " + (oErr.message || oErr));
+            that.handleReleaseError(sTask, oErr, null);
           });
         }
       });

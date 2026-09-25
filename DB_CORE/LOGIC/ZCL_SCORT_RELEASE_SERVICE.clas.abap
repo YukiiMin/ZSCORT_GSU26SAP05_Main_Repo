@@ -5,6 +5,7 @@ CLASS zcl_scort_release_service DEFINITION
 
   PUBLIC SECTION.
     TYPES: BEGIN OF ty_inactive_obj,
+             trkorr   TYPE e070-trkorr,
              object   TYPE dwinactiv-object,
              obj_name TYPE dwinactiv-obj_name,
              uname    TYPE dwinactiv-uname,
@@ -32,32 +33,94 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
   METHOD check_inactive_objects.
     CLEAR rt_inactive.
 
-    SELECT pgmid, object, obj_name
+    TYPES: BEGIN OF ty_e071_obj,
+             trkorr   TYPE e070-trkorr,
+             pgmid    TYPE e071-pgmid,
+             object   TYPE e071-object,
+             obj_name TYPE e071-obj_name,
+           END OF ty_e071_obj,
+           BEGIN OF ty_dwinactiv_fae,
+             obj_name TYPE dwinactiv-obj_name,
+           END OF ty_dwinactiv_fae.
+
+    DATA lt_e071_objs TYPE STANDARD TABLE OF ty_e071_obj WITH DEFAULT KEY.
+    DATA lt_fae_objs  TYPE STANDARD TABLE OF ty_dwinactiv_fae WITH DEFAULT KEY.
+    DATA lt_inact_raw TYPE STANDARD TABLE OF ty_inactive_obj WITH DEFAULT KEY.
+
+    SELECT trkorr, pgmid, object, obj_name
       FROM e071
       WHERE trkorr = @iv_trkorr
          OR trkorr IN ( SELECT trkorr FROM e070 WHERE strkorr = @iv_trkorr )
-      INTO TABLE @DATA(lt_e071_objs).
+      INTO TABLE @lt_e071_objs.
 
     IF lt_e071_objs IS INITIAL.
       RETURN.
     ENDIF.
 
-    SELECT DISTINCT object, obj_name, uname
-      FROM dwinactiv
-      FOR ALL ENTRIES IN @lt_e071_objs
-      WHERE obj_name = @lt_e071_objs-obj_name
-      INTO TABLE @rt_inactive.
-
-    LOOP AT lt_e071_objs INTO DATA(ls_obj) WHERE object = 'CLAS' OR object = 'FUGR' OR object = 'PROG'.
-      DATA(lv_prefix) = |{ ls_obj-obj_name }%|.
-      SELECT DISTINCT object, obj_name, uname
-        FROM dwinactiv
-        WHERE obj_name LIKE @lv_prefix
-        APPENDING TABLE @rt_inactive.
+    LOOP AT lt_e071_objs INTO DATA(ls_e071).
+      DATA(lv_fae_name) = CONV dwinactiv-obj_name( ls_e071-obj_name ).
+      CONDENSE lv_fae_name.
+      IF lv_fae_name IS NOT INITIAL.
+        APPEND VALUE #( obj_name = lv_fae_name ) TO lt_fae_objs.
+      ENDIF.
     ENDLOOP.
 
-    SORT rt_inactive BY object obj_name uname.
-    DELETE ADJACENT DUPLICATES FROM rt_inactive COMPARING object obj_name uname.
+    SORT lt_fae_objs BY obj_name.
+    DELETE ADJACENT DUPLICATES FROM lt_fae_objs COMPARING obj_name.
+
+    IF lt_fae_objs IS NOT INITIAL.
+      SELECT DISTINCT object, obj_name, uname
+        FROM dwinactiv
+        FOR ALL ENTRIES IN @lt_fae_objs
+        WHERE obj_name = @lt_fae_objs-obj_name
+        INTO CORRESPONDING FIELDS OF TABLE @lt_inact_raw.
+    ENDIF.
+
+    LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'CLAS' OR object = 'FUGR' OR object = 'PROG'.
+      DATA lv_name_clean TYPE dwinactiv-obj_name.
+      lv_name_clean = ls_e071-obj_name.
+      CONDENSE lv_name_clean.
+      IF lv_name_clean IS NOT INITIAL.
+        DATA(lv_prefix) = |{ lv_name_clean }%|.
+        SELECT DISTINCT object, obj_name, uname
+          FROM dwinactiv
+          WHERE obj_name LIKE @lv_prefix
+          APPENDING CORRESPONDING FIELDS OF TABLE @lt_inact_raw.
+      ENDIF.
+    ENDLOOP.
+
+    SORT lt_inact_raw BY object obj_name uname.
+    DELETE ADJACENT DUPLICATES FROM lt_inact_raw COMPARING object obj_name uname.
+
+    LOOP AT lt_inact_raw INTO DATA(ls_raw).
+      DATA lv_matched_trkorr TYPE e070-trkorr.
+      CLEAR lv_matched_trkorr.
+      READ TABLE lt_e071_objs INTO ls_e071 WITH KEY obj_name = ls_raw-obj_name.
+      IF sy-subrc = 0.
+        lv_matched_trkorr = ls_e071-trkorr.
+      ELSE.
+        LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'CLAS' OR object = 'FUGR' OR object = 'PROG'.
+          lv_name_clean = ls_e071-obj_name.
+          CONDENSE lv_name_clean.
+          IF lv_name_clean IS NOT INITIAL AND ls_raw-obj_name CP |{ lv_name_clean }*|.
+            lv_matched_trkorr = ls_e071-trkorr.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+
+      IF lv_matched_trkorr IS INITIAL.
+        lv_matched_trkorr = iv_trkorr.
+      ENDIF.
+
+      APPEND VALUE #( trkorr   = lv_matched_trkorr
+                      object   = ls_raw-object
+                      obj_name = ls_raw-obj_name
+                      uname    = ls_raw-uname ) TO rt_inactive.
+    ENDLOOP.
+
+    SORT rt_inactive BY trkorr object obj_name uname.
+    DELETE ADJACENT DUPLICATES FROM rt_inactive COMPARING trkorr object obj_name uname.
   ENDMETHOD.
 
   METHOD process_release.
@@ -88,9 +151,9 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
       DATA lv_inact_list TYPE string.
       LOOP AT lt_inactive INTO DATA(ls_inact).
         IF lv_inact_list IS INITIAL.
-          lv_inact_list = |{ ls_inact-object } { ls_inact-obj_name } ({ ls_inact-uname })|.
+          lv_inact_list = |{ ls_inact-object } { ls_inact-obj_name } ({ ls_inact-uname } @ { ls_inact-trkorr })|.
         ELSE.
-          lv_inact_list = |{ lv_inact_list }, { ls_inact-object } { ls_inact-obj_name } ({ ls_inact-uname })|.
+          lv_inact_list = |{ lv_inact_list }, { ls_inact-object } { ls_inact-obj_name } ({ ls_inact-uname } @ { ls_inact-trkorr })|.
         ENDIF.
       ENDLOOP.
 
@@ -180,9 +243,9 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
             DATA lv_details TYPE string.
             LOOP AT lt_inactive INTO DATA(ls_in).
               IF lv_details IS INITIAL.
-                lv_details = |{ ls_in-object } { ls_in-obj_name } ({ ls_in-uname })|.
+                lv_details = |{ ls_in-object } { ls_in-obj_name } ({ ls_in-uname } @ { ls_in-trkorr })|.
               ELSE.
-                lv_details = |{ lv_details }, { ls_in-object } { ls_in-obj_name } ({ ls_in-uname })|.
+                lv_details = |{ lv_details }, { ls_in-object } { ls_in-obj_name } ({ ls_in-uname } @ { ls_in-trkorr })|.
               ENDIF.
             ENDLOOP.
             ev_message = zcm_scort=>get_text_by_key(

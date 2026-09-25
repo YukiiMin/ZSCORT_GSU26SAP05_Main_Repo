@@ -6,7 +6,7 @@
     title="{inactiveModel>/dialogTitle}"
     icon="sap-icon://alert"
     state="Error"
-    contentWidth="44rem"
+    contentWidth="48rem"
     contentHeight="28rem"
     resizable="true"
     draggable="true">
@@ -26,16 +26,19 @@
           noDataText="{i18n>noInactiveObjects}"
           mode="None">
           <columns>
-            <Column width="6.5rem">
+            <Column width="5.5rem">
               <Text text="{i18n>colInactiveType}" />
             </Column>
-            <Column width="18rem">
+            <Column width="15rem">
               <Text text="{i18n>colInactiveName}" />
             </Column>
-            <Column width="9rem">
-              <Text text="{i18n>colInactiveUser}" />
+            <Column width="8.5rem">
+              <Text text="{i18n>colInactiveTask}" />
             </Column>
             <Column width="7.5rem">
+              <Text text="{i18n>colInactiveUser}" />
+            </Column>
+            <Column width="6.5rem">
               <Text text="{i18n>colInactiveStatus}" />
             </Column>
           </columns>
@@ -50,6 +53,7 @@
                   text="{inactiveModel>objectName}"
                   press=".onInactiveObjectNamePress"
                   tooltip="{i18n>btnFindInObjSearch}" />
+                <Text text="{inactiveModel>task}" />
                 <Text text="{inactiveModel>userName}" />
                 <ObjectStatus
                   text="{inactiveModel>status}"

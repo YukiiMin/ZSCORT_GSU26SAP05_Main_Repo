@@ -4,7 +4,7 @@ FUNCTION z_scort_tr_release_local
     VALUE(iv_dialog) TYPE char1 OPTIONAL
   EXPORTING
     VALUE(ev_success) TYPE char1
-    VALUE(ev_message) TYPE char255.
+    VALUE(ev_message) TYPE string.
 
   DATA:
     lv_ok     TYPE abap_bool,

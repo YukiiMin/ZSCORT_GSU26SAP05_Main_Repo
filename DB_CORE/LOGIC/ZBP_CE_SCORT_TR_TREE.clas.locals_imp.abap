@@ -127,7 +127,8 @@ CLASS lhc_TrTree IMPLEMENTATION.
     DATA lv_task    TYPE e070-trkorr.
     DATA lv_str     TYPE e070-strkorr.
     DATA lv_fm_ok   TYPE c LENGTH 1.
-    DATA lv_fm_msg  TYPE c LENGTH 255.
+    DATA lv_fm_msg  TYPE string.
+    DATA lv_rfc_err TYPE c LENGTH 255.
 
     LOOP AT keys ASSIGNING FIELD-SYMBOL(<key>).
       lv_trkorr = extract_trkorr( <key>-NodeId ).
@@ -158,7 +159,7 @@ CLASS lhc_TrTree IMPLEMENTATION.
         ENDIF.
       ENDIF.
 
-      CLEAR: lv_ok, lv_msg, lv_status, lv_fm_ok, lv_fm_msg.
+      CLEAR: lv_ok, lv_msg, lv_status, lv_fm_ok, lv_fm_msg, lv_rfc_err.
       CALL FUNCTION 'Z_SCORT_TR_RELEASE_LOCAL'
         DESTINATION 'NONE'
         EXPORTING
@@ -168,22 +169,22 @@ CLASS lhc_TrTree IMPLEMENTATION.
           ev_success = lv_fm_ok
           ev_message = lv_fm_msg
         EXCEPTIONS
-          system_failure        = 1 MESSAGE lv_fm_msg
-          communication_failure = 2 MESSAGE lv_fm_msg
+          system_failure        = 1 MESSAGE lv_rfc_err
+          communication_failure = 2 MESSAGE lv_rfc_err
           OTHERS                = 3.
 
       IF sy-subrc <> 0.
         lv_ok = abap_false.
-        IF lv_fm_msg IS INITIAL.
-          lv_fm_msg = CONV #( sy-subrc ).
+        IF lv_rfc_err IS INITIAL.
+          lv_rfc_err = CONV #( sy-subrc ).
         ENDIF.
         lv_msg = zcm_scort=>get_text_by_key(
                    is_t100_key = zcm_scort=>release_failed
                    iv_attr1    = CONV #( lv_trkorr )
-                   iv_attr2    = CONV #( lv_fm_msg ) ).
+                   iv_attr2    = CONV #( lv_rfc_err ) ).
       ELSE.
         lv_ok  = xsdbool( lv_fm_ok = abap_true OR lv_fm_ok = 'X' ).
-        lv_msg = CONV string( lv_fm_msg ).
+        lv_msg = lv_fm_msg.
       ENDIF.
 
       SELECT SINGLE trstatus FROM e070 WHERE trkorr = @lv_trkorr INTO @lv_status.

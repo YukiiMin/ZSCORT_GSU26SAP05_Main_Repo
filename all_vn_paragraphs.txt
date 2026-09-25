@@ -1,0 +1,846 @@
+[0132] (Normal) Interface (Based on UI Mockups): Real-time digital clock (22:24) and date (Thứ Năm, 17/09/2026); animated 2D robot avatar with radar wave pulse effect; title badge "TRỢ LÝ SIÊU THỊ THÔNG MINH"; prominent call-to-action button "[ CHẠM ĐỂ BẮT ĐẦU ]"; promotional shortcut button "Khuyến mãi hôm nay" with gift box icon.
+
+[0154] (Normal) Actors / Roles: Guest shopper (Khách vãng lai), Registered Supermarket Member (Khách hàng thành viên).
+
+[0189] (Normal) 4. The guest browses active daily discounted products (e.g., Dầu hào nấm hương, Hạt nêm nấm hương chay, Khăn ướt Bumbo, Mì Koreno Jumbo...).
+
+[0211] (Normal) Interface (Based on UI Mockups): Header displaying customer avatar, member name ("Nguyễn Anh Hùng"), badge "MEMBER", budget progress bar (0đ / 2.500.000đ), green cart button; 4 large interactive cards: "Tìm kiếm sản phẩm", "Tìm bằng Giọng nói", "Dành riêng cho bạn", "Ưu đãi cho bạn"; Recipe detail screen showing estimated total cost (209.000đ), nutritional advice card, ingredients checklist, and primary green button "Mua tất cả nguyên liệu".
+
+[0216] (Normal) 4. The recipe detail screen opens, presenting estimated total cost (209.000đ), cooking advice, and required ingredients checklist (Rau muống sạch, Rau xà lách búp, Dầu Olive nguyên chất...).
+
+[0264] (Normal) Interface (Based on UI Mockups): High-resolution product image; bold title ("Quả bơ sáp Đắk Lắk tươi 1kg"); promotional price 49.000đ with -11% badge and strikethrough original price 55.000đ; "Đặc tính sức khoẻ" pill badges (Eat Clean, Keto, Low-carb, Vegan); product description block; quantity stepper [-] [1] [+]; circular green add button "Thêm vào giỏ"; large pill navigation button "Dẫn đường"; top toast notification on success.
+
+[0290] (Normal) Interface (Based on UI Mockups): Cart list showing items, unit prices, quantity stepper, red delete icon, total cost (128.000đ); Cart guide interface with robot status header ("RB001 Sẵn sàng"), guidance state card (DISPATCHED, NAVIGATING, ARRIVED), next destination card ("Kệ 3 - Thực Phẩm Tươi Sống") with shelf item list; multi-stop route timeline (Origin Waypoint 7 -> Shelf 3 -> Return Waypoint 7); red cancel button.
+
+[0357] (Normal) Primary action button: "Đăng nhập" (hoặc "Đăng nhập ->").
+
+[0376] (Normal) 1. Người dùng mở ứng dụng và tại Màn hình Đăng nhập (Login Screen), nhấn chọn nút "Đăng nhập bằng khuôn mặt".
+
+[0377] (Normal) 2. Hệ thống kiểm tra quyền truy cập camera của thiết bị. Nếu đã được cấp quyền, ứng dụng mở giao diện xem trước camera (camera viewfinder) khung tròn với viền màu xanh.
+
+[0378] (Normal) 3. Ứng dụng hiển thị hướng dẫn: "Nhìn thẳng vào camera - Giữ điện thoại ngang tầm mắt" và bắt đầu quét các khung hình từ camera.
+
+[0379] (Normal) 4. Hệ thống phát hiện một khuôn mặt hợp lệ trong khung hình, thực hiện trích xuất vector đặc trưng khuôn mặt (face embedding vector) và gửi yêu cầu xác thực tới Backend AI Service.
+
+[0380] (Normal) 5. Backend AI Service tính toán độ tương đồng Cosine (Cosine Similarity) so với dữ liệu khuôn mặt đã đăng ký của người dùng trong cơ sở dữ liệu. Điểm tương đồng vượt qua ngưỡng cho phép (> threshold).
+
+[0381] (Normal) 6. Backend trả về Session Token (JWT). Khung xem trước camera chuyển sang viền xanh lá cùng biểu tượng dấu tích xanh và thông báo "Nhận diện thành công!".
+
+[0382] (Normal) 7. Ứng dụng tự động chuyển hướng người dùng vào Màn hình chính (Member Home Screen).
+
+[0384] (Normal) 1. Người dùng tại Màn hình Đăng nhập chọn "Đăng ký tài khoản", điền đầy đủ thông tin cá nhân (Họ tên, Email, Số điện thoại, Mật khẩu) và nhấn "Tiếp tục quét khuôn mặt".
+
+[0385] (Normal) 2. Ứng dụng chuyển sang Màn hình Đăng ký khuôn mặt (Bước 2/2) và kích hoạt camera trước với khung hình tròn.
+
+[0386] (Normal) 3. Hệ thống hiển thị đồng hồ đếm ngược 3 giây ("Giữ khuôn mặt trong khung 3") và hướng dẫn người dùng nhìn thẳng, xoay nhẹ đầu để đảm bảo chất lượng hình ảnh.
+
+[0387] (Normal) 4. Khi hết thời gian đếm ngược và khuôn mặt đạt yêu cầu, ứng dụng trích xuất vector đặc trưng khuôn mặt và đính kèm cùng thông tin đăng ký gửi lên Backend API.
+
+[0388] (Normal) 5. Backend lưu thông tin tài khoản và vector khuôn mặt vào cơ sở dữ liệu AI, sau đó trả về phản hồi thành công.
+
+[0389] (Normal) 6. Ứng dụng hiển thị màn hình thông báo "Đăng ký khuôn mặt thành công!" kèm nút "Đăng nhập ngay" để người dùng tiến hành đăng nhập.
+
+[0391] (Normal) Camera permission denied: Khi ứng dụng chưa có quyền truy cập camera, hệ thống hiển thị hộp thoại yêu cầu cấp quyền. Nếu người dùng từ chối, hệ thống hiển thị thông báo yêu cầu cấp quyền camera trong phần Cài đặt thiết bị và cung cấp nút chuyển sang phương thức đăng nhập bằng mật khẩu.
+
+[0392] (Normal) No face detected: Nếu trong khung hình camera không phát hiện khuôn mặt nào sau một khoảng thời gian chờ (timeout), ứng dụng hiển thị thông báo hướng dẫn người dùng điều chỉnh lại vị trí khuôn mặt vào giữa khung hình.
+
+[0393] (Normal) Multiple faces: Nếu hệ thống phát hiện từ 2 khuôn mặt trở lên trong khung hình camera, ứng dụng hiển thị cảnh báo MSG-05 ("Phát hiện nhiều khuôn mặt. Vui lòng đứng một mình trong khung hình") và tạm dừng quá trình quét cho đến khi chỉ còn 1 khuôn mặt.
+
+[0394] (Normal) Poor lighting: Khi điều kiện ánh sáng quá tối hoặc quá chói làm giảm chất lượng ảnh quét, ứng dụng hiển thị nhắc nhở người dùng di chuyển đến khu vực có ánh sáng tốt hơn để đảm bảo độ chính xác nhận diện.
+
+[0395] (Normal) Face match failed: Nếu điểm tương đồng khuôn mặt tính toán bởi Backend không đạt ngưỡng xác thực, ứng dụng đổi khung xem trước camera sang màu đỏ kèm biểu tượng dấu X và thông báo MSG-04 ("Không nhận diện được khuôn mặt. Vui lòng thử lại hoặc sử dụng mật khẩu").
+
+[0396] (Normal) Password fallback: Người dùng có thể chủ động nhấn nút "Sử dụng mật khẩu" bất kỳ lúc nào trên màn hình quét khuôn mặt để quay lại Màn hình Đăng nhập bằng Email/Mật khẩu truyền thống.
+
+[0397] (Normal) Skip registration: Trong quá trình đăng ký tài khoản mới (Bước 2/2), người dùng có thể nhấn nút "Bỏ qua, đăng nhập sau" để bỏ qua bước thu thập khuôn mặt và hoàn tất tạo tài khoản cơ bản.
+
+[0398] (Normal) Camera error: Nếu camera thiết bị gặp lỗi phần cứng hoặc bị chiếm dụng bởi ứng dụng khác, hệ thống hiển thị thông báo lỗi camera và tự động gợi ý chuyển sang đăng nhập bằng mật khẩu.
+
+[0399] (Normal) Network error: Nếu kết nối mạng bị gián đoạn trong lúc gửi dữ liệu xác thực khuôn mặt lên server, ứng dụng hiển thị thông báo lỗi kết nối mạng và cho phép người dùng thử lại.
+
+[0400] (Normal) Backend 500 error: Nếu dịch vụ nhận diện khuôn mặt AI trên Backend gặp lỗi nội bộ (Server Error 500), ứng dụng hiển thị thông báo hệ thống đang hỏng/bảo trì và hướng dẫn người dùng sử dụng mật khẩu để đăng nhập.
+
+[0405] (Normal) 3. Extract 512-dimensional embedding vector (hoặc 1024-D feature vector).
+
+[0559] (Normal) Section 1 - Tiện ích thông minh (Smart Utilities / AI Meal Recipes):
+
+[0562] (Normal) Section 2 - Chi tiêu tối đa (Maximum Budget Tracking Widget):
+
+[0563] (Normal) Section 2 - Chi tiêu tối đa (Maximum Budget Tracking Widget):
+
+[0567] (Normal) Section 3 - Khuyến mãi hệ thống & cá nhân (Promotions Widget):
+
+[0571] (Normal) Section 4 - Sản phẩm dành cho bạn (Personalized Recommendations Grid):
+
+[0585] (Normal) System fetches and renders Section 1 (Tiện ích thông minh): Horizontal recipe carousel showcasing personalized dishes with match percentage pills (e.g., "Khớp 95%"), serving sizes, calories, ingredient summaries, estimated costs, and action buttons.
+
+[0586] (Normal) System fetches and renders Section 2 (Chi tiêu tối đa): Semi-circular budget gauge displaying current cart total versus configured maximum spending limit.
+
+[0587] (Normal) System fetches and renders Section 3 (Khuyến mãi hệ thống & cá nhân): Discounted products with original crossed-out prices and discount percentage badges.
+
+[0588] (Normal) System fetches and renders Section 4 (Sản phẩm dành cho bạn): 2-column grid of personalized product cards featuring "AI Đề xuất" tags, stock status, prices, and quick-add "+" buttons.
+
+[0648] (Normal) Section Widget - Tiện ích thông minh (Homepage Horizontal Carousel):
+
+[0652] (Normal) AI Match Percentage Tag: "Khớp %" (hoặc "Khớp 95%" green badge).
+
+[0656] (Normal) Primary Action Buttons: "Xem trước" (Outline button) và "🛒 Thêm vào giỏ" (Solid green button).
+
+[0669] (Normal) Unit Price & Availability Badge: e.g., "25.000 đ", "15.000 đ", "22.000 đ" với nhãn xanh "Còn hàng" (In Stock).
+
+[0673] (Normal) Footer Buttons: "Đóng" (White outline button) và "🛒 Mua & Gom hàng" (Solid green primary button with shopping bag icon).
+
+[1115] (Normal) Section 1 - Chế độ ăn uống (Dietary Preferences Grid):
+
+[1118] (Normal) Section 2 - Cảnh báo sức khỏe (Health & Allergen Warning List):
+
+[1121] (Normal) Section 3 - Chi tiêu tối đa cho 1 đơn hàng (Maximum Order Budget Slider):
+
+[1123] (Normal) Target Budget Card: Displays "MỤC TIÊU 0 VNĐ" (or selected amount in VNĐ).
+
+[1132] (Normal) 4. System populates Section 1 (Chế độ ăn uống): Dietary grid pills ("Eat Clean", "Halal", "High-protein", "Keto", "Low-carb", "Organic", "Vegan") with active selections pre-highlighted.
+
+[1133] (Normal) 5. System populates Section 2 (Cảnh báo sức khỏe): Allergen warning list with active switches set to ON.
+
+[1134] (Normal) 6. System populates Section 3 (Chi tiêu tối đa cho 1 đơn hàng): Budget card displaying current target amount (e.g., "MỤC TIÊU 500.000 VNĐ") and slider thumb set to active budget value.
+
+[1137] (Normal) 9. User adjusts budget slider: Drags slider thumb to 1.500.000 VNĐ -> System updates target card to "MỤC TIÊU 1.500.000 VNĐ" in real-time.
+
+[1146] (Normal) Budget slider value out of bounds: System constrains slider range strictly between 0 VNĐ and 5.000.000 VNĐ.
+
+[1165] (Normal) Budget Slider Constraint: Maximum allowable order budget setting ranges from 0 VNĐ to 5.000.000 VNĐ.
+
+[1221] (Normal) 3. System calculates progress metrics: Remaining Amount = 10,000,000 - 4,500,000 = 5,500,000 VNĐ, Progress Percentage = (4,500,000 / 10,000,000) * 100% = 45%, Progress Subtitle = "Còn 5.500.000đ để đạt Premium".
+
+[1228] (Normal) Zero total spending (New user account): System sets progress bar to 0%, calculates full 10.000.000 VNĐ remaining, and displays progress subtitle: "Còn 10.000.000đ để đạt Premium".
+
+[1235] (Normal) 1. Define threshold: Premium Tier Threshold = 10.000.000 VNĐ.
+
+[1237] (Normal) - Set effective total spending = Math.max(totalSpent, 10.000.000 VNĐ).
+
+[1245] (Normal) Premium Spending Invariant: Customers holding "Premium" tier status implicitly have a cumulative spending of at least 10.000.000 VNĐ. The progress bar renders at 100% completion with the message "Bạn đã đạt hạng Premium cao nhất!".
+
+[1363] (Normal) Result Counter: "Kết quả phù hợp" | "8 sản phẩm" (hoặc "10 sản phẩm").
+
+[1372] (Normal) Budget Exceeded Alert (if total > user budget): "Vượt ngân sách: 115.000đ" (hoặc "Vượt ngân sách: 371.000đ" - Red warning text).
+
+[1428] (Normal) Budget Transparency: If total meal ingredient cost exceeds user's max budget per order setting, the bottom bar MUST display the exact exceeded amount (' Vượt ngân sách: ...đ').
+
+[1546] (Normal) Warning Badges: Red/Orange pills for Cảnh báo Dị ứng (Allergen Conflict), Vượt ngân sách (Budget Overage), or Cần tránh (Dietary Conflict).
+
+[1550] (Normal) Tạm tính (Subtotal): e.g., "262.000 đ".
+
+[1551] (Normal) Tổng cộng (Grand Total): e.g., "262.000 đ" (Bold black/green text).
+
+[1559] (Normal) If TotalAmount > maxSpendPerOrder: Renders yellow top banner "Ngân sách vượt giới hạn: Tổng giỏ hàng (262.000 VNĐ) lớn hơn ngân sách (100.000 VNĐ).", renders red overage display "Vượt ngân sách: 162.000 đ", attaches Vượt ngân sách badges to expensive items, and generates cheaper AI replacement suggestions ("Sản phẩm thay thế (Rẻ hơn):") with "Đổi" buttons.
+
+[1576] (Normal) 2. User inspects recommended alternative item under "Sản phẩm thay thế (Rẻ hơn):" (e.g., "Cháo Thịt Băm Tôm Thịt Gói 90g" priced at 5.500đ).
+
+[1611] (Normal) Allergen & Health Safety Guard: Items containing ingredients matching user allergy tags MUST display prominent red warning badges (Cảnh báo Dị ứng) to prevent accidental purchase.
+
+[1623] (Normal) Inspect Shelf Product Items (Interactive Shelf Waypoint Popup): From 2D Supermarket Map -> Tap any active Shelf waypoint marker (e.g., Kệ 1 - Ăn vặt, Kệ 2 - Giải khát) -> Opens Popup modal displaying exact cart products located at that shelf.
+
+[1643] (Normal) Supermarket Shelves: Kệ 1 (Ăn vặt), Kệ 2 (Giải khát), Kệ 3 (Đồ tươi), Kệ 4 (Gia vị / Đồ gia dụng).
+
+[1644] (Normal) Route Path Line: Smooth orange/green line connecting Cashier Counter -> Kệ 2 -> Kệ 1 -> Cashier Counter.
+
+[1655] (Normal) Step 1: "Bắt đầu tại Quầy Thu Ngân (Lối vào)" -> Description: "Xuất phát tại Quầy Thu Ngân (Lối vào)." (Tag: Quầy Thu Ngân (Lối vào)).
+
+[1656] (Normal) Step 2: "Ghé Kệ 2 (Giải khát)" -> Description: "Di chuyển đến Kệ 2 (Giải khát) và lấy 'Bia Heineken Silver Lon 330ml'." (Tag: Kệ 2 (Giải khát)).
+
+[1657] (Normal) Step 3: "Ghé Kệ 1 (Ăn vặt)" -> Description: "Di chuyển đến Kệ 1 (Ăn vặt) và lấy 'Snack Khoai Tây O'Star Vị Tảo Biển 63g'." (Tag: Kệ 1 (Ăn vặt)).
+
+[1658] (Normal) Step 4: "Đến Quầy Thu Ngân (Lối vào)" -> Description: "Di chuyển đến Quầy Thu Ngân (Lối vào) để thanh toán và hoàn tất đơn hàng." (Tag: Quầy Thu Ngân (Lối vào)).
+
+[1666] (Normal) 6. Backend Dijkstra engine computes shortest sequence starting from Cashier: Cashier (Start) -> Kệ 2 (Giải khát) -> Kệ 1 (Ăn vặt) -> Cashier (Finish).
+
+[1670] (Normal) 2. User taps Kệ 1 marker on 2D map.
+
+[1671] (Normal) 3. System displays Popup Modal "Kệ 1 - Ăn vặt": Displays Có sản phẩm cần badge; Lists product: "Snack Khoai Tây O'Star Vị Tảo Biển 63g".
+
+[1673] (Normal) 5. User taps Kệ 2 marker on 2D map.
+
+[1674] (Normal) 6. System displays Popup Modal "Kệ 2 - Giải khát": Displays Có sản phẩm cần badge; Lists product: "Bia Heineken Silver Lon 330ml".
+
+[1680] (Normal) Step 2: Walk to Kệ 2 (Giải khát) and pick "Bia Heineken Silver Lon 330ml".
+
+[1681] (Normal) Step 3: Walk to Kệ 1 (Ăn vặt) and pick "Snack Khoai Tây O'Star Vị Tảo Biển 63g".
+
+[1703] (Normal) Instruction: Move to Shelf 1 (Snacks) and pick &apos;Snack Khoai Tây O&apos;Star Vị Tảo Biển 63g&apos;.
+
+[1729] (Normal) From Camera Viewfinder -> Tap quick shelf selection pills under "Hoặc chọn nhanh vị trí Kệ bạn đang đứng:" (Kệ 1 (Ăn vặt), Kệ 2 (Giải khát), Kệ 3 (Tươi sống)) to bypass camera scan.
+
+[1735] (Normal) Tap any shelf marker on 2D map (Kệ 5 - Đồ gia dụng, Kệ 1 - Ăn vặt, Kệ 2 - Giải khát) -> Opens Popup modal displaying items to collect at that shelf.
+
+[1754] (Normal) Quick Selection Pills: "Hoặc chọn nhanh vị trí Kệ bạn đang đứng:" with pills Kệ 1 (Ăn vặt), Kệ 2 (Giải khát), Kệ 3 (Tươi sống).
+
+[1773] (Normal) Step 1: "Bắt đầu tại Kệ 5 (Đồ gia dụng)" -> Instruction: "Xuất phát tại Kệ 5 (Đồ gia dụng)." (Tag: Kệ 5 (Đồ gia dụng)).
+
+[1774] (Normal) Step 2: "Ghé Kệ 1 (Ăn vặt)" -> Instruction: "Di chuyển đến Kệ 1 (Ăn vặt) và lấy 'Snack Khoai Tây O'Star Vị Tảo Biển 63g'." (Tag: Kệ 1 (Ăn vặt)).
+
+[1775] (Normal) Step 3: "Ghé Kệ 2 (Giải khát)" -> Instruction: "Di chuyển đến Kệ 2 (Giải khát) và lấy 'Bia Heineken Silver Lon 330ml'." (Tag: Kệ 2 (Giải khát)).
+
+[1776] (Normal) Step 4: "Đến Quầy Thu Ngân (Lối vào)" -> Instruction: "Di chuyển đến Quầy Thu Ngân (Lối vào) để thanh toán và hoàn tất đơn hàng." (Tag: Quầy Thu Ngân (Lối vào)).
+
+[1799] (Normal) Step 2: Walk to Shelf 1 (Snacks) and pick Snack Khoai Tây O'Star.
+
+[1806] (Normal) System alerts: "AI chưa đọc được chữ trên tem Kệ trong ảnh. Vui lòng căn chỉnh góc chụp rõ nét ("ARUCO ID: X" hoặc "KỆ X") hoặc chọn nhanh số Kệ ở bên dưới!".
+
+[1807] (Normal) User taps quick selection pills (Kệ 1, Kệ 2, Kệ 3) to assign starting node manually.
+
+[1825] (Normal) Fallback Manual Quick Selection: If AI OCR tag recognition fails due to image quality, the camera interface MUST provide quick selection pills (Kệ 1, Kệ 2, Kệ 3) for manual starting point assignment.
+
+[1904] (Normal) Navigation Path: From Admin Dashboard Sidebar -> Click 'Chiến dịch Quảng cáo' (Ad Campaigns) menu item under MARKETING & KHUYẾN MÃI section.
+
+[1911] (Normal) Dashboard Quảng cáo (Ad Analytics Overview Dashboard):
+
+[1912] (Normal) KPI Metric Cards: Tổng Chiến Dịch ("10", "10 đang hoạt động"), Chi Phí Tháng ("545.800", "54.580/chiến dịch", "+12.5%"), Hoàn Thành ("0 / 10 tổng", "Chưa có"), Tổng Chi Phí ("545.800", "Tất cả chiến dịch", "+8.2%").
+
+[1913] (Normal) Chart Widget 1 - Phân Bổ Trạng Thái: Donut chart displaying "10 TỔNG", "Hoạt Động 100%".
+
+[1914] (Normal) Chart Widget 2 - Top Chiến Dịch Theo Chi Phí: Vertical bar chart ranking campaigns by spending in VND (e.g., Vinamilk 95K, Khăn Ướt 91K, Mi Koreno 62K, Quảng bá... 62K, Bữa Ăn Đ... 60K, Khăn Ướt 35K, Sữa Chua 35K, Nấu Trộn... 35K).
+
+[1915] (Normal) Chart Widget 3 - Thống Kê Nhanh: Summary breakdown listing Total Campaigns (10), Active (10), Paused (0), Completed (0), Inactive (0), Average Cost (54.580 đ).
+
+[1916] (Normal) Chart Widget 4 - Bảng Xếp Hạng Chi Phí: Horizontal progress bars for top 5 most expensive campaigns.
+
+[1917] (Normal) Danh Sách Chiến Dịch (Campaign Operations & List Table):
+
+[1920] (Normal) Data Columns: CHIẾN DỊCH (Title & Brand), GÓI (Ad Package Tier pill), TRẠNG THÁI (Status pill), NGÀY BẮT ĐẦU, NGÀY KẾT THÚC, ĐÃ CHI (Spent Amount), SỐ SẢN PHẨM (Linked Products), Actions (⋮ menu).
+
+[1921] (Normal) Nhật Ký Tương Tác Toàn Bộ Chiến Dịch (Real-time Interaction Logs Screen):
+
+[1923] (Normal) Log Table Columns: THỜI GIAN, CHIẾN DỊCH, SẢN PHẨM, HÀNH ĐỘNG (Event Badge), PHÍ TRỪ (VNĐ), THIẾT BỊ (Robot ID), CHI TIẾT / NGƯỜI THỰC HIỆN.
+
+[1924] (Normal) Sidebar Navigation Items (MARKETING & KHUYẾN MÃI Module):
+
+[1928] (Normal) Campaign Entity Attributes: Campaign Title, Brand Name, Package Tier (Gói Cơ Bản - Standard, Gói Nâng Cao - Pro, Gói VIP Toàn Diện - Enterprise), Status (Hoạt động, Không hoạt động, Tạm dừng, Đã hủy, Hoàn thành), Start Date, End Date ("Theo ngân sách"), Total Spent (VNĐ), Linked Product Count.
+
+[1929] (Normal) Interaction Log Attributes: Timestamp (e.g., "13:44:13 17/09/2026"), Campaign Name, Product Title, Action Type (Lượt hiển thị - Impression, Lượt nhập - Click, Kích hoạt, Gian lận), Deducted Fee (e.g., "0 đ"), Device ID (e.g., "Robot #1"), Execution Details.
+
+[1937] (Normal) 2. System displays Dashboard Quảng cáo metrics (KPIs, Donut Status chart, Spending Bar chart, Top 5 ranking).
+
+[1938] (Normal) 3. Admin switches to 'Danh Sách Chiến Dịch' tab to review campaigns (e.g., Mi Koreno Jumbo, Khăn Ướt Hình Gấu, Vinamilk Organic, Sữa Chua TH true Milk).
+
+[1939] (Normal) 4. Admin clicks '+ Tạo Chiến Dịch Mới' button to configure a new ad campaign, assigns a brand, selects an Ad Package (Gói Nâng Cao, Gói VIP Toàn Diện, Gói Cơ Bản), uploads video/image media, binds target supermarket products, and sets geofence/route parameters.
+
+[1968] (Normal) Bước 1 - Cơ Bản (Name, Brand, Package, Dates, Media)
+
+[1969] (Normal) Bước 2 - Targeting (Route / Zone / Shelf selection)
+
+[1970] (Normal) Bước 3 - Sản Phẩm (Select ≥1 sponsored product)
+
+[1971] (Normal) Bước 4 - Review & Tạo (Summary review and final confirmation)
+
+[1975] (Normal) Tên Chiến Dịch * (Campaign name): Text input (e.g., "Sữa tươi Vinamilk Q4")
+
+[1976] (Normal) Thương Hiệu * (Brand): Dropdown select list of registered brands
+
+[1977] (Normal) Mô Tả Chiến Dịch (Description): Multiline text area for campaign objectives
+
+[1978] (Normal) Banner Quảng Cáo (Ad Banner): Optional image file upload (Max 5MB: JPG, PNG, WebP, GIF)
+
+[1979] (Normal) Video Quảng Cáo (Ad Video): Optional video file upload (Max 50MB: MP4, AVI, MKV, MOV)
+
+[1980] (Normal) Gói Quảng Cáo & Ngày (Package & Dates): Ad package selection, start date, end date, and budget cap
+
+[1991] (Normal) System displays Step 1 (Thông Tin Cơ Bản) with auto-loaded brand and package options
+
+[1994] (Normal) Admin specifies robot route/zone/shelf targets and advances to Step 3 (Sản Phẩm)
+
+[1995] (Normal) Admin selects sponsored products and advances to Step 4 (Review & Tạo)
+
+[2035] (Normal) From left sidebar menu: Navigate to MARKETING & KHUYẾN MÃI → Select Gói Quảng Cáo (/ad-packages)
+
+[2037] (Normal) From Breadcrumb: SMB PORTAL > QUẢN LÝ GÓI QUẢNG CÁO
+
+[2058] (Normal) Tất Cả (All: 3)
+
+[2059] (Normal) Hoạt Động (Active: 3)
+
+[2060] (Normal) Không Hoạt Động (Inactive: 0)
+
+[2062] (Normal) Tên Gói (Package name): e.g., Gói Cơ Bản (Standard), Gói Nâng Cao (Pro), Gói VIP Toàn Diện (Enterprise)
+
+[2063] (Normal) Ngân Sách (Package budget ceiling): e.g., 500.000 đ, 1.500.000 đ, 3.000.000 đ
+
+[2064] (Normal) Độ Ưu Tiên (Ad Score / Priority): e.g., 50 pts, 80 pts, 100 pts
+
+[2065] (Normal) Đơn Giá Zone (Zone unit fee): e.g., 30.000 đ, 50.000 đ, 80.000 đ
+
+[2066] (Normal) Đơn Giá Kệ (Shelf unit fee): e.g., 15.000 đ, 25.000 đ, 40.000 đ
+
+[2067] (Normal) Đơn Giá Tuyến (Route unit fee): e.g., 20.000 đ, 35.000 đ, 50.000 đ
+
+[2068] (Normal) Phí Click (Touch interaction fee): e.g., 500 đ, 800 đ, 1.200 đ
+
+[2069] (Normal) Chiến Dịch (Active campaigns count): Count of campaigns currently subscribing to the package (e.g., 5, 3, 2)
+
+[2070] (Normal) Trạng Thái (Status badge): "Hoạt động" (Active) / "Không hoạt động" (Inactive)
+
+[2071] (Normal) Thao Tác (Actions): Three-dot menu (View details, Edit, Toggle status, Delete)
+
+[2073] (Normal) Tên gói *, Ngân sách tối thiểu *, Độ ưu tiên (1-100), Đơn giá Zone, Đơn giá Kệ, Đơn giá Tuyến, Phí tương tác Click, Mô tả gói
+
+[2077] (Normal) BR-42: Packages currently linked to active campaigns (Chiến dịch > 0) cannot be permanently deleted; they may only be deactivated.
+
+[2079] (Normal) 1. Admin navigates to Quản Lý Gói Quảng Cáo from the sidebar.
+
+[2081] (Normal) 3. Admin can switch between status tabs (Tất Cả / Hoạt Động / Không Hoạt Động) to filter records.
+
+[2109] (Normal) Basic info inputs: Tên gói (Package name), Mô tả gói (Description).
+
+[2110] (Normal) Budget & Priority row: Ngân sách quảng cáo (Budget - VND), Điểm Ưu Tiên (AdScore).
+
+[2111] (Normal) Location unit prices section: Đơn giá Zone, Đơn giá Kệ, Đơn giá Tuyến.
+
+[2112] (Normal) Usage fee section: Phí Click (Đơn giá/Click - VNĐ).
+
+[2116] (Normal) Tên gói * (Package name): Text string (Placeholder: "VD: Basic, Standard, Premium...").
+
+[2117] (Normal) Mô tả gói (Description): Multiline text area (Placeholder: "Nhập mô tả ngắn về gói quảng cáo này...").
+
+[2118] (Normal) Ngân sách quảng cáo * (Budget): Numeric input in VND (Placeholder: "VD: 5000000").
+
+[2119] (Normal) Điểm Ưu Tiên * (AdScore): Integer between 1 and 100 (Default: 50).
+
+[2120] (Normal) Đơn giá Zone (Zone fee): Numeric input in VND (Placeholder: "VD: 500000").
+
+[2121] (Normal) Đơn giá Kệ (Shelf fee): Numeric input in VND (Placeholder: "VD: 300000").
+
+[2122] (Normal) Đơn giá Tuyến (Route fee): Numeric input in VND (Placeholder: "VD: 200000").
+
+[2123] (Normal) Phí Click (Click fee): Cost per touchscreen interaction in VND (Placeholder: "VD: 5000").
+
+[2125] (Normal) Tên gói must not be empty and must be unique in the system.
+
+[2126] (Normal) Ngân sách quảng cáo must be greater than 0.
+
+[2127] (Normal) Điểm Ưu Tiên (AdScore) must be within the valid range of 1 to 100.
+
+[2128] (Normal) Unit prices (Zone, Kệ, Tuyến) and Phí Click must be non-negative numbers (≥ 0).
+
+[2166] (Normal) Top 3 KPI cards: Ngân Sách Tối Đa (Max budget), Điểm Ưu Tiên (AdScore), Chiến Dịch Đang Chạy (Active campaigns)
+
+[2174] (Normal) Tên gói (Package Name): "Gói Cơ Bản (Standard)"
+
+[2175] (Normal) Mã định danh (Package ID): #PKG-001
+
+[2176] (Normal) Trạng thái (Status): "Đang hoạt động" (Active green badge)
+
+[2178] (Normal) Ngân Sách Tối Đa: 500.000 đ
+
+[2179] (Normal) Điểm Ưu Tiên: 50 pts (Robot display weighting)
+
+[2180] (Normal) Chiến Dịch Đang Chạy: 5 chiến dịch
+
+[2181] (Normal) Đơn Giá Vị Trí & Tuyến Đường (Fixed Unit Prices):
+
+[2182] (Normal) Đơn giá Zone: 30.000 đ / zone
+
+[2183] (Normal) Đơn giá Kệ (Shelf): 15.000 đ / kệ
+
+[2184] (Normal) Đơn giá Tuyến (Route): 20.000 đ / tuyến
+
+[2185] (Normal) Explainer: Tổng chi phí cố định = (Số Zone × Đơn giá Zone) + (Số Kệ × Đơn giá Kệ) + (Số Tuyến × Đơn giá Tuyến) (Deducted immediately upon activation)
+
+[2186] (Normal) Phí Phát Sinh Tương Tác (Usage Fee):
+
+[2187] (Normal) Phí Click: 500 đ / mỗi lượt khách bấm xem sản phẩm
+
+[2190] (Normal) Mô tả gói: Narrative text of package scope and benefits
+
+[2191] (Normal) Thời gian tạo gói: 16:51 03/09/2026
+
+[2192] (Normal) Cập nhật gần nhất: 02:39 10/09/2026
+
+[2214] (Normal) From left sidebar menu: Navigate to HÀNG HÓA & CỬA HÀNG -> Select Quản Lý Nhãn Hàng (/brand-dashboard).
+
+[2216] (Normal) From Breadcrumb: SMB PORTAL > DASHBOARD NHÃN HÀNG.
+
+[2237] (Normal) Tổng Số Nhãn Hàng (Total brands): 11 (7 running ads • 11 linked partners).
+
+[2238] (Normal) Nhãn Hàng Hoạt Động (Active brands): 7 (64% of total • Currently broadcasting).
+
+[2239] (Normal) Chiến Dịch Đang Chạy (Running campaigns): 10 (Live robot ad campaigns).
+
+[2240] (Normal) Tỷ Lệ Phủ Sóng (Coverage rate): 64% (4 brands without campaigns).
+
+[2242] (Normal) Tỷ Lệ Nhãn Hàng Có Chiến Dịch (Donut Chart): Có chiến dịch (7 - 64%) vs. Chưa có chiến dịch (4 - 36%).
+
+[2243] (Normal) Chiến Dịch Theo Nhãn Hàng (Bar Chart): Campaigns per brand (PepsiCo: 2, Vinamilk: 2, Unilever: 2, Masan: 1, TH: 1, Acecook: 1...).
+
+[2245] (Normal) Filter Tabs: Tất cả (11), Có chiến dịch (7), Chưa có chiến dịch (4).
+
+[2247] (Normal) Columns: # (Index), Nhãn Hàng Đối Tác (Avatar, corporate name, industry summary), Chiến Dịch Đang Chạy (Campaigns badge), Trạng Thái (Active / No Campaign), Thao Tác (Edit pencil, Delete trash).
+
+[2249] (Normal) File Mẫu Import, Xuất Excel, Import Excel, Lịch Sử Import, Làm Mới, + Thêm Nhãn Hàng.
+
+[2259] (Normal) Filter by campaign participation (Có chiến dịch / Chưa có chiến dịch).
+
+[2275] (Normal) From Breadcrumb: SMB PORTAL > THÊM NHÃN HÀNG MỚI
+
+[2289] (Normal) Input field: Tên Nhãn Hàng * with real-time character counter (0/100)
+
+[2290] (Normal) Textarea field: Mô Tả with real-time character counter (0/500)
+
+[2294] (Normal) Tên Nhãn Hàng * (Brand Name): Text input, max 100 characters (Placeholder: "VD: Vinamilk, TH True Milk, Nestlé...")
+
+[2295] (Normal) Mô Tả (Description): Multiline text area, max 500 characters (Placeholder: "Mô tả ngắn về nhãn hàng (tùy chọn)...")
+
+[2297] (Normal) Tên Nhãn Hàng is mandatory and cannot be empty ("Tên nhãn hàng không được để trống.")
+
+[2298] (Normal) Tên Nhãn Hàng must not exceed 100 characters ("Tên nhãn hàng không được vượt quá 100 ký tự.")
+
+[2299] (Normal) Tên Nhãn Hàng must be unique within the database
+
+[2300] (Normal) Mô Tả must not exceed 500 characters ("Mô tả không được vượt quá 500 ký tự.")
+
+[2325] (Normal) From Breadcrumb: SMB PORTAL > CHỈNH SỬA NHÃN HÀNG
+
+[2341] (Normal) Input field: Tên Nhãn Hàng * with real-time character counter (17/100)
+
+[2342] (Normal) Textarea field: Mô Tả with real-time character counter (33/500)
+
+[2347] (Normal) Chiến Dịch Đang Chạy (Running Campaigns): Live counter of active campaigns (e.g., 0)
+
+[2349] (Normal) Tên Nhãn Hàng * (Brand Name): Text input, max 100 characters (e.g., "Coca-Cola Company")
+
+[2350] (Normal) Mô Tả (Description): Multiline text area, max 500 characters (e.g., "Hãng nước giải khát số 1 toàn cầu")
+
+[2352] (Normal) Tên Nhãn Hàng cannot be empty ("Tên nhãn hàng không được để trống.")
+
+[2353] (Normal) Tên Nhãn Hàng must not exceed 100 characters ("Tên nhãn hàng không được vượt quá 100 ký tự.")
+
+[2354] (Normal) Tên Nhãn Hàng must remain unique across other registered brands
+
+[2355] (Normal) Mô Tả must not exceed 500 characters ("Mô tả không được vượt quá 500 ký tự.")
+
+[2377] (Normal) Navigation Path: From Admin Dashboard Sidebar -> Click 'Quản Lý Sản Phẩm' (Product Management) under HÀNG HÓA & CỬA HÀNG section.
+
+[2398] (Normal) From left sidebar menu: Navigate to HÀNG HÓA & CỬA HÀNG → Select Quản Lý Sản Phẩm (/products)
+
+[2400] (Normal) From Breadcrumb: SMB PORTAL > QUẢN LÝ SẢN PHẨM
+
+[2415] (Normal) Top 4 inventory KPI cards: Tổng Sản Phẩm, Còn Hàng, Hết Hàng, Ngừng Bán
+
+[2417] (Normal) Action buttons row: File Mẫu Import, Xuất Excel, Import Excel, Lịch Sử Import, Làm Mới, + Thêm Sản Phẩm
+
+[2418] (Normal) Status filter tabs: Tất Cả (101), Còn Hàng (101), Hết Hàng (0), Ngừng Bán (0), Tạm Dừng (0)
+
+[2423] (Normal) Tổng Sản Phẩm (Total products): 101
+
+[2424] (Normal) Còn Hàng (Available in stock): 101
+
+[2425] (Normal) Hết Hàng (Out of stock): 0
+
+[2426] (Normal) Ngừng Bán (Discontinued): 0
+
+[2428] (Normal) Tên Sản Phẩm (Product image & name): e.g., Bánh Cốm Hàng Than, Bia Heineken Silver, Bia Nobilis Lon...
+
+[2429] (Normal) Mã SKU (Stock keeping unit): e.g., BNH-COM-HANGTHAN-500G, BEER-HEINEKEN-330ML, NBL...
+
+[2430] (Normal) Giá (Retail price in VND): e.g., 65.000 đ, 22.000 đ, 16.000 đ...
+
+[2431] (Normal) Trạng Thái (Stock status badge): Còn hàng (Available), Hết hàng (OutOfStock), Ngừng bán (Discontinued), Tạm dừng (Inactive)
+
+[2432] (Normal) Loại (Category): e.g., Gạo & Ngũ cốc, Nước có ga, Phô mai, Rau lá xanh, Đường, Tiêu & Gia vị...
+
+[2433] (Normal) Hành Động (Actions): Three-dot menu (Edit, View details, Toggle status, Delete)
+
+[2435] (Normal) File Mẫu Import, Xuất Excel, Import Excel, Lịch Sử Import, Làm Mới, + Thêm Sản Phẩm
+
+[2441] (Normal) 1. Admin navigates to Quản Lý Sản Phẩm from the sidebar.
+
+[2470] (Normal) Basic Info Inputs: Tên Sản Phẩm, Mã SKU (tùy chọn), Loại sản phẩm dropdown, Giá Bán, Giá Khuyến Mãi, Sản Phẩm Thay Thế dropdown.
+
+[2471] (Normal) Media Upload Section: Tải Ảnh Lên (JPG/PNG) file button, URL Hình Ảnh (fallback) text input.
+
+[2472] (Normal) Health Tags Grid: Multi-select pills for dietary preferences (Eat Clean, Halal, High-protein, Keto, Low-carb, Organic, Vegan) and allergen warnings (Cá, Các loại hạt, Đậu nành, Đậu phụng, Gluten, Hải sản có vỏ, Sữa, Sữa tươi, Trứng).
+
+[2473] (Normal) Status Dropdown: Trạng Thái (Còn hàng, Hết hàng, Ngừng bán, Tạm dừng).
+
+[2474] (Normal) Description Field: Mô Tả text area.
+
+[2478] (Normal) Tên Sản Phẩm *: Mandatory product name (e.g., "Sữa tươi Vinamilk 1L").
+
+[2479] (Normal) Mã SKU: Optional custom stock keeping unit code (e.g., "VNM-MILK-01").
+
+[2480] (Normal) Loại sản phẩm *: Dropdown selection of category/subcategory.
+
+[2481] (Normal) Giá Bán *: Numeric retail price in VND.
+
+[2482] (Normal) Giá Khuyến Mãi: Optional discounted promotional price in VND.
+
+[2483] (Normal) Sản Phẩm Thay Thế: Optional mapping to a fallback alternative product.
+
+[2485] (Normal) Trạng Thái *: Initial inventory status (Default: "Còn hàng").
+
+[2487] (Normal) Tên Sản Phẩm must not be empty.
+
+[2488] (Normal) Giá Bán must be a positive number greater than 0.
+
+[2489] (Normal) Giá Khuyến Mãi, if entered, must be less than Giá Bán.
+
+[2490] (Normal) Mã SKU must be unique across the catalog if provided.
+
+[2527] (Normal) Primary Product Card: High-resolution product imagery and availability status badge ("Available"), Product title header (e.g., "Bông cải trắng Organic hữu cơ 400g"), Attribute specifications table: Giá bán (Price), Mã SKU, Loại sản phẩm (Category), Trạng thái (Status)
+
+[2532] (Normal) Tên Sản Phẩm: e.g., "Bông cải trắng Organic hữu cơ 400g"
+
+[2533] (Normal) Giá bán (Retail Price): 35.000 đ
+
+[2534] (Normal) Mã SKU: RAU-BONGCAI-OG-400G
+
+[2535] (Normal) Loại sản phẩm (Category): Rau lá xanh
+
+[2536] (Normal) Trạng thái (Status): Available (Còn hàng)
+
+[2538] (Normal) Nấm mèo (Mộc nhĩ) khô sợi túi 100g — 18.000 đ · Available
+
+[2539] (Normal) Nấm đùi gà tươi loại lớn khay 250g — 24.000 đ · Available
+
+[2540] (Normal) Rau xà lách búp Organic hữu cơ 300g — 25.000 đ · Available
+
+[2574] (Normal) Basic info fields pre-populated: Tên Sản Phẩm (Product Name), Mã SKU
+
+[2575] (Normal) Category & Pricing: Loại sản phẩm (Dropdown: e.g., "Gạo & Ngũ cốc"), Giá Bán (e.g., 65000)
+
+[2576] (Normal) Promotion & Substitutes: Giá Khuyến Mãi, Sản Phẩm Thay Thế (Dropdown)
+
+[2579] (Normal) Inventory status dropdown (Currently "Còn hàng") and narrative Mô Tả textarea
+
+[2583] (Normal) Tên Sản Phẩm: e.g., "Bánh Cốm Hàng Than Hà Nội Hộp 500g"
+
+[2584] (Normal) Mã SKU: e.g., BNH-COM-HANG...
+
+[2585] (Normal) Loại sản phẩm: Selected category (e.g., "Gạo & Ngũ cốc")
+
+[2586] (Normal) Giá Bán: 65000 VND
+
+[2587] (Normal) Giá Khuyến Mãi: Optional promotional price
+
+[2588] (Normal) Sản Phẩm Thay Thế: Fallback item dropdown
+
+[2589] (Normal) Hình Ảnh: Current Cloudinary thumbnail preview + upload replacement option
+
+[2591] (Normal) Trạng Thái: Còn hàng (Available), Hết hàng (OutOfStock), Ngừng bán (Discontinued), Tạm dừng (Inactive)
+
+[2592] (Normal) Mô Tả: Narrative product details
+
+[2594] (Normal) Tên Sản Phẩm, Loại sản phẩm, and Giá Bán cannot be empty
+
+[2595] (Normal) Giá Bán must be greater than 0; Giá Khuyến Mãi must be lower than Giá Bán if provided
+
+[2596] (Normal) Mã SKU must remain unique across other products
+
+[2619] (Normal) From left sidebar menu: Navigate to HÀNG HÓA & CỬA HÀNG → Select Quản Lý Loại Sản Phẩm (/product-types)
+
+[2638] (Normal) Action buttons: File Mẫu (Template), Import Excel, Lịch Sử Import, Xuất Excel, Làm Mới, + Thêm Loại (Create)
+
+[2644] (Normal) Tên Loại Sản Phẩm (Product Type Name): e.g., Bánh quy ngọt, Bát sứ, Chảo chống dính, Củ, Dầu gội đầu, Đĩa sứ, Đường, Tiêu & Gia vị, Gạo & Ngũ cốc, Hải sản tươi...
+
+[2645] (Normal) Danh Mục Con (Subcategory): Parent classification (e.g., Mì và phở, Bát đĩa, Dụng cụ nấu ăn, Rau xanh, Dầu gội, Gia vị, Gạo và bột...)
+
+[2646] (Normal) Thao Tác (Actions): Edit pencil icon and Delete red trash can icon
+
+[2648] (Normal) Tên loại sản phẩm *: Text input
+
+[2649] (Normal) Danh mục con *: Dropdown selection
+
+[2655] (Normal) 1. Admin navigates to Quản Lý Loại Sản Phẩm from the sidebar.
+
+[2688] (Normal) Input field: Tên Loại Sản Phẩm * (Category name)
+
+[2689] (Normal) Dropdown field: Danh Mục Con (Subcategory) *
+
+[2693] (Normal) Tên Loại Sản Phẩm * (Category Name): Text input (Placeholder: "Ví dụ: Nước ngọt có gas")
+
+[2694] (Normal) Danh Mục Con (Subcategory) *: Dropdown select list of existing parent subcategories (Default: "-- Chọn danh mục con --")
+
+[2696] (Normal) Tên Loại Sản Phẩm cannot be empty ("Tên loại sản phẩm không được để trống")
+
+[2697] (Normal) Danh Mục Con must be selected ("Vui lòng chọn danh mục con")
+
+[2698] (Normal) Tên Loại Sản Phẩm must not already exist within the selected parent subcategory
+
+[2735] (Normal) Input field pre-populated: Tên Loại Sản Phẩm * (e.g., "Phô mai Mozzarella")
+
+[2736] (Normal) Dropdown field pre-selected: Danh Mục Con (Subcategory) * (e.g., "Phô mai")
+
+[2740] (Normal) Tên Loại Sản Phẩm * (Category Name): Text input (e.g., "Phô mai Mozzarella")
+
+[2741] (Normal) Danh Mục Con (Subcategory) *: Dropdown select list (Selected: "Phô mai")
+
+[2743] (Normal) Tên Loại Sản Phẩm cannot be empty ("Tên loại sản phẩm không được để trống")
+
+[2744] (Normal) Danh Mục Con must be selected ("Vui lòng chọn danh mục con")
+
+[2745] (Normal) Tên Loại Sản Phẩm must remain unique within the selected parent subcategory
+
+[2751] (Normal) 1. Admin clicks the pencil icon on a product type row (e.g., #16 - Phô mai Mozzarella).
+
+[2765] (Normal) From left sidebar menu: Navigate to HÀNG HÓA & CỬA HÀNG → Select Quản Lý Health Tag (/health-tags)
+
+[2767] (Normal) From Breadcrumb: SMB PORTAL > QUẢN LÝ HEALTH TAG
+
+[2782] (Normal) Top 4 KPI summary cards: TỔNG (Total: 16), CHẾ ĐỘ ĂN (Diet: 7), DỊ ỨNG (Allergen: 9), THÀNH PHẦN (Ingredient: 0)
+
+[2784] (Normal) Action buttons row: File Mẫu, Import Excel, Lịch Sử Import, Xuất Excel, Làm Mới, + Thêm Tag
+
+[2789] (Normal) Tổng (Total tags): 16
+
+[2790] (Normal) Chế Độ Ăn (Diets count): 7 (e.g., Eat Clean, Halal, High-protein, Keto, Low-carb, Organic, Vegan)
+
+[2791] (Normal) Dị Ứng (Allergens count): 9 (e.g., Cá, Các loại hạt, Đậu nành, Đậu phộng, Gluten, Hải sản có vỏ, Sữa, Trứng...)
+
+[2792] (Normal) Thành Phần (Ingredients count): 0
+
+[2794] (Normal) Tên Tag (Tag Name): e.g., Cá, Các loại hạt, Đậu nành, Đậu phộng, Gluten, Hải sản có vỏ, Sữa, Sữa tươi, Trứng, Eat Clean, Halal...
+
+[2795] (Normal) Loại (Type Badge): Colored badge with icon:
+
+[2796] (Normal) Dị ứng (Allergen - Amber badge)
+
+[2797] (Normal) Chế độ ăn (Diet - Blue badge)
+
+[2798] (Normal) Thành phần (Ingredient - Emerald badge)
+
+[2799] (Normal) Hành Động (Actions): Three-dot menu (Edit tag, Delete tag)
+
+[2801] (Normal) File Mẫu, Import Excel, Lịch Sử Import, Xuất Excel, Làm Mới, + Thêm Tag
+
+[2803] (Normal) BR-79: Every Health Tag must be classified under one of three strict types: Diet (Chế độ ăn), Allergen (Dị ứng), or Ingredient (Thành phần).
+
+[2807] (Normal) 1. Admin navigates to Quản Lý Health Tag from the sidebar.
+
+[2811] (Normal) Filter tags by classification type (Chế độ ăn / Dị ứng / Thành phần) or search by keyword.
+
+[2839] (Normal) Input field: Tên Tag (Tag name)
+
+[2840] (Normal) Dropdown selector: Loại Tag (Tag classification)
+
+[2842] (Normal) Chế độ ăn: Special dietary regimes (Vegan, Keto, Gluten-free...)
+
+[2843] (Normal) Dị ứng: Common allergens to avoid (Peanuts, Seafood, Milk...)
+
+[2844] (Normal) Thành phần: Product ingredients and additives (Preservatives, Colorings...)
+
+[2848] (Normal) Tên Tag * (Tag Name): Text input (Placeholder: "VD: Không đường, Hạt điều, Vegan...")
+
+[2849] (Normal) Loại Tag * (Tag Type): Dropdown select list (Options: Chế độ ăn / Dị ứng / Thành phần; Default: "Chế độ ăn")
+
+[2851] (Normal) Tên Tag cannot be empty ("Tên tag không được để trống")
+
+[2852] (Normal) Tên Tag must not exceed 50 characters
+
+[2853] (Normal) Tên Tag must be unique across all existing health tags
+
+[2854] (Normal) Loại Tag must be one of the three valid options: Diet, Allergen, or Ingredient
+
+[2888] (Normal) Input field pre-populated: Tên Tag (e.g., "Cá").
+
+[2889] (Normal) Dropdown selector pre-selected: Loại Tag (e.g., "Dị ứng").
+
+[2891] (Normal) Chế độ ăn: Special dietary regimes (Vegan, Keto, Gluten-free...).
+
+[2892] (Normal) Dị ứng: Common allergens to avoid (Peanuts, Seafood, Milk...).
+
+[2893] (Normal) Thành phần: Product ingredients and additives (Preservatives, Colorings...).
+
+[2897] (Normal) Tên Tag * : Text input (e.g., "Cá").
+
+[2898] (Normal) Loại Tag * : Dropdown select list (Selected: "Dị ứng").
+
+[2900] (Normal) Tên Tag cannot be empty ("Tên tag không được để trống").
+
+[2901] (Normal) Tên Tag must not exceed 50 characters.
+
+[2902] (Normal) Tên Tag must remain unique across other existing health tags.
+
+[2903] (Normal) Loại Tag must be selected from the three supported categories (Diet, Allergen, Ingredient).
+
+[2925] (Normal) From left sidebar menu: Navigate to HÀNG HÓA & CỬA HÀNG → Select Quản Lý Kệ Hàng (/shelf-management)
+
+[2940] (Normal) Top 4 stat cards: 3 KHU VỰC (ZONE), 1 DÃY KỆ (AISLE), 2 KỆ HÀNG (SHELF), and currently selected shelf badge
+
+[2943] (Normal) Column 1 (Left): Khu Vực (Zone selection list)
+
+[2944] (Normal) Column 2 (Center): Dãy Kệ & Kệ Hàng (Aisles and Shelves under selected zone)
+
+[2945] (Normal) Column 3 (Right): Ô Chứa (Shelf Slots grid displaying slot codes, assigned products, and linking controls)
+
+[2949] (Normal) 3 Khu Vực (Zone): Total active supermarket zones
+
+[2950] (Normal) 1 Dãy Kệ (Aisle): Aisles in selected zone (e.g., A01)
+
+[2951] (Normal) 2 Kệ Hàng (Shelf): Shelves in selected aisle
+
+[2952] (Normal) Kệ Đang Chọn: Currently inspected shelf (e.g., "Kệ 1 - Đồ Ăn Vặt & Snack")
+
+[2954] (Normal) Khu Đồ Ăn Vặt & Nước Giải Khát (Selected)
+
+[2955] (Normal) Khu Gia Vị & Đồ Gia Dụng
+
+[2956] (Normal) Khu Thực Phẩm Tươi Sống & Đông Lạnh
+
+[2958] (Normal) Aisle: A01 - Dãy A01 - Đồ Ăn Vặt & Nước Giải Khát
+
+[2959] (Normal) Shelves: Kệ 1 - Đồ Ăn Vặt & Snack, Kệ 2 - Nước Giải Khát & Đồ Uống
+
+[2969] (Normal) 1. Admin navigates to Quản Lý Kệ Hàng from the sidebar
+
+[2984] (Normal) From left sidebar menu: Navigate to HỆ THỐNG & NGƯỜI DÙNG → Select Quản Lý Tài Khoản (/accounts)
+
+[2986] (Normal) From Breadcrumb: SMB PORTAL > QUẢN LÝ TÀI KHOẢN
+
+[3001] (Normal) Top 4 user role metric cards: Tổng Tài Khoản (13), Quản Trị Viên (1), Nhân Viên (2), Khách Hàng (10)
+
+[3002] (Normal) View switcher tabs: Tất Cả Tài Khoản (All accounts) and Quản Lý Admin (Admin-only view)
+
+[3006] (Normal) Role Filter: Tất Cả Vai Trò, Admin, Staff, Member
+
+[3007] (Normal) Status Filter: Tất Cả Trạng Thái, Hoạt Động, Chờ, Tạm Dừng, Bị Khóa
+
+[3012] (Normal) Tổng Tài Khoản (Total accounts): 13
+
+[3013] (Normal) Quản Trị Viên (Admins count): 1
+
+[3014] (Normal) Nhân Viên (Staff count): 2
+
+[3015] (Normal) Khách Hàng (Members count): 10
+
+[3018] (Normal) Tài Khoản (User): Initials avatar, full name, and @username (e.g., System Administrator @admin)
+
+[3020] (Normal) Vai Trò (Role badge): Admin, Staff, Member
+
+[3021] (Normal) Trạng Thái (Status badge): Hoạt động (Active), Chờ (Pending), Tạm dừng (Inactive), Bị khóa (Blocked)
+
+[3022] (Normal) Ngày Tạo (Created date): Date format (e.g., 25/8/2026, 3/9/2026)
+
+[3023] (Normal) Hành Động (Actions): "Tài khoản của bạn" badge for current user; three-dot menu (Edit, Lock/Unlock, Delete) for other accounts
+
+[3029] (Normal) 1. Admin navigates to Quản Lý Tài Khoản from the sidebar
+
+[3034] (Normal) Filter by Role (Admin / Staff / Member) or Status (Hoạt Động / Chờ / Tạm Dừng / Bị Khóa)
+
+[3059] (Normal) Input fields: Username (Tên đăng nhập), Email, Mật Khẩu (Password - masked characters), Họ và Tên (Full Name) & Số Điện Thoại (Phone Number) row, Vai Trò (Role dropdown) & Trạng Thái (Status dropdown) row
+
+[3065] (Normal) Mật Khẩu * (Password): Secret string, masked with dots (Min 6 characters)
+
+[3066] (Normal) Họ và Tên (Full Name): User's display name (Placeholder: "Nguyễn Văn A")
+
+[3067] (Normal) Số Điện Thoại (Phone): Contact phone number (Placeholder: "VD: 0901234567")
+
+[3068] (Normal) Vai Trò * (Role): Dropdown selection (Member — Khách hàng [Default], Staff — Nhân viên vận hành, Admin — Toàn quyền)
+
+[3069] (Normal) Trạng Thái * (Status): Dropdown selection (Hoạt động [Active - default], Tạm dừng [Inactive], Chờ kích hoạt [Pending], Bị khóa [Blocked])
+
+[3071] (Normal) Email and Mật Khẩu are strictly mandatory
+
+[3112] (Normal) Username (Tên định danh)
+
+[3114] (Normal) Họ và Tên (Full Name) & Số Điện Thoại (Phone Number) row
+
+[3115] (Normal) Vai Trò (Role dropdown) & Trạng Thái (Status dropdown) row
+
+[3121] (Normal) Họ và Tên (Full Name): User display name (e.g., "Truong Duy")
+
+[3122] (Normal) Số Điện Thoại (Phone): Contact phone number (e.g., "0703163494")
+
+[3123] (Normal) Vai Trò (Role): Current role selected (e.g., "Member — Khách hàng")
+
+[3124] (Normal) Trạng Thái (Status): Current status selected (e.g., "Hoạt động")
+
+[3155] (Normal) o From Main Navigation Sidebar -> Select "Giám Sát Robot" under Quản Lý Robot & Thiết Bị (/robots)
+
+[3225] (Normal) From Main Navigation Sidebar -> Select "Giám Sát Robot" under Quản Lý Robot & Thiết Bị (/robots)
+
+[3252] (Normal) Information banner outlining robot camera dwell behavior and automated restock task generation in Quản Lý Tuần Tra
+
+[3301] (Normal) From Main Navigation Sidebar -> Select "Giám Sát Robot" under Quản Lý Robot & Thiết Bị (/robots)
+
+[3367] (Normal) From Main Navigation Sidebar -> Select "Giám Sát Robot" under Quản Lý Robot & Thiết Bị (/robots)
+
+[3391] (Normal) "Hệ thống Robot": Running [Dẫn Đường/Quét Map], Starting, Stopped, or "Ngoại tuyến (Unreachable)"
+
+[3468] (Normal) From Main Navigation Sidebar -> Select "Quản Lý Tuần Tra" under Quản Lý Robot & Thiết Bị (/patrol-management)
+
+[3480] (Normal) Display AI-driven inventory analytics: Density Percentage (Mật độ lấp đầy), Empty Percentage (Tỷ lệ ô trống), and Operational Status (Đủ Hàng / Cần Châm Hàng / Staff Đã Châm Hàng)
+
+[3496] (Normal) Dropdown "Lọc Kệ:": Includes "Tất cả các kệ" and individual options (Kệ 1 to Kệ 6)
+
+[3557] (Normal) From Main Navigation Sidebar -> Select "Quản Lý Tuần Tra" under Quản Lý Robot & Thiết Bị (/patrol-management)
+
+[3618] (Normal) shelfId / aisleId / zoneName / location: Spatial coordinates of the shelf fixture (e.g., Kệ 3, Dãy B01)
+
+[3642] (Normal) 9. User switches to sub-tab "Lịch Sử Đã Châm Hàng" to review the updated fulfillment table (e.g., 21 records showing Rau Muống Sạch VietGAP 500g, 100% density, and Staff performer tag).
+
+[3659] (Normal) From Main Navigation Sidebar -> Select "Quản Lý Tuần Tra" under Quản Lý Robot & Thiết Bị (/patrol-management)
+
+[3680] (Normal) Card 1: "Kệ 1 - Đồ Ăn Vặt & Snack" (Khu Đồ Ăn Vặt & Nước Giải Khát • Dãy A01)
+
+[3681] (Normal) Card 2: "Kệ 2 - Nước Giải Khát & Đồ Uống" (Khu Đồ Ăn Vặt & Nước Giải Khát • Dãy A01)
+
+[3682] (Normal) Card 3: "Kệ 3 - Thực Phẩm Tươi Sống" (Khu Thực Phẩm Tươi Sống & Đóng Gói • Dãy B01)
+
+[3683] (Normal) Card 4: "Kệ 4 - Mì Ăn Liền & Đóng Gói" (Khu Thực Phẩm Tươi Sống & Đóng Gói • Dãy B01)
+
+[3684] (Normal) Card 5: "Kệ 5 - Đồ Gia Dụng & Tiện Ích" (Khu Gia Vị & Đồ Gia Dụng • Dãy C01)
+
+[3685] (Normal) Card 6: "Kệ 6 - Gia Vị & Trà" (Khu Gia Vị & Đồ Gia Dụng • Dãy C01)
+
+[3733] (Normal) 10. Robot RB0001 begins moving towards Kệ 1 to execute camera AI capture and update the density data.
+
+[3829] (Normal) Summary Metrics Bar: Average Density 95% (or live average density); Standard Compliant: 6 kệ (shelves meeting density >= 50%); Needs Restock: 0 kệ (shelves with density < 50%).
+
+[3832] (Normal) Shelf 1 | Badge Kệ 1 | Title "Kệ 1 - Đồ Ăn Vặt ..." | Sub-info "Dãy A01 · Tag #1 · Bánh Kẹo" | Progress bar & percentage "100%" | Status pill "Đầy đủ" (green) | Timestamp "🕒 15:24" | Action button "Đầy đủ - Fill lại".
+
+[3833] (Normal) Shelf 2 | Badge Kệ 2 | Title "Kệ 2 - Nước Giải ..." | Sub-info "Dãy A01 · Tag #2 · Giải Khát" | Percentage "100%" | Status "Đầy đủ" | Action button "Đầy đủ - Fill lại".
+
+[3834] (Normal) Shelf 3 | Badge Kệ 3 | Title "Kệ 3 - Thực Phẩm ..." | Sub-info "Dãy B01 · Tag #3 · Tươi Sống" | Percentage "100%" | Status "Đầy đủ" | Action button "Đầy đủ - Fill lại".
+
+[3835] (Normal) Shelf 4 | Badge Kệ 4 | Title "Kệ 4 - Mì Ăn Liền ..." | Sub-info "Dãy B01 · Tag #4 · Mì & Khô" | Percentage "100%" | Status "Đầy đủ" | Action button "Đầy đủ - Fill lại".
+
+[3836] (Normal) Shelf 5 | Badge Kệ 5 | Title "Kệ 5 - Đồ Gia Dụ ..." | Sub-info "Dãy C01 · Tag #5 · Gia Dụng" | Percentage "73%" | Status badge "Cần 70%" (orange alert) | Action button "Bổ sung thêm" (orange highlight).
+
+[3837] (Normal) Shelf 6  | Badge Kệ 6 | Title "Kệ 6 - Gia Vị & Trà" | Sub-info "Dãy C01 · Tag #6 · Gia Vị" | Percentage "100%" | Status "Đầy đủ" | Action button "Đầy đủ - Fill lại".
+
+[3870] (Normal) Shelf Name (shelfName): String — Full human-readable display title of the shelf. Examples: Kệ 1 - Đồ Ăn Vặt, Kệ 5 - Đồ Gia Dụng.
+
+[3873] (Normal) Category Name (categoryName): String — Product category assigned to the shelf. Examples: Bánh Kẹo, Gia Dụng, Giải Khát.
+
+[3982] (Normal) Dimension Scales: Top axis 3.0 m (Lối vào & Dãy kệ), Left axis 3.0 m.
+
+[3983] (Normal) Supermarket Entrance: Door icon CỬA VÀO → at the bottom edge.
+
+[3984] (Normal) Cashier Counter: Gray box THỦ NGÂN (POS CHECKOUT) at bottom-left corner.
+
+[3985] (Normal) Robot Docking Station: Green card DOCK SẠC mounted directly above Cashier Desk (Node 8).
+
+[4033] (Normal) Node Name (nodeName): String — Human-readable location title. Examples: Trạm Sạc Robot (Dock), Quầy Thu Ngân.
+
+[4063] (Normal) Screen 1 - Notifications List Screen (Cảnh báo hàng hóa):
+
+[4075] (Normal) Screen 2 - Restock Task Detail Screen (Chi tiết bổ sung hàng):
+
+[4095] (Normal) 3. Staff reviews complete task telemetry: Product title, AI Vision timestamp (14:34:20), current density (30%), deficit ratio (70%), and exact aisle location (Dãy B01 - Kệ 3).
+
+[4096] (Normal) 4. Staff follows the workflow guide: Retrieves Rau Muống Sạch VietGAP 500g items from warehouse storage and physically restocks Shelf 3 in the supermarket.
+
+[4108] (Normal) Product Title (title): String — Title of the product requiring restocking. Example: Rau Muống Sạch VietGAP 500g.
+
+[4109] (Normal) Location String (location): String — Aisle and shelf location in the supermarket. Example: Dãy B01 · Kệ 3 - Thực Phẩm Tươi Sống.
+
+[4111] (Normal) Detail Description (detail): String — Density percentage and deficit description string. Example: Mật độ kệ: 30% · Cần bổ sung: 70%.
+
+[4122] (Normal) Automatic Urgent Prioritization: Tasks with shelf density below 30% MUST be automatically classified as urgent (urgent), highlighted with orange/red cards, and elevated under the Khẩn cấp filter pill.
+
+[4166] (Normal) Full Name (fullName): String — Full display name of the staff member. Example: Nhân viên Siêu thị.
+
+[4167] (Normal) System Role (role): String — System authorization role tag. Example: Tài khoản Nội bộ.
+
+[4169] (Normal) Branch Name (branchName): String — Supermarket branch location assignment. Example: Chi nhánh Trung tâm.
+
+[4271] (Normal) Currency Format: All product prices, totals, and budget values across the Mobile App, Web Dashboard, and Robot Kiosk must be displayed in Vietnamese Dong (VND) with thousands separators and the currency symbol (e.g., 150,000đ).
+

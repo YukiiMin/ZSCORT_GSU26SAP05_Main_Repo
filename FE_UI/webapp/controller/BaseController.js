@@ -868,17 +868,7 @@ sap.ui.define([
                   ]
                 })
               ]
-            }).addStyleClass("scortProfileDetailsBox sapUiSmallMarginBottom"),
-            new sap.m.Button({
-              text: oBundle.getText("userLogoffBtn"),
-              icon: "sap-icon://log-out",
-              type: "Reject",
-              width: "100%",
-              press: function () {
-                that._oUserProfilePopover.close();
-                that.onLogoffPress();
-              }
-            })
+            }).addStyleClass("scortProfileDetailsBox")
           ]
         }).addStyleClass("sapUiContentPadding");
 
@@ -891,48 +881,6 @@ sap.ui.define([
       }
 
       this._oUserProfilePopover.openBy(oButton);
-    },
-
-    onLogoffPress: function () {
-      var that = this;
-      var oBundle = this.getOwnerComponent().getModel("i18n").getResourceBundle();
-      MessageBox.confirm(oBundle.getText("userLogoffConfirm"), {
-        title: oBundle.getText("userLogoffBtn"),
-        actions: [MessageBox.Action.YES, MessageBox.Action.NO],
-        emphasizedAction: MessageBox.Action.YES,
-        onClose: function (sAction) {
-          if (sAction === MessageBox.Action.YES) {
-            sessionStorage.setItem("scort_logged_off", "true");
-            sessionStorage.removeItem("scort_session");
-            try {
-              localStorage.removeItem("scort_remember_user");
-              localStorage.removeItem("scort_remember_flag");
-            } catch (e) {}
-
-            var oUserModel = that.getOwnerComponent().getModel("user");
-            if (oUserModel) {
-              oUserModel.setProperty("/isLoggedIn", false);
-            }
-            var oAppModel = that.getOwnerComponent().getModel("appView");
-            if (oAppModel) {
-              oAppModel.setProperty("/layout", LayoutType.OneColumn);
-              oAppModel.setProperty("/currentModule", "login");
-            }
-            try {
-              var img = new Image();
-              img.src = "/sap/public/bc/icf/logoff";
-            } catch (e) {}
-
-            MessageToast.show(oBundle.getText("userLogoffBtn") + " OK");
-
-            setTimeout(function () {
-              var sTargetUrl = window.location.pathname + (window.location.search || "") + "#/login";
-              window.location.replace(sTargetUrl);
-              window.location.reload();
-            }, 250);
-          }
-        }
-      });
     },
 
     /**
@@ -1022,6 +970,204 @@ sap.ui.define([
         }
       }
       return oBundle ? oBundle.getText(sKey, aArgs || []) : sKey;
+    },
+
+    releaseErrorText: function (oErr) {
+      if (!oErr) { return "Release failed"; }
+      var sMsg = oErr.message || String(oErr);
+      try {
+        var aDetails = oErr.error && oErr.error.details;
+        if (aDetails && aDetails.length) {
+          sMsg = aDetails.map(function (d) { return d.message; }).filter(Boolean).join("\n") || sMsg;
+        }
+      } catch (e) { }
+      return sMsg;
+    },
+
+    handleReleaseError: function (sTrkorr, vErr, oNode) {
+      var sErr = typeof vErr === "string" ? vErr : this.releaseErrorText(vErr);
+      var aInactive = [];
+
+      // Pattern: [TYPE OBJ_NAME (USER @ TASK), ...] or [TYPE OBJ_NAME (USER), ...]
+      var mMatch = sErr.match(/\[(.*?)\]/s);
+      if (mMatch && mMatch[1]) {
+        var aItems = mMatch[1].split(/\s*,\s*/);
+        aItems.forEach(function (sItem) {
+          sItem = (sItem || "").trim();
+          if (!sItem) { return; }
+          var mWithTask = sItem.match(/^([A-Z0-9_]+)\s+([A-Z0-9_/\-]+)(?:\s*\((.*?)\s*@\s*([A-Z0-9_/\-]+)\))?$/i);
+          if (mWithTask && mWithTask[4]) {
+            aInactive.push({
+              objectType: mWithTask[1].toUpperCase(),
+              objectName: mWithTask[2].toUpperCase(),
+              userName:   (mWithTask[3] || "").toUpperCase(),
+              task:       mWithTask[4].toUpperCase(),
+              status:     "Inactive"
+            });
+            return;
+          }
+          var mObj = sItem.match(/^([A-Z0-9_]+)\s+([A-Z0-9_/\-]+)(?:\s*\((.*?)\))?$/i);
+          if (mObj) {
+            aInactive.push({
+              objectType: mObj[1].toUpperCase(),
+              objectName: mObj[2].toUpperCase(),
+              task:       sTrkorr,
+              userName:   (mObj[3] || "").toUpperCase(),
+              status:     "Inactive"
+            });
+          } else {
+            aInactive.push({
+              objectType: "OBJ",
+              objectName: sItem,
+              task:       sTrkorr,
+              userName:   "",
+              status:     "Inactive"
+            });
+          }
+        });
+      }
+
+      // Fallback: If no bracketed list in error but message indicates inactive objects
+      if (aInactive.length === 0 && /inactive/i.test(sErr)) {
+        var collectObjs = function (node) {
+          var res = [];
+          if (!node) { return res; }
+          if (node.NodeType === "OBJ" && node.ObjName) {
+            res.push({
+              objectType: (node.ObjType || "OBJ").toUpperCase(),
+              objectName: (node.ObjName || "").toUpperCase(),
+              task:       node.Trkorr || (node.ParentTrkorr || sTrkorr),
+              userName:   (node.Owner || (oNode && oNode.Owner) || "").toUpperCase(),
+              status:     "Inactive"
+            });
+          }
+          if (node.children && node.children.length) {
+            node.children.forEach(function (c) {
+              res = res.concat(collectObjs(c));
+            });
+          }
+          return res;
+        };
+
+        if (oNode) {
+          aInactive = collectObjs(oNode);
+        }
+
+        // Check if on Detail view with detail model
+        if (aInactive.length === 0) {
+          var oDetailModel = this.getView().getModel("detail");
+          if (oDetailModel) {
+            var aObjs = oDetailModel.getProperty("/objects") || [];
+            aObjs.forEach(function (o) {
+              if (o && (o.ObjectName || o.ObjName)) {
+                aInactive.push({
+                  objectType: (o.ObjectType || o.ObjType || "OBJ").toUpperCase(),
+                  objectName: (o.ObjectName || o.ObjName || "").toUpperCase(),
+                  task:       o.Trkorr || sTrkorr,
+                  userName:   (o.Author || o.PersonResponsible || o.Owner || "").toUpperCase(),
+                  status:     "Check Inactive in ADT"
+                });
+              }
+            });
+          }
+        }
+
+        if (aInactive.length === 0) {
+          if (oNode && oNode.children && oNode.children.length) {
+            oNode.children.forEach(function (c) {
+              if (c && (c.NodeType === "TASK" || c.NodeType === "OBJ")) {
+                aInactive.push({
+                  objectType: c.NodeType === "TASK" ? "TASK" : (c.ObjType || "OBJ"),
+                  objectName: c.Trkorr || c.ObjName || sTrkorr,
+                  task:       c.Trkorr || sTrkorr,
+                  userName:   (c.Owner || (oNode && oNode.Owner) || "").toUpperCase(),
+                  status:     "Check Inactive in ADT"
+                });
+              }
+            });
+          }
+          if (aInactive.length === 0) {
+            aInactive.push({
+              objectType: (oNode && oNode.NodeType) || "TR",
+              objectName: sTrkorr,
+              task:       sTrkorr,
+              userName:   (oNode && oNode.Owner) || "",
+              status:     "Check Inactive in ADT"
+            });
+          }
+        }
+      }
+
+      if (aInactive.length > 0) {
+        this.showInactiveObjectsDialog(sTrkorr, aInactive, sErr);
+      } else {
+        MessageBox.error(sErr);
+      }
+    },
+
+    showInactiveObjectsDialog: function (sTrkorr, aInactive, sRawErr) {
+      if (!this._oInactiveDialog) {
+        this._oInactiveDialog = sap.ui.xmlfragment(
+          this.getView().getId(),
+          "zscort.app.view.fragment.InactiveObjectsDialog",
+          this
+        );
+        this.getView().addDependent(this._oInactiveDialog);
+      }
+
+      var sTitle = (this._getText("titleInactiveObjects", []) || "Check for Inactive Objects") + " (" + sTrkorr + ")";
+      var sDesc = this._getText("msgInactiveObjectsDesc", [sTrkorr, aInactive.length]) ||
+        ("Transport Request/Task " + sTrkorr + " contains " + aInactive.length + " inactive object(s). Please activate these objects in Eclipse ADT or SAP GUI before releasing.");
+
+      var oModel = new JSONModel({
+        trkorr: sTrkorr,
+        dialogTitle: sTitle,
+        description: sDesc,
+        objects: aInactive
+      });
+      this._oInactiveDialog.setModel(oModel, "inactiveModel");
+      this._oInactiveDialog.open();
+    },
+
+    onCloseInactiveObjectsDialog: function () {
+      if (this._oInactiveDialog) {
+        this._oInactiveDialog.close();
+      }
+    },
+
+    onCopyInactiveObjects: function () {
+      var oModel = this._oInactiveDialog ? this._oInactiveDialog.getModel("inactiveModel") : null;
+      var aObjs = (oModel && oModel.getProperty("/objects")) || [];
+      var sNames = aObjs.map(function (o) { return o.objectName; }).join(" ");
+      var sToastMsg = this._getText("msgCopiedToClipboard", []) || "Inactive object names copied to clipboard";
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(sNames).then(function () {
+          MessageToast.show(sToastMsg);
+        }).catch(function () {
+          MessageToast.show(sNames);
+        });
+      } else {
+        MessageToast.show(sNames);
+      }
+    },
+
+    onInactiveObjectNamePress: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("inactiveModel");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      if (this._oInactiveDialog) {
+        this._oInactiveDialog.close();
+      }
+      var sType = oObj.objectType || "";
+      if (sType === "METH" || sType === "CPUB" || sType === "CPRI" || sType === "CPRO" || sType === "CLSD") {
+        sType = "CLAS";
+      }
+      this.getOwnerComponent().getRouter().navTo("objSearch", {
+        "?query": {
+          objectName: oObj.objectName || "",
+          objectType: sType
+        }
+      });
     }
   });
 });
