@@ -6,4 +6,6 @@ dist/
 *.zip
 *.rar
 req3_prod/
-
+scratch
+*.csv
+Docs/
