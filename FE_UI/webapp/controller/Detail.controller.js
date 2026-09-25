@@ -436,7 +436,7 @@ sap.ui.define([
 
       oM.setProperty("/busy", true);
       MessageToast.show("Releasing " + (bIsParentTr ? "TR " : "Task ") + sTrkorr + "…");
-      this._invokeTrTreeAction("ReleaseRequest", sTrkorr).then(function () {
+      that._invokeTrTreeAction("ReleaseRequest", sTrkorr).then(function () {
         oM.setProperty("/busy", false);
         MessageToast.show((bIsParentTr ? "TR " : "Task ") + sTrkorr + " released successfully.");
         that._loadObjects(sTrkorr);
@@ -460,6 +460,8 @@ sap.ui.define([
         onClose: function (sAction) {
           if (sAction !== MessageBox.Action.OK) { return; }
           oM.setProperty("/busy", true);
+          MessageToast.show("Releasing task " + sTask + "…");
+
           that._invokeTrTreeAction("ReleaseRequest", sTask).then(function () {
             oM.setProperty("/busy", false);
             MessageToast.show("Task " + sTask + " released successfully.");

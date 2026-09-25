@@ -43,9 +43,19 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
              obj_name TYPE dwinactiv-obj_name,
            END OF ty_dwinactiv_fae.
 
-    DATA lt_e071_objs TYPE STANDARD TABLE OF ty_e071_obj WITH DEFAULT KEY.
-    DATA lt_fae_objs  TYPE STANDARD TABLE OF ty_dwinactiv_fae WITH DEFAULT KEY.
-    DATA lt_inact_raw TYPE STANDARD TABLE OF ty_inactive_obj WITH DEFAULT KEY.
+    DATA lt_e071_objs      TYPE STANDARD TABLE OF ty_e071_obj WITH DEFAULT KEY.
+    DATA lt_fae_objs       TYPE STANDARD TABLE OF ty_dwinactiv_fae WITH DEFAULT KEY.
+    DATA lt_inact_raw      TYPE STANDARD TABLE OF ty_inactive_obj WITH DEFAULT KEY.
+    DATA ls_e071           TYPE ty_e071_obj.
+    DATA ls_raw            TYPE ty_inactive_obj.
+    DATA lv_fae_name       TYPE dwinactiv-obj_name.
+    DATA lv_name_clean     TYPE dwinactiv-obj_name.
+    DATA lv_prefix         TYPE dwinactiv-obj_name.
+    DATA lv_fugr_l         TYPE dwinactiv-obj_name.
+    DATA lv_fugr_sap       TYPE dwinactiv-obj_name.
+    DATA lv_func_name      TYPE rs38l_fnam.
+    DATA lv_area           TYPE rs38l_area.
+    DATA lv_matched_trkorr TYPE e070-trkorr.
 
     SELECT trkorr, pgmid, object, obj_name
       FROM e071
@@ -57,8 +67,8 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    LOOP AT lt_e071_objs INTO DATA(ls_e071).
-      DATA(lv_fae_name) = CONV dwinactiv-obj_name( ls_e071-obj_name ).
+    LOOP AT lt_e071_objs INTO ls_e071.
+      lv_fae_name = CONV dwinactiv-obj_name( ls_e071-obj_name ).
       CONDENSE lv_fae_name.
       IF lv_fae_name IS NOT INITIAL.
         APPEND VALUE #( obj_name = lv_fae_name ) TO lt_fae_objs.
@@ -76,30 +86,56 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
         INTO CORRESPONDING FIELDS OF TABLE @lt_inact_raw.
     ENDIF.
 
-    LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'CLAS' OR object = 'FUGR' OR object = 'PROG'.
-      DATA lv_name_clean TYPE dwinactiv-obj_name.
+    LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'CLAS' OR object = 'FUGR' OR object = 'PROG' OR object = 'INTF'.
       lv_name_clean = ls_e071-obj_name.
       CONDENSE lv_name_clean.
       IF lv_name_clean IS NOT INITIAL.
-        DATA(lv_prefix) = |{ lv_name_clean }%|.
+        lv_prefix = |{ lv_name_clean }%|.
         SELECT DISTINCT object, obj_name, uname
           FROM dwinactiv
           WHERE obj_name LIKE @lv_prefix
           APPENDING CORRESPONDING FIELDS OF TABLE @lt_inact_raw.
+
+        IF ls_e071-object = 'FUGR'.
+          lv_fugr_l   = |L{ lv_name_clean }%|.
+          lv_fugr_sap = |SAPL{ lv_name_clean }%|.
+          SELECT DISTINCT object, obj_name, uname
+            FROM dwinactiv
+            WHERE obj_name LIKE @lv_fugr_l OR obj_name LIKE @lv_fugr_sap
+            APPENDING CORRESPONDING FIELDS OF TABLE @lt_inact_raw.
+        ENDIF.
+      ENDIF.
+    ENDLOOP.
+
+    LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'FUNC'.
+      lv_func_name = ls_e071-obj_name.
+      CONDENSE lv_func_name.
+      IF lv_func_name IS NOT INITIAL.
+        SELECT SINGLE area FROM enlfdir
+          WHERE funcname = @lv_func_name
+          INTO @lv_area. "#EC CI_SGLSELECT
+        IF sy-subrc = 0 AND lv_area IS NOT INITIAL.
+          CONDENSE lv_area.
+          lv_fugr_l   = |L{ lv_area }%|.
+          lv_fugr_sap = |SAPL{ lv_area }%|.
+          SELECT DISTINCT object, obj_name, uname
+            FROM dwinactiv
+            WHERE obj_name LIKE @lv_fugr_l OR obj_name LIKE @lv_fugr_sap
+            APPENDING CORRESPONDING FIELDS OF TABLE @lt_inact_raw.
+        ENDIF.
       ENDIF.
     ENDLOOP.
 
     SORT lt_inact_raw BY object obj_name uname.
     DELETE ADJACENT DUPLICATES FROM lt_inact_raw COMPARING object obj_name uname.
 
-    LOOP AT lt_inact_raw INTO DATA(ls_raw).
-      DATA lv_matched_trkorr TYPE e070-trkorr.
+    LOOP AT lt_inact_raw INTO ls_raw.
       CLEAR lv_matched_trkorr.
       READ TABLE lt_e071_objs INTO ls_e071 WITH KEY obj_name = ls_raw-obj_name.
       IF sy-subrc = 0.
         lv_matched_trkorr = ls_e071-trkorr.
       ELSE.
-        LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'CLAS' OR object = 'FUGR' OR object = 'PROG'.
+        LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'CLAS' OR object = 'FUGR' OR object = 'PROG' OR object = 'INTF'.
           lv_name_clean = ls_e071-obj_name.
           CONDENSE lv_name_clean.
           IF lv_name_clean IS NOT INITIAL AND ls_raw-obj_name CP |{ lv_name_clean }*|.
@@ -107,6 +143,23 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
             EXIT.
           ENDIF.
         ENDLOOP.
+
+        IF lv_matched_trkorr IS INITIAL.
+          LOOP AT lt_e071_objs INTO ls_e071 WHERE object = 'FUNC'.
+            lv_func_name = ls_e071-obj_name.
+            CONDENSE lv_func_name.
+            SELECT SINGLE area FROM enlfdir
+              WHERE funcname = @lv_func_name
+              INTO @lv_area. "#EC CI_SGLSELECT
+            IF sy-subrc = 0 AND lv_area IS NOT INITIAL.
+              CONDENSE lv_area.
+              IF ls_raw-obj_name CP |L{ lv_area }*| OR ls_raw-obj_name CP |SAPL{ lv_area }*|.
+                lv_matched_trkorr = ls_e071-trkorr.
+                EXIT.
+              ENDIF.
+            ENDIF.
+          ENDLOOP.
+        ENDIF.
       ENDIF.
 
       IF lv_matched_trkorr IS INITIAL.
@@ -124,11 +177,18 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
   ENDMETHOD.
 
   METHOD process_release.
+    DATA ls_e070     TYPE e070.
+    DATA lt_inactive TYPE tt_inactive_objs.
+    DATA ls_in       TYPE ty_inactive_obj.
+    DATA lv_cnt      TYPE i.
+    DATA lv_details  TYPE string.
+    DATA lv_fm_subrc TYPE sysubrc.
+
     ev_success = abap_false.
 
     SELECT SINGLE trkorr, strkorr, trstatus FROM e070
       WHERE trkorr = @iv_trkorr
-      INTO @DATA(ls_e070).
+      INTO CORRESPONDING FIELDS OF @ls_e070.
 
     IF sy-subrc <> 0.
       ev_status  = 'UNKNOWN'.
@@ -141,27 +201,6 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
 
     IF ls_e070-trstatus = 'R'.
       ev_message = zcm_scort=>get_text_by_key( is_t100_key = zcm_scort=>tr_already_released iv_attr1 = CONV #( iv_trkorr ) ).
-      RETURN.
-    ENDIF.
-
-    DATA(lt_inactive) = check_inactive_objects( iv_trkorr ).
-    IF lt_inactive IS NOT INITIAL.
-      ev_success = abap_false.
-      DATA(lv_inact_count) = lines( lt_inactive ).
-      DATA lv_inact_list TYPE string.
-      LOOP AT lt_inactive INTO DATA(ls_inact).
-        IF lv_inact_list IS INITIAL.
-          lv_inact_list = |{ ls_inact-object } { ls_inact-obj_name } ({ ls_inact-uname } @ { ls_inact-trkorr })|.
-        ELSE.
-          lv_inact_list = |{ lv_inact_list }, { ls_inact-object } { ls_inact-obj_name } ({ ls_inact-uname } @ { ls_inact-trkorr })|.
-        ENDIF.
-      ENDLOOP.
-
-      ev_message = zcm_scort=>get_text_by_key(
-                     is_t100_key = zcm_scort=>tr_has_inactive_objects
-                     iv_attr1    = CONV #( iv_trkorr )
-                     iv_attr2    = CONV #( lv_inact_count ) ).
-      ev_message = |{ ev_message } [{ lv_inact_list }]|.
       RETURN.
     ENDIF.
 
@@ -179,7 +218,7 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
         object_check_error         = 6
         OTHERS                     = 7.
 
-    DATA(lv_fm_subrc) = sy-subrc.
+    lv_fm_subrc = sy-subrc.
     IF lv_fm_subrc = 0.
       SELECT SINGLE trstatus FROM e070 WHERE trkorr = @iv_trkorr INTO @ev_status.
       IF ev_status = 'O'.
@@ -239,9 +278,9 @@ CLASS zcl_scort_release_service IMPLEMENTATION.
         WHEN 6.
           lt_inactive = check_inactive_objects( iv_trkorr ).
           IF lt_inactive IS NOT INITIAL.
-            DATA(lv_cnt) = lines( lt_inactive ).
-            DATA lv_details TYPE string.
-            LOOP AT lt_inactive INTO DATA(ls_in).
+            lv_cnt = lines( lt_inactive ).
+            CLEAR lv_details.
+            LOOP AT lt_inactive INTO ls_in.
               IF lv_details IS INITIAL.
                 lv_details = |{ ls_in-object } { ls_in-obj_name } ({ ls_in-uname } @ { ls_in-trkorr })|.
               ELSE.

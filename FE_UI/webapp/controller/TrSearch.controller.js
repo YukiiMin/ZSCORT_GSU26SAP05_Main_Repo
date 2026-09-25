@@ -700,6 +700,7 @@ sap.ui.define([
         title: "Release Transport",
         onClose: function (sAction) {
           if (sAction !== MessageBox.Action.OK) { return; }
+
           oOdm.bindContext(sPath).execute().then(function () {
             MessageToast.show(that._getText("msgReleaseSuccess", [sTrkorr]) || ("Release OK: " + sTrkorr));
             that._searchTree(true);

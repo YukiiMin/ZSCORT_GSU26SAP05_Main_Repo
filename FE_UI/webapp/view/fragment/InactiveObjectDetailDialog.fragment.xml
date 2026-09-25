@@ -1,0 +1,69 @@
+<core:FragmentDefinition
+  xmlns="sap.m"
+  xmlns:core="sap.ui.core">
+  <Dialog
+    id="idInactiveObjectDetailDialog"
+    title="{inactiveModel>/detailTitle}"
+    icon="sap-icon://hint"
+    contentWidth="38rem"
+    resizable="true"
+    draggable="true">
+
+    <content>
+      <VBox class="sapUiMediumMargin">
+        <!-- Header Card: Object & Task Overview -->
+        <VBox class="sapUiSmallMarginBottom scortInactiveHeaderCard">
+          <HBox alignItems="Center" justifyContent="SpaceBetween" class="sapUiTinyMarginBottom">
+            <HBox alignItems="Center">
+              <core:Icon src="sap-icon://document-text" class="sapUiTinyMarginEnd" color="#0284c7" />
+              <Title text="{inactiveModel>/selectedObject/ObjectType} {inactiveModel>/selectedObject/ObjectName}" level="H4" />
+            </HBox>
+            <ObjectStatus text="{inactiveModel>/selectedObject/Status}" state="Warning" icon="sap-icon://status-inactive" />
+          </HBox>
+          <HBox wrap="Wrap" class="sapUiTinyMarginTop">
+            <HBox alignItems="Center" class="sapUiSmallMarginEnd sapUiTinyMarginBottom">
+              <core:Icon src="sap-icon://task" size="0.85rem" class="sapUiTinyMarginEnd" color="#64748b" />
+              <Text text="{i18n>lblTask}: {inactiveModel>/selectedObject/Trkorr}" />
+            </HBox>
+            <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+              <core:Icon src="sap-icon://person-placeholder" size="0.85rem" class="sapUiTinyMarginEnd" color="#64748b" />
+              <Text text="{i18n>lblUser}: {inactiveModel>/selectedObject/Uname}" />
+            </HBox>
+          </HBox>
+        </VBox>
+
+        <!-- Diagnosis Card -->
+        <VBox class="sapUiSmallMarginBottom scortInactiveDiagnosisCard">
+          <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+            <core:Icon src="sap-icon://alert" color="#d97706" class="sapUiTinyMarginEnd" />
+            <Text text="{i18n>lblDiagnosisTitle}" class="scortInactiveDiagnosisTitle" />
+          </HBox>
+          <Text text="{inactiveModel>/selectedObject/Diagnosis}" class="scortInactiveDiagnosisText" />
+        </VBox>
+
+        <!-- Resolution Card -->
+        <VBox class="scortInactiveResolutionCard">
+          <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+            <core:Icon src="sap-icon://sys-enter-2" color="#059669" class="sapUiTinyMarginEnd" />
+            <Text text="{i18n>lblResolutionTitle}" class="scortInactiveResolutionTitle" />
+          </HBox>
+          <FormattedText htmlText="{inactiveModel>/selectedObject/ResolutionFormatted}" class="sapUiTinyMarginTop" />
+        </VBox>
+      </VBox>
+    </content>
+
+    <buttons>
+      <Button
+        id="btnDetailOpenObjSearch"
+        text="{i18n>btnFindInObjSearch}"
+        icon="sap-icon://search"
+        press=".onOpenSelectedObjectInSearch" />
+      <Button
+        id="btnDetailClose"
+        text="{i18n>btnClose}"
+        type="Emphasized"
+        press=".onCloseInactiveObjectDetailDialog" />
+    </buttons>
+
+  </Dialog>
+</core:FragmentDefinition>

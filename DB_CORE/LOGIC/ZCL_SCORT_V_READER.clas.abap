@@ -747,6 +747,24 @@ CLASS zcl_scort_v_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    IF iv_object_type = 'DDLS' OR iv_object_type = 'DDLX' OR iv_object_type = 'BDEF' OR iv_object_type = 'DCLS'.
+      DATA lv_internal_found TYPE abap_bool.
+      DATA lt_clean_lines    TYPE ty_string_tab.
+      DATA lv_curr_line      TYPE string.
+      lv_internal_found = abap_false.
+      CLEAR lt_clean_lines.
+      LOOP AT lt_lines INTO lv_curr_line.
+        IF lv_curr_line CS '/*+[internal]'.
+          lv_internal_found = abap_true.
+          EXIT.
+        ENDIF.
+        APPEND lv_curr_line TO lt_clean_lines.
+      ENDLOOP.
+      IF lv_internal_found = abap_true.
+        lt_lines = lt_clean_lines.
+      ENDIF.
+    ENDIF.
+
     rs_source-found      = abap_true.
     rs_source-lines      = lt_lines.
     rs_source-line_count = lines( lt_lines ).

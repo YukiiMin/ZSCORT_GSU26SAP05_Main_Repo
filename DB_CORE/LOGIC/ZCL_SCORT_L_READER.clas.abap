@@ -115,6 +115,9 @@ CLASS zcl_scort_l_reader DEFINITION
       IMPORTING iv_name  TYPE sobj_name
       EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
+    CLASS-METHODS strip_cds_internal_metadata
+      CHANGING cv_source TYPE string.
+
 ENDCLASS.
 
 
@@ -363,6 +366,8 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
+    strip_cds_internal_metadata( CHANGING cv_source = lv_source ).
+
     IF lv_source CS cl_abap_char_utilities=>cr_lf.
       SPLIT lv_source AT cl_abap_char_utilities=>cr_lf INTO TABLE et_lines.
     ELSEIF lv_source CS cl_abap_char_utilities=>newline.
@@ -441,6 +446,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
 
     IF lv_source IS NOT INITIAL.
+      strip_cds_internal_metadata( CHANGING cv_source = lv_source ).
       IF lv_source CS cl_abap_char_utilities=>cr_lf.
         SPLIT lv_source AT cl_abap_char_utilities=>cr_lf INTO TABLE et_lines.
       ELSEIF lv_source CS cl_abap_char_utilities=>newline.
@@ -559,6 +565,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
 
     IF lv_source IS NOT INITIAL.
+      strip_cds_internal_metadata( CHANGING cv_source = lv_source ).
       IF lv_source CS cl_abap_char_utilities=>cr_lf.
         SPLIT lv_source AT cl_abap_char_utilities=>cr_lf INTO TABLE et_lines.
       ELSEIF lv_source CS cl_abap_char_utilities=>newline.
@@ -725,6 +732,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
 
     IF lv_source IS NOT INITIAL.
+      strip_cds_internal_metadata( CHANGING cv_source = lv_source ).
       IF lv_source CS cl_abap_char_utilities=>cr_lf.
         SPLIT lv_source AT cl_abap_char_utilities=>cr_lf INTO TABLE et_lines.
       ELSEIF lv_source CS cl_abap_char_utilities=>newline.
@@ -1110,7 +1118,17 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         selfdef TYPE t100u-selfdef,
         name    TYPE t100u-name,
         datum   TYPE t100u-datum,
-      END OF ty_t100_msg.
+      END OF ty_t100_msg,
+      BEGIN OF ty_t100_raw,
+        msgnr TYPE t100-msgnr,
+        text  TYPE t100-text,
+      END OF ty_t100_raw,
+      BEGIN OF ty_t100u_entry,
+        msgnr   TYPE t100u-msgnr,
+        selfdef TYPE t100u-selfdef,
+        name    TYPE t100u-name,
+        datum   TYPE t100u-datum,
+      END OF ty_t100u_entry.
 
     DATA lv_arbgb      TYPE t100a-arbgb.
     DATA lv_masterlang TYPE t100a-masterlang.
@@ -1119,6 +1137,14 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     DATA lv_ldate      TYPE t100a-ldate.
     DATA lv_stext      TYPE t100t-stext.
     DATA lt_t100       TYPE STANDARD TABLE OF ty_t100_msg WITH DEFAULT KEY.
+    DATA lt_t100_raw   TYPE STANDARD TABLE OF ty_t100_raw WITH DEFAULT KEY.
+    DATA lt_t100u_raw  TYPE STANDARD TABLE OF ty_t100u_entry WITH DEFAULT KEY.
+    DATA ls_raw        TYPE ty_t100_raw.
+    DATA ls_u          TYPE ty_t100u_entry.
+    DATA ls_msg        TYPE ty_t100_msg.
+    DATA ls_m          TYPE ty_t100_msg.
+    DATA lv_text       TYPE string.
+    DATA lv_selfexpl   TYPE string.
 
     CLEAR: et_lines, ev_ok.
     lv_arbgb = iv_name.
@@ -1147,7 +1173,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       FROM t100
       WHERE sprsl = @sy-langu AND arbgb = @lv_arbgb
       ORDER BY msgnr
-      INTO TABLE @DATA(lt_t100_raw).                  "#EC CI_SGLSELECT
+      INTO TABLE @lt_t100_raw.                        "#EC CI_SGLSELECT
 
     IF lt_t100_raw IS INITIAL AND lv_masterlang IS NOT INITIAL.
       SELECT msgnr, text
@@ -1169,16 +1195,16 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       SELECT msgnr, selfdef, name, datum
         FROM t100u
         WHERE arbgb = @lv_arbgb
-        INTO TABLE @DATA(lt_t100u_raw).               "#EC CI_SGLSELECT
+        INTO TABLE @lt_t100u_raw.                     "#EC CI_SGLSELECT
 
-      DATA lt_t100u_map TYPE HASHED TABLE OF t100u WITH UNIQUE KEY msgnr.
-      lt_t100u_map = lt_t100u_raw.
+      SORT lt_t100u_raw BY msgnr datum DESCENDING.
+      DELETE ADJACENT DUPLICATES FROM lt_t100u_raw COMPARING msgnr.
 
-      LOOP AT lt_t100_raw INTO DATA(ls_raw).
-        DATA ls_msg TYPE ty_t100_msg.
+      LOOP AT lt_t100_raw INTO ls_raw.
+        CLEAR ls_msg.
         ls_msg-msgnr = ls_raw-msgnr.
         ls_msg-text  = ls_raw-text.
-        READ TABLE lt_t100u_map INTO DATA(ls_u) WITH TABLE KEY msgnr = ls_raw-msgnr.
+        READ TABLE lt_t100u_raw INTO ls_u WITH KEY msgnr = ls_raw-msgnr BINARY SEARCH.
         IF sy-subrc = 0.
           ls_msg-selfdef = ls_u-selfdef.
           ls_msg-name    = ls_u-name.
@@ -1209,9 +1235,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     ENDIF.
 
     APPEND |define message class { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
-    LOOP AT lt_t100 INTO DATA(ls_m).
-      DATA lv_text     TYPE string.
-      DATA lv_selfexpl TYPE string.
+    LOOP AT lt_t100 INTO ls_m.
       lv_text = ls_m-text.
       REPLACE ALL OCCURRENCES OF `'` IN lv_text WITH `''`.
       IF ls_m-selfdef IS NOT INITIAL AND ls_m-selfdef <> ' '.
@@ -1554,6 +1578,16 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
                 data        = lt_comps
                 pretty_name = /ui2/cl_json=>pretty_mode-camel_case ).
     ev_ok = abap_true.
+  ENDMETHOD.
+
+  METHOD strip_cds_internal_metadata.
+    DATA lv_pos TYPE i.
+    IF cv_source CS '/*+[internal]'.
+      FIND FIRST OCCURRENCE OF '/*+[internal]' IN cv_source MATCH OFFSET lv_pos.
+      IF sy-subrc = 0.
+        cv_source = cv_source(lv_pos).
+      ENDIF.
+    ENDIF.
   ENDMETHOD.
 
 ENDCLASS.

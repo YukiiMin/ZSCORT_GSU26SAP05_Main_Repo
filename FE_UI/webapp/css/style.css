@@ -188,12 +188,30 @@ html, body {
 /* ── Monaco Diff Containers in Compare View ──────────────── */
 [id$="monacoGitContainer"],
 [id$="monacoVersContainer"] {
-  width: 100% !important;
-  height: 100% !important;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+}
+
+[id$="monacoGitContainer"].sapUiHidden,
+[id$="monacoVersContainer"].sapUiHidden,
+[id$="monacoGitContainer"][style*="display: none"],
+[id$="monacoVersContainer"][style*="display: none"],
+[id$="monacoGitContainer"][style*="display:none"],
+[id$="monacoVersContainer"][style*="display:none"],
+.scortDiffHidden {
+  display: none !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  flex: 0 0 0 !important;
+  overflow: hidden !important;
+}
+
+[id$="monacoGitContainer"]:not(.sapUiHidden):not([style*="display: none"]):not([style*="display:none"]),
+[id$="monacoVersContainer"]:not(.sapUiHidden):not([style*="display: none"]):not([style*="display:none"]) {
   min-height: 480px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  flex: 1 1 auto !important;
 }
 
 [id$="monacoGitContainer"] iframe,
@@ -309,6 +327,46 @@ html, body {
 .scortLogLineBorder {
   color: #64748b !important;
 }
+
+/* ── Modern Inactive Objects Dialog Cards ────────────────────────────────── */
+.scortInactiveHeaderCard {
+  background: var(--sapTile_Background, #ffffff);
+  border: 1px solid var(--sapGroup_ContentBorderColor, #e2e8f0);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+}
+
+.scortInactiveDiagnosisCard {
+  background: #fffbeb;
+  border: 1px solid #fef3c7;
+  border-left: 4px solid #f59e0b;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.scortInactiveDiagnosisTitle {
+  font-weight: 600;
+  color: #92400e;
+}
+
+.scortInactiveDiagnosisText {
+  color: #78350f;
+  line-height: 1.45;
+}
+
+.scortInactiveResolutionCard {
+  background: #f0fdf4;
+  border: 1px solid #dcfce7;
+  border-left: 4px solid #10b981;
+  border-radius: 6px;
+  padding: 0.75rem 1rem;
+}
+
+.scortInactiveResolutionTitle {
+  font-weight: 600;
+  color: #065f46;
+}
+
 
 
 

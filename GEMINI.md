@@ -66,6 +66,7 @@ Khi bắt đầu làm bất kỳ tác vụ nào thuộc domain dưới đây, **
 | A18 | **MSAG Companion File** | Khi tạo/sửa `<NAME>.msag.xml`, BẮT BUỘC tạo/cập nhật `<NAME>.md` kèm format TSV để copy nhanh vào SE91/ADT (hỗ trợ placeholder `&1`-`&4` và version <=39 chars) |
 | A19 | **Class Version: ADT Parity Invariant** | Global Class (`CP`) đọc dưới `OBJTYPE = 'CLAS'` (sử dụng `SVRS_GET_VERSION` và `reconstruct_clas_source` từ `CPUB`/`CPRO`/`CPRI`/`METH`). Sub-includes (`CCDEF`, `CCIMP`, `CCAU`, `CCMAC`) đọc dưới `OBJTYPE = 'REPS'` |
 | A20 | **T100 Message Length <= 72 chars** | Short text của T100 trong SE91 tối đa 73 ký tự; vượt quá sẽ bị cắt cụt giữa chừng |
+| A21 | **Raw Technical Facts SSOT (BE vs FE i18n)** | Khi BE không có chuẩn tài liệu (`DOKTL`), BE chỉ trả raw data (`ObjectType`, `ObjectName`, `Task`, `User`, `Status`, `ErrorCode`). CẤM tự sáng tác English prose trong String template `\|...\|`. Toàn bộ văn bản chẩn đoán, hướng dẫn và toast do UI5 `i18n.properties` đảm nhiệm |
 
 ---
 

@@ -984,122 +984,33 @@ sap.ui.define([
       return sMsg;
     },
 
+    fetchInactiveObjects: function (sTrkorr) {
+      if (!sTrkorr) {
+        return Promise.resolve([]);
+      }
+      var sSafeTr = String(sTrkorr).replace(/'/g, "''");
+      var sUrl = this._trServiceUri() + "InactiveObjects?$filter=Trkorr eq '" + sSafeTr + "'";
+      return ValueHelp.fetchJson(sUrl, 15000).then(function (aData) {
+        return Array.isArray(aData) ? aData : [];
+      }).catch(function () {
+        return [];
+      });
+    },
+
     handleReleaseError: function (sTrkorr, vErr, oNode) {
       var sErr = typeof vErr === "string" ? vErr : this.releaseErrorText(vErr);
-      var aInactive = [];
+      var that = this;
 
-      // Pattern: [TYPE OBJ_NAME (USER @ TASK), ...] or [TYPE OBJ_NAME (USER), ...]
-      var mMatch = sErr.match(/\[(.*?)\]/s);
-      if (mMatch && mMatch[1]) {
-        var aItems = mMatch[1].split(/\s*,\s*/);
-        aItems.forEach(function (sItem) {
-          sItem = (sItem || "").trim();
-          if (!sItem) { return; }
-          var mWithTask = sItem.match(/^([A-Z0-9_]+)\s+([A-Z0-9_/\-]+)(?:\s*\((.*?)\s*@\s*([A-Z0-9_/\-]+)\))?$/i);
-          if (mWithTask && mWithTask[4]) {
-            aInactive.push({
-              objectType: mWithTask[1].toUpperCase(),
-              objectName: mWithTask[2].toUpperCase(),
-              userName:   (mWithTask[3] || "").toUpperCase(),
-              task:       mWithTask[4].toUpperCase(),
-              status:     "Inactive"
-            });
-            return;
-          }
-          var mObj = sItem.match(/^([A-Z0-9_]+)\s+([A-Z0-9_/\-]+)(?:\s*\((.*?)\))?$/i);
-          if (mObj) {
-            aInactive.push({
-              objectType: mObj[1].toUpperCase(),
-              objectName: mObj[2].toUpperCase(),
-              task:       sTrkorr,
-              userName:   (mObj[3] || "").toUpperCase(),
-              status:     "Inactive"
-            });
+      if (/inactive|dwinactiv|object_check|check error|check syntax|active state|077|083/i.test(sErr)) {
+        this.fetchInactiveObjects(sTrkorr).then(function (aInactive) {
+          if (aInactive && aInactive.length > 0) {
+            that.showInactiveObjectsDialog(sTrkorr, aInactive, sErr);
           } else {
-            aInactive.push({
-              objectType: "OBJ",
-              objectName: sItem,
-              task:       sTrkorr,
-              userName:   "",
-              status:     "Inactive"
-            });
+            MessageBox.error(sErr);
           }
+        }).catch(function () {
+          MessageBox.error(sErr);
         });
-      }
-
-      // Fallback: If no bracketed list in error but message indicates inactive objects
-      if (aInactive.length === 0 && /inactive/i.test(sErr)) {
-        var collectObjs = function (node) {
-          var res = [];
-          if (!node) { return res; }
-          if (node.NodeType === "OBJ" && node.ObjName) {
-            res.push({
-              objectType: (node.ObjType || "OBJ").toUpperCase(),
-              objectName: (node.ObjName || "").toUpperCase(),
-              task:       node.Trkorr || (node.ParentTrkorr || sTrkorr),
-              userName:   (node.Owner || (oNode && oNode.Owner) || "").toUpperCase(),
-              status:     "Inactive"
-            });
-          }
-          if (node.children && node.children.length) {
-            node.children.forEach(function (c) {
-              res = res.concat(collectObjs(c));
-            });
-          }
-          return res;
-        };
-
-        if (oNode) {
-          aInactive = collectObjs(oNode);
-        }
-
-        // Check if on Detail view with detail model
-        if (aInactive.length === 0) {
-          var oDetailModel = this.getView().getModel("detail");
-          if (oDetailModel) {
-            var aObjs = oDetailModel.getProperty("/objects") || [];
-            aObjs.forEach(function (o) {
-              if (o && (o.ObjectName || o.ObjName)) {
-                aInactive.push({
-                  objectType: (o.ObjectType || o.ObjType || "OBJ").toUpperCase(),
-                  objectName: (o.ObjectName || o.ObjName || "").toUpperCase(),
-                  task:       o.Trkorr || sTrkorr,
-                  userName:   (o.Author || o.PersonResponsible || o.Owner || "").toUpperCase(),
-                  status:     "Check Inactive in ADT"
-                });
-              }
-            });
-          }
-        }
-
-        if (aInactive.length === 0) {
-          if (oNode && oNode.children && oNode.children.length) {
-            oNode.children.forEach(function (c) {
-              if (c && (c.NodeType === "TASK" || c.NodeType === "OBJ")) {
-                aInactive.push({
-                  objectType: c.NodeType === "TASK" ? "TASK" : (c.ObjType || "OBJ"),
-                  objectName: c.Trkorr || c.ObjName || sTrkorr,
-                  task:       c.Trkorr || sTrkorr,
-                  userName:   (c.Owner || (oNode && oNode.Owner) || "").toUpperCase(),
-                  status:     "Check Inactive in ADT"
-                });
-              }
-            });
-          }
-          if (aInactive.length === 0) {
-            aInactive.push({
-              objectType: (oNode && oNode.NodeType) || "TR",
-              objectName: sTrkorr,
-              task:       sTrkorr,
-              userName:   (oNode && oNode.Owner) || "",
-              status:     "Check Inactive in ADT"
-            });
-          }
-        }
-      }
-
-      if (aInactive.length > 0) {
-        this.showInactiveObjectsDialog(sTrkorr, aInactive, sErr);
       } else {
         MessageBox.error(sErr);
       }
@@ -1123,7 +1034,9 @@ sap.ui.define([
         trkorr: sTrkorr,
         dialogTitle: sTitle,
         description: sDesc,
-        objects: aInactive
+        objects: aInactive,
+        rawError: sRawErr || "",
+        selectedObject: {}
       });
       this._oInactiveDialog.setModel(oModel, "inactiveModel");
       this._oInactiveDialog.open();
@@ -1135,11 +1048,110 @@ sap.ui.define([
       }
     },
 
+    onShowInactiveObjectDetails: function (oEvent) {
+      var oCtx = oEvent.getSource().getBindingContext("inactiveModel");
+      if (!oCtx) { return; }
+      var oObj = oCtx.getObject();
+      var oModel = this._oInactiveDialog ? this._oInactiveDialog.getModel("inactiveModel") : null;
+      if (!oModel) { return; }
+
+      var sObjType = oObj.ObjectType || "OBJ";
+      var sObjName = oObj.ObjectName || "";
+      var sTask = oObj.Trkorr || "";
+      var sUser = oObj.Uname || "Unknown";
+
+      var sDiag = this._getText("msgInactiveDiagnosis", [sObjType, sObjName, sTask, sUser]);
+      var sStep1 = this._getText("msgInactiveResStep1", [sUser, sObjType, sObjName]);
+      var sStep2 = this._getText("msgInactiveResStep2", []);
+      var sStep3 = this._getText("msgInactiveResStep3", [sTask]);
+      var sResFormatted = sStep1 + "<br/>" + sStep2 + "<br/>" + sStep3;
+
+      var oSelected = Object.assign({}, oObj, {
+        Diagnosis: sDiag,
+        ResolutionFormatted: sResFormatted
+      });
+
+      oModel.setProperty("/selectedObject", oSelected);
+      oModel.setProperty("/detailTitle", sObjType + " " + sObjName + " - " + (this._getText("lblInactiveDiagnosis", []) || "Inactive Diagnosis"));
+
+      if (!this._oInactiveDetailDialog) {
+        this._oInactiveDetailDialog = sap.ui.xmlfragment(
+          this.getView().getId() + "_inactiveDetail",
+          "zscort.app.view.fragment.InactiveObjectDetailDialog",
+          this
+        );
+        this.getView().addDependent(this._oInactiveDetailDialog);
+      }
+
+      this._oInactiveDetailDialog.setModel(oModel, "inactiveModel");
+      this._oInactiveDetailDialog.open();
+    },
+
+    onCloseInactiveObjectDetailDialog: function () {
+      if (this._oInactiveDetailDialog) {
+        this._oInactiveDetailDialog.close();
+      }
+    },
+
+    onOpenSelectedObjectInSearch: function () {
+      var oModel = this._oInactiveDialog ? this._oInactiveDialog.getModel("inactiveModel") : null;
+      var oObj = oModel ? oModel.getProperty("/selectedObject") : null;
+      if (!oObj) { return; }
+      if (this._oInactiveDetailDialog) {
+        this._oInactiveDetailDialog.close();
+      }
+      if (this._oInactiveDialog) {
+        this._oInactiveDialog.close();
+      }
+      var sType = oObj.ObjectType || "";
+      if (sType === "METH" || sType === "CPUB" || sType === "CPRI" || sType === "CPRO" || sType === "CLSD") {
+        sType = "CLAS";
+      }
+      this.getOwnerComponent().getRouter().navTo("objSearch", {
+        "?query": {
+          objectName: oObj.ObjectName || "",
+          objectType: sType
+        }
+      });
+    },
+
+    onShowOverallErrorDetails: function () {
+      var oModel = this._oInactiveDialog ? this._oInactiveDialog.getModel("inactiveModel") : null;
+      var sRawErr = (oModel && oModel.getProperty("/rawError")) || "";
+      var aObjs = (oModel && oModel.getProperty("/objects")) || [];
+      var sTrkorr = (oModel && oModel.getProperty("/trkorr")) || "";
+
+      var sDiagText = this._getText("msgOverallDiagnosis", [sTrkorr, aObjs.length]);
+      var sRecom1 = this._getText("msgOverallRecommended1", []);
+      var sRecom2 = this._getText("msgOverallRecommended2", []);
+      var sRecom3 = this._getText("msgOverallRecommended3", []);
+      var sRecom4 = this._getText("msgOverallRecommended4", []);
+
+      var sText = "Transport Request: " + sTrkorr + "\n" +
+                  "Total Inactive Object(s): " + aObjs.length + "\n\n" +
+                  (this._getText("lblDiagnosisTitle", []) || "CTS Diagnosis") + ":\n" +
+                  sDiagText + "\n\n" +
+                  (this._getText("lblResolutionTitle", []) || "Recommended Procedure") + ":\n" +
+                  sRecom1 + "\n" +
+                  sRecom2 + "\n" +
+                  sRecom3 + "\n" +
+                  sRecom4;
+
+      if (sRawErr) {
+        sText += "\n\nRaw System Return Message:\n" + sRawErr;
+      }
+
+      MessageBox.information(sText, {
+        title: this._getText("titleOverallDiagnosis", []) || "CTS Release Governance Details",
+        styleClass: "sapUiSizeCompact"
+      });
+    },
+
     onCopyInactiveObjects: function () {
       var oModel = this._oInactiveDialog ? this._oInactiveDialog.getModel("inactiveModel") : null;
       var aObjs = (oModel && oModel.getProperty("/objects")) || [];
-      var sNames = aObjs.map(function (o) { return o.objectName; }).join(" ");
-      var sToastMsg = this._getText("msgCopiedToClipboard", []) || "Inactive object names copied to clipboard";
+      var sNames = aObjs.map(function (o) { return (o.ObjectType || "") + " " + (o.ObjectName || ""); }).join("\n");
+      var sToastMsg = this._getText("msgCopiedToClipboard", []) || "Inactive objects copied to clipboard";
       if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(sNames).then(function () {
           MessageToast.show(sToastMsg);
@@ -1158,13 +1170,13 @@ sap.ui.define([
       if (this._oInactiveDialog) {
         this._oInactiveDialog.close();
       }
-      var sType = oObj.objectType || "";
+      var sType = oObj.ObjectType || "";
       if (sType === "METH" || sType === "CPUB" || sType === "CPRI" || sType === "CPRO" || sType === "CLSD") {
         sType = "CLAS";
       }
       this.getOwnerComponent().getRouter().navTo("objSearch", {
         "?query": {
-          objectName: oObj.objectName || "",
+          objectName: oObj.ObjectName || "",
           objectType: sType
         }
       });

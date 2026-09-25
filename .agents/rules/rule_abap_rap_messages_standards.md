@@ -68,3 +68,12 @@ When writing or refactoring SAP ABAP, RAP entities, and DDIC integration code, y
 1. **Release-Dependent Structures:** When interfacing with deep SAP kernel structures (such as `SVRS2_VERSIONABLE_OBJECT` in Version Management):
    - Never statically access release-dependent sub-fields that may vary across SAP releases.
    - Use dynamic component lookup (`ASSIGN COMPONENT <field> OF STRUCTURE ...`) with fallback candidates (`ABAPTEXT`, `ABAPTXT`, `SOURCE`, `TEXT`, `LINES`, `DELTA`) to ensure 100% cross-release compatibility and eliminate static syntax check failures.
+
+## 6. Backend Pure Business Data vs. Frontend Presentation & Localization
+1. **Raw Technical Facts SSOT:**
+   - Khi Backend SAP không cung cấp sẵn văn bản tài liệu chuẩn kèm ngôn ngữ bản địa (`sy-langu`) từ các bảng hệ thống (như `DOKTL`), Backend chỉ chịu trách nhiệm trả về **dữ liệu nghiệp vụ / kỹ thuật thô (Raw Business Attributes)**: `ObjectType`, `ObjectName`, `Task`, `User`, `Status`, `ErrorCode`.
+2. **Prohibition of Multi-Sentence Prose in ABAP:**
+   - Tuyệt đối KHÔNG tự sáng tác, nối chuỗi văn bản diễn giải dài dòng, danh sách checklist hướng dẫn hoặc câu văn chẩn đoán UI bằng ABAP String Template (`|...|`).
+3. **Frontend Presentation Ownership:**
+   - Toàn bộ việc biên soạn câu chữ, định dạng thẻ Card, phân tích chẩn đoán, hiển thị hướng dẫn giải quyết (Resolution steps) và thông báo (`MessageToast`, `MessageBox`) PHẢI do **Frontend UI5 đảm nhiệm thông qua `i18n.properties`** có tham số hóa (`{0}`, `{1}`, `{2}`).
+

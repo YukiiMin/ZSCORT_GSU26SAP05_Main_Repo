@@ -6,8 +6,8 @@
     title="{inactiveModel>/dialogTitle}"
     icon="sap-icon://alert"
     state="Error"
-    contentWidth="48rem"
-    contentHeight="28rem"
+    contentWidth="52rem"
+    contentHeight="32rem"
     resizable="true"
     draggable="true">
 
@@ -35,11 +35,11 @@
             <Column width="8.5rem">
               <Text text="{i18n>colInactiveTask}" />
             </Column>
-            <Column width="7.5rem">
+            <Column width="8.5rem">
               <Text text="{i18n>colInactiveUser}" />
             </Column>
-            <Column width="6.5rem">
-              <Text text="{i18n>colInactiveStatus}" />
+            <Column width="5.5rem" hAlign="Center">
+              <Text text="{i18n>colInactiveAction}" />
             </Column>
           </columns>
           <items>
@@ -47,18 +47,19 @@
               <cells>
                 <HBox alignItems="Center">
                   <core:Icon src="sap-icon://document-text" size="0.9rem" class="sapUiTinyMarginEnd" />
-                  <ObjectIdentifier title="{inactiveModel>objectType}" />
+                  <ObjectIdentifier title="{inactiveModel>ObjectType}" />
                 </HBox>
                 <Link
-                  text="{inactiveModel>objectName}"
+                  text="{inactiveModel>ObjectName}"
                   press=".onInactiveObjectNamePress"
                   tooltip="{i18n>btnFindInObjSearch}" />
-                <Text text="{inactiveModel>task}" />
-                <Text text="{inactiveModel>userName}" />
-                <ObjectStatus
-                  text="{inactiveModel>status}"
-                  state="Warning"
-                  icon="sap-icon://status-inactive" />
+                <Text text="{inactiveModel>Trkorr}" />
+                <Text text="{inactiveModel>Uname}" />
+                <Button
+                  icon="sap-icon://hint"
+                  type="Transparent"
+                  tooltip="{i18n>btnViewObjectDetails}"
+                  press=".onShowInactiveObjectDetails" />
               </cells>
             </ColumnListItem>
           </items>
@@ -66,19 +67,23 @@
       </VBox>
     </content>
 
-    <beginButton>
+    <buttons>
       <Button
+        id="btnViewOverallError"
+        text="{i18n>btnViewOverallError}"
+        icon="sap-icon://message-information"
+        press=".onShowOverallErrorDetails" />
+      <Button
+        id="btnCopyInactiveList"
         text="{i18n>btnCopyInactiveList}"
         icon="sap-icon://copy"
         press=".onCopyInactiveObjects" />
-    </beginButton>
-
-    <endButton>
       <Button
+        id="btnCloseInactiveDialog"
         text="{i18n>btnClose}"
         type="Emphasized"
         press=".onCloseInactiveObjectsDialog" />
-    </endButton>
+    </buttons>
 
   </Dialog>
 </core:FragmentDefinition>

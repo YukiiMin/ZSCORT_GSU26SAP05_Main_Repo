@@ -35,3 +35,8 @@ Additionally, standard `.properties` files in SAP tooling require ASCII encoding
 ### C. UI Component Integration
 - Place a `sap.m.SegmentedButton` in the `ShellBar` / Header toolbar bound to `appView>/currentLanguage`.
 - Trigger `Localization.setLanguage(sKey)` on `selectionChange` to dynamically re-bind all `{i18n>...}` texts across the app with zero latency and no page reload.
+
+### D. Parameterized Presentation & Diagnostic Guidance
+- Khi nhận dữ liệu trạng thái / cờ kiểm tra từ Backend, Frontend UI5 là tầng duy nhất chịu trách nhiệm diễn giải thành văn bản thân thiện, hướng dẫn khắc phục và thông báo cho người dùng thông qua ResourceBundle (`i18n.properties`, `i18n_vi.properties`, `i18n_en.properties`).
+- Sử dụng triệt để định dạng tham số (`{0}`, `{1}`, `{2}`) kết hợp `_getText(sKey, aArgs)` để bảo đảm giao diện thích ứng 100% khi người dùng chuyển đổi ngôn ngữ làm việc.
+

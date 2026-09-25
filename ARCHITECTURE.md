@@ -71,6 +71,7 @@ FE_UI/
 | `ZCE_SCORT_MATRIX` | Root Custom Entity | ZCL_SCORT_MATRIX_QUERY | Compare matrix BOTH/LOCAL_ONLY/TARGET_ONLY (Replaces legacy ZIR_SCORT_OBJ_M) |
 | `ZCR_SCORT_OBJ_SRC` | Root Custom Entity | ZCL_SCORT_R_SRC | Read source code & metadata |
 | `ZCE_SCORT_TR_TREE` | Root Custom Entity | ZCL_SCORT_TR_TREE_QUERY | TR hierarchy tree Lv0/1/2 |
+| `ZCE_SCORT_INACTIVE_OBJS` | Root Custom Entity | ZCL_SCORT_INACTIVE_QUERY | Inactive Objects SSOT validation from DWINACTIV |
 | `ZI_SCORT_TR_TREE_PARAM` | Abstract Entity | — | Filter params for TR Tree |
 | `ZI_SCORT_TR_OBJ_SEARCH` | Root View Entity | E071 + E070 | Flat list of objects in TR |
 
@@ -90,6 +91,7 @@ FE_UI/
 | `ZCL_SCORT_COMPRESSION_UTL` | Utility (Stateless) | GZIP encode/decode source code |
 | `ZCL_SCORT_MATRIX_QUERY` | Query Provider | 3-key Merge-Sort (PGMID, OBJECTTYPE, OBJECTNAME), SQL push-down filtering, dynamic UI5 sorting, and paging for ZCE_SCORT_MATRIX |
 | `ZCL_SCORT_TR_TREE_QUERY` | Query Provider | Builds TR hierarchy tree from E070/E071/E07T |
+| `ZCL_SCORT_INACTIVE_QUERY` | Query Provider | Queries DWINACTIV via ZCL_SCORT_RELEASE_SERVICE=>check_inactive_objects and generates dynamic Diagnosis & Resolution |
 | `ZCL_SCORT_AI_ASSISTANT` | Utility / AI Service | Dual-action AI Assistant: Syntax audit + Transport recommendation (Gemini Key Rotation & SAP AI Core BTP Destination adapter) |
 | `ZCL_SCORT_AI_HTTP_HANDLER` | ICF HTTP Handler | REST Endpoint handler for /sap/bc/zscort_ai |
 | `ZCL026_SCORT_RELEASE_SERVICE` | Business Service | Direct TR release service (TR_RELEASE_REQUEST) using ZCM_SCORT messages |

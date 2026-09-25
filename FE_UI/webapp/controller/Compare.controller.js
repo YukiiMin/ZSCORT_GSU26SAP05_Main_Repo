@@ -299,6 +299,11 @@ sap.ui.define([
 
         var tryRender = function (iAttempt) {
           iAttempt = iAttempt || 0;
+          if (oDetailModel && oDetailModel.getProperty("/compareMode") === "form") {
+            var oDpInner = that.byId("idDetailDynamicPage");
+            if (oDpInner) oDpInner.setBusy(false);
+            return;
+          }
           that._ensureGitDiffHost();
           if (that._oGitDiffHost) {
             that._oGitDiffHost.setModel(that._mGitModel).then(function () {

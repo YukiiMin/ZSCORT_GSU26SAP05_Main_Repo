@@ -73,13 +73,13 @@
                     id="btnCompareViewMode"
                     selectedKey="{detail>/compareMode}"
                     selectionChange=".onCompareModeChange"
-                    visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC') }">
+                    visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC' || ${detail>/ObjectType} === 'TTYP') }">
                     <items>
                       <SegmentedButtonItem key="form" icon="sap-icon://form" text="ADT Form Diff" />
                       <SegmentedButtonItem key="text" icon="sap-icon://document-text" text="Text DDL Diff" />
                     </items>
                   </SegmentedButton>
-                  <ToolbarSeparator visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC') }" />
+                  <ToolbarSeparator visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC' || ${detail>/ObjectType} === 'TTYP') }" />
                   <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffGit" tooltip="{i18n>btnPrevDiff}" visible="{= !${detail>/isNotSupported} }" />
                   <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffGit" tooltip="{i18n>btnNextDiff}" visible="{= !${detail>/isNotSupported} }" />
                   <ToolbarSeparator visible="{= !${detail>/isNotSupported} }" />
@@ -118,7 +118,10 @@
                     height="100%"
                     width="100%"
                     vertical="true"
-                    visible="{= !${detail>/isNotSupported} &amp;&amp; ${detail>/compareMode} === 'form' &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC') }">
+                    visible="{= !${detail>/isNotSupported} &amp;&amp; ${detail>/compareMode} === 'form' &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC' || ${detail>/ObjectType} === 'TTYP') }">
+                    <layoutData>
+                      <FlexItemData growFactor="1" baseSize="0" />
+                    </layoutData>
                     <layout:Grid defaultSpan="{= ${detail>/sideBySideForm} === false ? 'L12 M12 S12' : 'L6 M12 S12' }" class="sapUiNoContentPadding">
                       <!-- Left Column: Local ADT Form -->
                       <VBox class="sapUiSmallMargin">
