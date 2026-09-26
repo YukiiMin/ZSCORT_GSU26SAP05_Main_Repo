@@ -367,8 +367,16 @@ html, body {
   color: #065f46;
 }
 
+/* ── IconTabBar No-Truncate Tab Labels ───────────────────────────────────── */
+.scortNoTruncateTab .sapMITBItem .sapMITBText,
+.scortNoTruncateTab .sapMITBFilter .sapMITBText,
+.scortNoTruncateTab .sapMITBText {
+  max-width: none !important;
+  text-overflow: clip !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
 
-
-
-
-
+.scortNoTruncateTab .sapMITBItem {
+  min-width: fit-content !important;
+}

@@ -79,8 +79,27 @@ CLASS zcl_scort_l_reader DEFINITION
       IMPORTING iv_name  TYPE sobj_name
       EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
+    TYPES:
+      tt_dd03p TYPE STANDARD TABLE OF dd03p WITH DEFAULT KEY,
+      tt_dd05m TYPE STANDARD TABLE OF dd05m WITH DEFAULT KEY,
+      tt_dd08v TYPE STANDARD TABLE OF dd08v WITH DEFAULT KEY.
+
     CLASS-METHODS read_ddic_tabl_fallback
       IMPORTING iv_name  TYPE sobj_name
+      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
+
+    CLASS-METHODS read_ddic_table
+      IMPORTING iv_name  TYPE sobj_name
+                is_dd02v TYPE dd02v
+                it_dd03p TYPE tt_dd03p
+                it_dd05m TYPE tt_dd05m
+                it_dd08v TYPE tt_dd08v
+      EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
+
+    CLASS-METHODS read_ddic_structure
+      IMPORTING iv_name  TYPE sobj_name
+                is_dd02v TYPE dd02v
+                it_dd03p TYPE tt_dd03p
       EXPORTING et_lines TYPE ty_string_tab ev_ok TYPE abap_bool.
 
     CLASS-METHODS read_ddic_dtel
@@ -854,17 +873,10 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
 
   METHOD read_ddic_tabl_fallback.
     DATA ls_dd02v    TYPE dd02v.
-    DATA lt_dd03p    TYPE STANDARD TABLE OF dd03p WITH DEFAULT KEY.
-    DATA lt_dd05m    TYPE STANDARD TABLE OF dd05m WITH DEFAULT KEY.
-    DATA lt_dd08v    TYPE STANDARD TABLE OF dd08v WITH DEFAULT KEY.
+    DATA lt_dd03p    TYPE tt_dd03p.
+    DATA lt_dd05m    TYPE tt_dd05m.
+    DATA lt_dd08v    TYPE tt_dd08v.
     DATA lv_tabname  TYPE tabname.
-    DATA lv_enhanc   TYPE string.
-    DATA lv_tabcat   TYPE string.
-    DATA lv_delclass TYPE string.
-    DATA lv_maint    TYPE string.
-    DATA lv_line     TYPE string.
-    DATA lv_type     TYPE string.
-    DATA lv_fnam     TYPE string.
 
     CLEAR: et_lines, ev_ok.
     lv_tabname = iv_name.
@@ -886,7 +898,41 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    CASE ls_dd02v-exclass.
+    IF ls_dd02v-tabclass = 'INTTAB'.
+      read_ddic_structure(
+        EXPORTING
+          iv_name   = iv_name
+          is_dd02v  = ls_dd02v
+          it_dd03p  = lt_dd03p
+        IMPORTING
+          et_lines  = et_lines
+          ev_ok     = ev_ok ).
+    ELSE.
+      read_ddic_table(
+        EXPORTING
+          iv_name   = iv_name
+          is_dd02v  = ls_dd02v
+          it_dd03p  = lt_dd03p
+          it_dd05m  = lt_dd05m
+          it_dd08v  = lt_dd08v
+        IMPORTING
+          et_lines  = et_lines
+          ev_ok     = ev_ok ).
+    ENDIF.
+  ENDMETHOD.
+
+  METHOD read_ddic_table.
+    DATA lv_enhanc   TYPE string.
+    DATA lv_tabcat   TYPE string.
+    DATA lv_delclass TYPE string.
+    DATA lv_maint    TYPE string.
+    DATA lv_line     TYPE string.
+    DATA lv_type     TYPE string.
+    DATA lv_fnam     TYPE string.
+
+    CLEAR: et_lines, ev_ok.
+
+    CASE is_dd02v-exclass.
       WHEN '1'.    lv_enhanc = 'NOT_CLASSIFIED'.
       WHEN '2'.    lv_enhanc = 'EXTENSIBLE_CHARACTER'.
       WHEN '3'.    lv_enhanc = 'EXTENSIBLE_CHARACTER_NUMERIC'.
@@ -894,38 +940,33 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
       WHEN OTHERS. lv_enhanc = 'NOT_EXTENSIBLE'.
     ENDCASE.
 
-    CASE ls_dd02v-tabclass.
+    CASE is_dd02v-tabclass.
       WHEN 'TRANSP'.  lv_tabcat = 'TRANSPARENT'.
       WHEN 'POOL'.    lv_tabcat = 'POOL'.
       WHEN 'CLUSTER'. lv_tabcat = 'CLUSTER'.
-      WHEN 'INTTAB'.  lv_tabcat = 'STRUCTURE'.
-      WHEN OTHERS.    lv_tabcat = ls_dd02v-tabclass.
+      WHEN OTHERS.    lv_tabcat = is_dd02v-tabclass.
     ENDCASE.
 
-    IF ls_dd02v-contflag IS NOT INITIAL.
-      lv_delclass = ls_dd02v-contflag.
+    IF is_dd02v-contflag IS NOT INITIAL.
+      lv_delclass = is_dd02v-contflag.
     ELSE.
       lv_delclass = 'A'.
     ENDIF.
 
-    CASE ls_dd02v-mainflag.
+    CASE is_dd02v-mainflag.
       WHEN 'X'.    lv_maint = 'ALLOWED'.
       WHEN 'R'.    lv_maint = 'RESTRICTED'.
       WHEN OTHERS. lv_maint = 'NOT_ALLOWED'.
     ENDCASE.
 
-    APPEND |@EndUserText.label : '{ ls_dd02v-ddtext }'| TO et_lines.
+    APPEND |@EndUserText.label : '{ is_dd02v-ddtext }'| TO et_lines.
     APPEND |@AbapCatalog.enhancement.category : #{ lv_enhanc }| TO et_lines.
-    IF ls_dd02v-tabclass = 'INTTAB'.
-      APPEND |define structure { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
-    ELSE.
-      APPEND |@AbapCatalog.tableCategory : #{ lv_tabcat }| TO et_lines.
-      APPEND |@AbapCatalog.deliveryClass : #{ lv_delclass }| TO et_lines.
-      APPEND |@AbapCatalog.dataMaintenance : #{ lv_maint }| TO et_lines.
-      APPEND |define table { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
-    ENDIF.
+    APPEND |@AbapCatalog.tableCategory : #{ lv_tabcat }| TO et_lines.
+    APPEND |@AbapCatalog.deliveryClass : #{ lv_delclass }| TO et_lines.
+    APPEND |@AbapCatalog.dataMaintenance : #{ lv_maint }| TO et_lines.
+    APPEND |define table { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
 
-    LOOP AT lt_dd03p INTO DATA(ls_p) WHERE fieldname IS NOT INITIAL.
+    LOOP AT it_dd03p INTO DATA(ls_p) WHERE fieldname IS NOT INITIAL.
       IF ls_p-fieldname(1) = '.'.
         CONTINUE.
       ENDIF.
@@ -947,7 +988,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         ENDCASE.
       ENDIF.
 
-      READ TABLE lt_dd08v INTO DATA(ls_fk)
+      READ TABLE it_dd08v INTO DATA(ls_fk)
         WITH KEY fieldname = ls_p-fieldname.
       IF sy-subrc = 0 AND ls_fk-checktable IS NOT INITIAL.
         APPEND |  @AbapCatalog.foreignKey.label : '{ ls_fk-ddtext }'| TO et_lines.
@@ -962,7 +1003,7 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
         APPEND |    with foreign key { to_lower( CONV string( ls_fk-checktable ) ) }| TO et_lines.
 
         DATA(lv_first_cond) = abap_true.
-        LOOP AT lt_dd05m INTO DATA(ls_m) WHERE fieldname = ls_p-fieldname.
+        LOOP AT it_dd05m INTO DATA(ls_m) WHERE fieldname = ls_p-fieldname.
           DATA(lv_checkf) = to_lower( CONV string( ls_m-checkfield ) ).
           DATA(lv_forkf)  = to_lower( CONV string( ls_m-forkey ) ).
           DATA(lv_tabn)   = to_lower( CONV string( iv_name ) ).
@@ -983,13 +1024,61 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
           MODIFY et_lines FROM lv_line INDEX lv_last_idx.
         ENDIF.
       ELSE.
-        IF ls_p-keyflag = 'X' AND ls_dd02v-tabclass <> 'INTTAB'.
+        IF ls_p-keyflag = 'X'.
           lv_line = |  key { lv_fnam WIDTH = 30 } : { lv_type } not null;|.
         ELSE.
           lv_line = |  { lv_fnam WIDTH = 34 } : { lv_type };|.
         ENDIF.
         APPEND lv_line TO et_lines.
       ENDIF.
+    ENDLOOP.
+
+    APPEND '}' TO et_lines.
+    ev_ok = abap_true.
+  ENDMETHOD.
+
+  METHOD read_ddic_structure.
+    DATA lv_enhanc   TYPE string.
+    DATA lv_type     TYPE string.
+    DATA lv_fnam     TYPE string.
+
+    CLEAR: et_lines, ev_ok.
+
+    CASE is_dd02v-exclass.
+      WHEN '1'.    lv_enhanc = 'NOT_CLASSIFIED'.
+      WHEN '2'.    lv_enhanc = 'EXTENSIBLE_CHARACTER'.
+      WHEN '3'.    lv_enhanc = 'EXTENSIBLE_CHARACTER_NUMERIC'.
+      WHEN '4'.    lv_enhanc = 'EXTENSIBLE_ANY'.
+      WHEN OTHERS. lv_enhanc = 'NOT_EXTENSIBLE'.
+    ENDCASE.
+
+    APPEND |@EndUserText.label : '{ is_dd02v-ddtext }'| TO et_lines.
+    APPEND |@AbapCatalog.enhancement.category : #{ lv_enhanc }| TO et_lines.
+    APPEND |define structure { to_lower( CONV string( iv_name ) ) } \{| TO et_lines.
+
+    LOOP AT it_dd03p INTO DATA(ls_p) WHERE fieldname IS NOT INITIAL.
+      IF ls_p-fieldname(1) = '.'.
+        CONTINUE.
+      ENDIF.
+
+      lv_fnam = to_lower( CONV string( ls_p-fieldname ) ).
+
+      IF ls_p-rollname IS NOT INITIAL.
+        lv_type = to_lower( CONV string( ls_p-rollname ) ).
+      ELSE.
+        CASE ls_p-datatype.
+          WHEN 'INT8' OR 'INT4' OR 'INT2' OR 'INT1' OR 'DATS' OR 'TIMS' OR 'UTCLONG'.
+            lv_type = |abap.{ to_lower( CONV string( ls_p-datatype ) ) }|.
+          WHEN 'CHAR' OR 'NUMC' OR 'RAW' OR 'CLNT' OR 'LANG'.
+            lv_type = |abap.{ to_lower( CONV string( ls_p-datatype ) ) }({ ls_p-leng })|.
+          WHEN 'DEC' OR 'CURR' OR 'QUAN'.
+            lv_type = |abap.{ to_lower( CONV string( ls_p-datatype ) ) }({ ls_p-leng }, { ls_p-decimals })|.
+          WHEN OTHERS.
+            lv_type = |abap.{ to_lower( CONV string( ls_p-datatype ) ) }|.
+        ENDCASE.
+      ENDIF.
+
+      APPEND |  { lv_fnam WIDTH = 34 } : { lv_type };| TO et_lines.
     ENDLOOP.
 
     APPEND '}' TO et_lines.
@@ -1327,8 +1416,15 @@ CLASS zcl_scort_l_reader IMPLEMENTATION.
     IF ls_tdevc-parentcl IS NOT INITIAL.
       APPEND |@AbapCatalog.package.superPackage : '{ ls_tdevc-parentcl }'| TO et_lines.
     ENDIF.
-    IF ls_tdevc-as4user IS NOT INITIAL.
-      APPEND |@AbapCatalog.package.responsible : '{ ls_tdevc-as4user }'| TO et_lines.
+    DATA lv_resp TYPE tadir-author.
+    SELECT SINGLE author FROM tadir
+      WHERE pgmid = 'R3TR' AND object = 'DEVC' AND obj_name = @lv_devclass
+      INTO @lv_resp.
+    IF lv_resp IS INITIAL.
+      lv_resp = ls_tdevc-as4user.
+    ENDIF.
+    IF lv_resp IS NOT INITIAL.
+      APPEND |@AbapCatalog.package.responsible : '{ lv_resp }'| TO et_lines.
     ENDIF.
     APPEND |@AbapCatalog.package.packageType : '{ lv_type }'| TO et_lines.
     APPEND |@AbapCatalog.package.encapsulated : 'false'| TO et_lines.

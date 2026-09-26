@@ -13,7 +13,7 @@
       <f:DynamicPageTitle>
         <f:heading>
           <HBox alignItems="Center">
-            <Title text="{= ${detail>/isStructure} ? 'Structure' : ${detail>/ObjectType} } {detail>/ObjectName}" />
+            <Title text="{detail>/ObjectType} {detail>/ObjectName}" />
             <ObjectStatus
               text="{= ${detail>/isStructure} ? 'Structure' : (${detail>/ObjectType} === 'TABL' ? 'Database Table' : '') }"
               state="{= ${detail>/isStructure} ? 'Indication05' : 'Information' }"
@@ -56,7 +56,7 @@
             class="sapUiTinyMarginEnd" />
         </Toolbar>
 
-        <IconTabBar id="idCompareIconTabBar" class="sapUiNoContentPadding" stretchContentHeight="true" select=".onTabSelect">
+        <IconTabBar id="idCompareIconTabBar" class="sapUiNoContentPadding scortNoTruncateTab" stretchContentHeight="true" select=".onTabSelect">
           <layoutData>
             <FlexItemData growFactor="1" baseSize="0" />
           </layoutData>
@@ -336,7 +336,7 @@
                         <Text text="{parts: [{path: 'detail>VersionNo'}, {path: 'detail>IsActive'}], formatter: '.formatVersionNoWithActive'}" />
                       </table:template>
                     </table:Column>
-                    <table:Column width="8rem">
+                    <table:Column width="10rem">
                       <Label text="{i18n>authorLabel}" />
                       <table:template>
                         <Text text="{detail>Author}" />
@@ -381,6 +381,17 @@
                   <Title text="{i18n>lblVs}" />
                   <ObjectStatus text="{i18n>lblRight}: {detail>/rightTitle}" state="Indication04" class="sapUiTinyMarginBegin" />
                   <ToolbarSpacer />
+                  <SegmentedButton
+                    id="btnVersCompareViewMode"
+                    selectedKey="{detail>/versCompareMode}"
+                    selectionChange=".onVersCompareModeChange"
+                    visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC' || ${detail>/ObjectType} === 'TTYP') }">
+                    <items>
+                      <SegmentedButtonItem key="form" icon="sap-icon://form" text="ADT Form Diff" />
+                      <SegmentedButtonItem key="text" icon="sap-icon://document-text" text="Text DDL Diff" />
+                    </items>
+                  </SegmentedButton>
+                  <ToolbarSeparator visible="{= !${detail>/isNotSupported} &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC' || ${detail>/ObjectType} === 'TTYP') }" />
                   <Button icon="sap-icon://navigation-up-arrow" text="{i18n>btnPrevDiff}" type="Transparent" press=".onMonacoPrevDiffVers" tooltip="{i18n>btnPrevDiff}" />
                   <Button icon="sap-icon://navigation-down-arrow" text="{i18n>btnNextDiff}" type="Transparent" press=".onMonacoNextDiffVers" tooltip="{i18n>btnNextDiff}" />
                   <ToolbarSeparator />
@@ -394,12 +405,74 @@
                     tooltip="{i18n>btnAiReviewTooltip}" />
                 </OverflowToolbar>
 
-                <!-- Splitter: Left Monaco Version Diff + Right AI Review Panel -->
+                <!-- Splitter: Left Monaco Version Diff / ADT Form Diff + Right AI Review Panel -->
                 <layout:Splitter height="100%" width="100%">
-                  <VBox id="monacoVersContainer" width="100%" height="100%" class="sapUiNoContentPadding">
+                  <VBox width="100%" height="100%" class="sapUiNoContentPadding" fitContainer="true">
                     <layoutData>
                       <layout:SplitterLayoutData size="{= ${detail>/showVersAiPanel} ? '65%' : '100%' }" />
                     </layoutData>
+
+                    <!-- Monaco Version Diff Container -->
+                    <VBox id="monacoVersContainer" width="100%" height="100%" class="sapUiNoContentPadding" visible="{= ${detail>/versCompareMode} !== 'form' }" />
+
+                    <!-- ADT Form Diff Container for Version Compare -->
+                    <ScrollContainer
+                      id="idVersFormDiffContainer"
+                      height="100%"
+                      width="100%"
+                      vertical="true"
+                      visible="{= ${detail>/versCompareMode} === 'form' &amp;&amp; (${detail>/ObjectType} === 'DOMA' || ${detail>/ObjectType} === 'DTEL' || ${detail>/ObjectType} === 'MSAG' || ${detail>/ObjectType} === 'DEVC' || ${detail>/ObjectType} === 'TTYP') }">
+                      <layoutData>
+                        <FlexItemData growFactor="1" baseSize="0" />
+                      </layoutData>
+                      <layout:Grid defaultSpan="{= ${detail>/sideBySideForm} === false ? 'L12 M12 S12' : 'L6 M12 S12' }" class="sapUiNoContentPadding">
+                        <!-- Left Column: Version Left Form -->
+                        <VBox class="sapUiSmallMargin">
+                          <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                            <ObjectStatus text="{detail>/leftTitle}" state="Information" class="sapUiTinyMarginEnd" />
+                            <Title text="{detail>/ObjectType}: {detail>/ObjectName}" level="H4" />
+                          </HBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'DOMA' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.DomainForm" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'DTEL' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.DataElementForm" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'MSAG' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.MessageClassForm" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'DEVC' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.PackageForm" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'TTYP' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.TableTypeForm" type="XML" />
+                          </VBox>
+                        </VBox>
+
+                        <!-- Right Column: Version Right Form -->
+                        <VBox class="sapUiSmallMargin">
+                          <HBox alignItems="Center" class="sapUiTinyMarginBottom">
+                            <ObjectStatus text="{detail>/rightTitle}" state="Success" class="sapUiTinyMarginEnd" />
+                            <Title text="{detail>/ObjectType}: {detail>/ObjectName}" level="H4" />
+                          </HBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'DOMA' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.DomainFormTarget" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'DTEL' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.DataElementFormTarget" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'MSAG' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.MessageClassFormTarget" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'DEVC' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.PackageFormTarget" type="XML" />
+                          </VBox>
+                          <VBox visible="{= ${detail>/ObjectType} === 'TTYP' }">
+                            <core:Fragment fragmentName="zscort.app.view.fragment.TableTypeFormTarget" type="XML" />
+                          </VBox>
+                        </VBox>
+                      </layout:Grid>
+                    </ScrollContainer>
                   </VBox>
 
                   <!-- Right: AI Review Side Panel for Versions -->

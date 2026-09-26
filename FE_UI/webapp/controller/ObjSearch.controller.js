@@ -677,6 +677,7 @@ sap.ui.define([
       }
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
+      this._app().setProperty("/compareInitialTab", "gitReview");
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
     },
 
@@ -691,6 +692,7 @@ sap.ui.define([
       }
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
+      this._app().setProperty("/compareInitialTab", "gitReview");
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "T", "BOTH");
     },
 
@@ -699,6 +701,7 @@ sap.ui.define([
       var oCtx = oSrc.getBindingContext("objSearch");
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
+      this._app().setProperty("/compareInitialTab", "gitReview");
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, "L", "BOTH");
     },
 
@@ -715,6 +718,7 @@ sap.ui.define([
       if (!oCtx) { return; }
       var oObj = oCtx.getObject();
       var sServer = oObj.ExistenceStatus === "TARGET_ONLY" ? "T" : "L";
+      this._app().setProperty("/compareInitialTab", "gitReview");
       this.navToCompare(oObj.ObjectType, oObj.ObjectName, sServer, oObj.ExistenceStatus || "BOTH");
     },
 

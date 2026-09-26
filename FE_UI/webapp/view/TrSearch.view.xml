@@ -148,7 +148,7 @@
                     <core:Item key="DCLS" text="DCLS — Access Control" />
                     <core:Item key="DDLX" text="DDLX — Metadata Extension" />
                     <core:Item key="SRVD" text="SRVD — Service Definition" />
-                    <core:Item key="TABL" text="TABL — Table / Structure" />
+                    <core:Item key="TABL" text="TABL — Database Table" />
                     <core:Item key="DTEL" text="DTEL — Data Element" />
                     <core:Item key="DOMA" text="DOMA — Domain" />
                     <core:Item key="TTYP" text="TTYP — Table Type" />

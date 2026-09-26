@@ -17,7 +17,7 @@
     <customHeader>
       <Toolbar>
         <HBox alignItems="Center">
-          <Title text="{i18n>viewSourceTitle}: {= ${appView>/viewSourceIsStructure} ? 'Structure' : ${appView>/viewSourceType} } {appView>/viewSourceName}" />
+          <Title text="{i18n>viewSourceTitle}: {appView>/viewSourceType} {appView>/viewSourceName}" />
           <ObjectStatus
             text="{= ${appView>/viewSourceIsStructure} ? 'Structure' : (${appView>/viewSourceType} === 'TABL' ? 'Database Table' : '') }"
             state="{= ${appView>/viewSourceIsStructure} ? 'Indication05' : 'Information' }"

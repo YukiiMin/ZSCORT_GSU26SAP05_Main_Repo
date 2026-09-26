@@ -244,13 +244,13 @@ sap.ui.define([
           } else {
             setProp("viewSourceMessage", "Version " + sVN + " not found or unreadable");
             setProp("viewSourceHash", "");
-            that._pendingSourceCode = "/* Version " + sVN + " not found or unreadable */";
+            that._pendingSourceCode = "";
             that._renderCodeHost(that._pendingSourceCode, sObjType);
           }
         }).catch(function (oErr) {
           setProp("viewSourceMessage", "Error loading Version " + sVN + ": " + (oErr && oErr.message ? oErr.message : oErr));
           setProp("viewSourceHash", "");
-          that._pendingSourceCode = "/* Error loading Version " + sVN + " */";
+          that._pendingSourceCode = "";
           that._renderCodeHost(that._pendingSourceCode, sObjType);
         });
         return;
@@ -301,7 +301,7 @@ sap.ui.define([
         }
       }
 
-      var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP", "SRVD"];
+      var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP"];
       var bNotSupported = aNotSupportedTypes.indexOf(sObjType) !== -1 || (oData && oData.Message === "NOT_SUPPORTED");
 
       if (bNotSupported) {
@@ -338,7 +338,8 @@ sap.ui.define([
           that._oSourceDialog.setModel(new JSONModel(oMsagData), "adtMsag");
         }
       } else if (sObjType === "DEVC") {
-        var oDevcData = AdtFormParser.parsePackage(that._pendingSourceCode);
+        var oMetaForDevc = (oM && oM.getProperty("/viewSourceMetaData")) || {};
+        var oDevcData = AdtFormParser.parsePackage(that._pendingSourceCode, oMetaForDevc);
         if (that._oSourceDialog) {
           that._oSourceDialog.setModel(new JSONModel(oDevcData), "adtDevc");
         }
@@ -379,15 +380,7 @@ sap.ui.define([
         }
 
         if (bIsHistorical && !that._pendingSourceCode) {
-          var sNoteMsg = (oData && oData.Message) ? oData.Message : ("Version " + sVersRaw + " has no archived source in VRSD.");
-          that._pendingSourceCode = "* ==========================================================================\n" +
-            "* NO ARCHIVED SOURCE CODE FOUND IN VRSD FOR VERSION " + sVersRaw + "\n" +
-            "* ==========================================================================\n" +
-            "* Object: CLAS " + (oM.getProperty("/viewSourceName") || "") + "\n" +
-            "* Version: " + sVersRaw + "\n" +
-            "*\n" +
-            "* Detail: " + sNoteMsg + "\n" +
-            "* ==========================================================================";
+          that._pendingSourceCode = "";
           setProp("viewSourceComponentHasContent", false);
         }
 

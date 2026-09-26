@@ -159,7 +159,31 @@ sap.ui.define([
     },
 
     // ==========================================
-    // TAB 1: GIT REVIEW (Local Active vs Target)
+    // ADT FORM DIFF MODEL BINDING HELPER
+    // ==========================================
+    _applyAdtFormModels: function (sLeftCode, sRightCode, oLeftMeta, oRightMeta) {
+      if (this._sType === "DOMA") {
+        this.getView().setModel(new JSONModel(AdtFormParser.parseDomain(sLeftCode)), "adtDomain");
+        this.getView().setModel(new JSONModel(AdtFormParser.parseDomain(sRightCode)), "adtDomainTarget");
+      } else if (this._sType === "DTEL") {
+        this.getView().setModel(new JSONModel(AdtFormParser.parseDataElement(sLeftCode)), "adtDtel");
+        this.getView().setModel(new JSONModel(AdtFormParser.parseDataElement(sRightCode)), "adtDtelTarget");
+      } else if (this._sType === "MSAG") {
+        this.getView().setModel(new JSONModel(AdtFormParser.parseMessageClass(sLeftCode)), "adtMsag");
+        this.getView().setModel(new JSONModel(AdtFormParser.parseMessageClass(sRightCode)), "adtMsagTarget");
+      } else if (this._sType === "DEVC") {
+        var oLMeta = oLeftMeta || this._oVersLeftMeta || this._oLocalMeta;
+        var oRMeta = oRightMeta || this._oVersRightMeta || this._oTargetMeta;
+        this.getView().setModel(new JSONModel(AdtFormParser.parsePackage(sLeftCode, oLMeta)), "adtDevc");
+        this.getView().setModel(new JSONModel(AdtFormParser.parsePackage(sRightCode, oRMeta)), "adtDevcTarget");
+      } else if (this._sType === "TTYP") {
+        this.getView().setModel(new JSONModel(AdtFormParser.parseTableType(sLeftCode)), "adtTtyp");
+        this.getView().setModel(new JSONModel(AdtFormParser.parseTableType(sRightCode)), "adtTtypTarget");
+      }
+    },
+
+    // ==========================================
+    // TAB 1: GIT REVIEW / SERVER COMPARE (Local Active vs Target)
     // ==========================================
     _loadGitReviewSource: function () {
       var that = this;
@@ -188,7 +212,7 @@ sap.ui.define([
         var bTargetExists = !!(that._oTargetMeta && (that._oTargetMeta.ObjectName || that._oTargetMeta.ObjectType));
         var bLocalExists = !!(that._oLocalMeta && (that._oLocalMeta.ObjectName || that._oLocalMeta.ObjectType));
 
-        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP", "SRVD"];
+        var aNotSupportedTypes = ["TRAN", "NROB", "WAPA", "SSFO", "SHLP"];
         var bNotSupported = aNotSupportedTypes.indexOf(that._sType) !== -1 ||
           (oResLocal && oResLocal.Message === "NOT_SUPPORTED");
 
@@ -201,6 +225,9 @@ sap.ui.define([
           (oResLocal && oResLocal.Message && oResLocal.Message.indexOf("structure") !== -1)
         );
 
+        that._sGitLocalCode = sLocalCode;
+        that._sGitTargetCode = sTargetCode;
+
         var oDetailModel = that.getOwnerComponent().getModel("detail");
         if (oDetailModel) {
           oDetailModel.setProperty("/isStructure", bIsStructure);
@@ -211,35 +238,8 @@ sap.ui.define([
 
           if (bNotSupported) {
             oDetailModel.setProperty("/compareMode", "text");
-          } else if (that._sType === "DOMA") {
-            var oDomLocal = AdtFormParser.parseDomain(sLocalCode);
-            var oDomTarget = AdtFormParser.parseDomain(sTargetCode);
-            that.getView().setModel(new JSONModel(oDomLocal), "adtDomain");
-            that.getView().setModel(new JSONModel(oDomTarget), "adtDomainTarget");
-            oDetailModel.setProperty("/compareMode", "form");
-          } else if (that._sType === "DTEL") {
-            var oDtelLocal = AdtFormParser.parseDataElement(sLocalCode);
-            var oDtelTarget = AdtFormParser.parseDataElement(sTargetCode);
-            that.getView().setModel(new JSONModel(oDtelLocal), "adtDtel");
-            that.getView().setModel(new JSONModel(oDtelTarget), "adtDtelTarget");
-            oDetailModel.setProperty("/compareMode", "form");
-          } else if (that._sType === "MSAG") {
-            var oMsagLocal = AdtFormParser.parseMessageClass(sLocalCode);
-            var oMsagTarget = AdtFormParser.parseMessageClass(sTargetCode);
-            that.getView().setModel(new JSONModel(oMsagLocal), "adtMsag");
-            that.getView().setModel(new JSONModel(oMsagTarget), "adtMsagTarget");
-            oDetailModel.setProperty("/compareMode", "form");
-          } else if (that._sType === "DEVC") {
-            var oDevcLocal = AdtFormParser.parsePackage(sLocalCode);
-            var oDevcTarget = AdtFormParser.parsePackage(sTargetCode);
-            that.getView().setModel(new JSONModel(oDevcLocal), "adtDevc");
-            that.getView().setModel(new JSONModel(oDevcTarget), "adtDevcTarget");
-            oDetailModel.setProperty("/compareMode", "form");
-          } else if (that._sType === "TTYP") {
-            var oTtypLocal = AdtFormParser.parseTableType(sLocalCode);
-            var oTtypTarget = AdtFormParser.parseTableType(sTargetCode);
-            that.getView().setModel(new JSONModel(oTtypLocal), "adtTtyp");
-            that.getView().setModel(new JSONModel(oTtypTarget), "adtTtypTarget");
+          } else if (["DOMA", "DTEL", "MSAG", "DEVC", "TTYP"].indexOf(that._sType) !== -1) {
+            that._applyAdtFormModels(sLocalCode, sTargetCode);
             oDetailModel.setProperty("/compareMode", "form");
           } else {
             oDetailModel.setProperty("/compareMode", "text");
@@ -393,6 +393,9 @@ sap.ui.define([
             if (that._mGitModel && that._oGitDiffHost) {
               that._oGitDiffHost.setModel(that._mGitModel);
             }
+            if (["DOMA", "DTEL", "MSAG", "DEVC", "TTYP"].indexOf(that._sType) !== -1 && that._sGitLocalCode !== undefined) {
+              that._applyAdtFormModels(that._sGitLocalCode, that._sGitTargetCode);
+            }
           }
         } else if (sKey === "versionMgmt") {
           that.onReloadVersions();
@@ -401,6 +404,9 @@ sap.ui.define([
             that._ensureVersDiffHost(true);
             if (that._mVersModel && that._oVersDiffHost) {
               that._oVersDiffHost.setModel(that._mVersModel);
+            }
+            if (["DOMA", "DTEL", "MSAG", "DEVC", "TTYP"].indexOf(that._sType) !== -1 && that._sVersSrcLeft !== undefined) {
+              that._applyAdtFormModels(that._sVersSrcLeft, that._sVersSrcRight);
             }
           }
         } else if (sKey === "tableDataDiff") {
@@ -436,6 +442,23 @@ sap.ui.define([
           that._ensureGitDiffHost(true);
           if (that._mGitModel && that._oGitDiffHost) {
             that._oGitDiffHost.setModel(that._mGitModel);
+          }
+        }, 50);
+      }
+    },
+
+    onVersCompareModeChange: function (oEvent) {
+      var sKey = oEvent.getParameter("item") ? oEvent.getParameter("item").getKey() : oEvent.getSource().getSelectedKey();
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/versCompareMode", sKey);
+      }
+      if (sKey === "text") {
+        var that = this;
+        setTimeout(function () {
+          that._ensureVersDiffHost(true);
+          if (that._mVersModel && that._oVersDiffHost) {
+            that._oVersDiffHost.setModel(that._mVersModel);
           }
         }, 50);
       }
@@ -676,6 +699,17 @@ sap.ui.define([
               if (cR && cR.source && (!sSrcRight || sActiveComp !== "CP")) { sSrcRight = cR.source; }
             } catch (e) {}
           }
+        }
+
+        that._sVersSrcLeft = sSrcLeft;
+        that._sVersSrcRight = sSrcRight;
+
+        var bIsAdtForm = ["DOMA", "DTEL", "MSAG", "DEVC", "TTYP"].indexOf(that._sType) !== -1;
+        if (bIsAdtForm) {
+          that._applyAdtFormModels(sSrcLeft, sSrcRight);
+          oDetailModel.setProperty("/versCompareMode", "form");
+        } else {
+          oDetailModel.setProperty("/versCompareMode", "text");
         }
 
         that._ensureVersDiffHost();
@@ -1032,6 +1066,10 @@ sap.ui.define([
     onMonacoToggleSideBySideVers: function () {
       this._bSideVers = !this._bSideVers;
       if (this._oVersDiffHost) { this._oVersDiffHost.setSideBySide(this._bSideVers); }
+      var oDetailModel = this.getOwnerComponent().getModel("detail");
+      if (oDetailModel) {
+        oDetailModel.setProperty("/sideBySideForm", this._bSideVers);
+      }
     },
 
     // ==========================================

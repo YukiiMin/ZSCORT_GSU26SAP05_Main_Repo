@@ -279,7 +279,7 @@ sap.ui.define([], function () {
      * @param {string} sDdlText
      * @returns {object}
      */
-    parsePackage: function (sDdlText) {
+    parsePackage: function (sDdlText, oFallbackMeta) {
       if (!sDdlText || typeof sDdlText !== "string") {
         return null;
       }
@@ -332,6 +332,8 @@ sap.ui.define([], function () {
       var mResp = sDdlText.match(/@AbapCatalog\.package\.responsible\s*:\s*'([^']*)'/i);
       if (mResp) {
         oData.responsible = mResp[1];
+      } else if (oFallbackMeta) {
+        oData.responsible = oFallbackMeta.Responsible || oFallbackMeta.PersonResponsible || oFallbackMeta.Author || oFallbackMeta.author || oFallbackMeta.as4user || "";
       }
 
       var mType = sDdlText.match(/@AbapCatalog\.package\.packageType\s*:\s*'([^']*)'/i);

@@ -222,11 +222,11 @@
                           <Text text="{path: 'objSearch>CreatedOn', formatter: '.formatDate'}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="14.5rem">
+                      <table:Column width="11rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
-                            <Button text="{i18n>btnCompare}" icon="sap-icon://compare-2" tooltip="{i18n>openCompareTooltip}" press=".onButtonOpenComparePress" class="sapUiTinyMarginEnd" />
+                            <Button icon="sap-icon://compare-2" tooltip="{i18n>openCompareTooltip}" type="Transparent" press=".onButtonOpenComparePress" class="sapUiTinyMarginEnd" />
                             <Button icon="sap-icon://history" tooltip="{i18n>btnVersionHistoryLocal}" type="Transparent" press=".onButtonVersionHistoryLocalPress" class="sapUiTinyMarginEnd" />
                             <Button icon="sap-icon://document-text" tooltip="{i18n>viewSourceTooltip}" type="Transparent" press=".onButtonViewSourcePress" class="sapUiTinyMarginEnd" />
                             <Button icon="sap-icon://shipping-status" tooltip="{i18n>btnFindAssignedTr}" type="Transparent" press=".onButtonFindAssignedTrPress" />
@@ -301,13 +301,13 @@
                           <Text text="{path:'objSearch>CreatedOn', formatter:'.formatDate'}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="14.5rem">
+                      <table:Column width="11rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
-                            <Button text="{i18n>btnCompare}"
-                              icon="sap-icon://compare-2"
+                            <Button icon="sap-icon://compare-2"
                               tooltip="{i18n>openCompareTooltip}"
+                              type="Transparent"
                               press=".onButtonOpenComparePress"
                               class="sapUiTinyMarginEnd" />
                             <Button icon="sap-icon://history"
@@ -425,13 +425,13 @@
                           <Text text="{objSearch>TargetAuthor}" />
                         </table:template>
                       </table:Column>
-                      <table:Column width="14.5rem">
+                      <table:Column width="11rem">
                         <Label text="{i18n>colActions}" />
                         <table:template>
                           <HBox>
-                            <Button text="{i18n>btnCompare}"
-                              icon="sap-icon://compare-2"
+                            <Button icon="sap-icon://compare-2"
                               tooltip="{i18n>openCompareTooltip}"
+                              type="Transparent"
                               visible="{= ${objSearch>ExistenceStatus} === 'BOTH' }"
                               press=".onButtonOpenComparePress"
                               class="sapUiTinyMarginEnd" />
